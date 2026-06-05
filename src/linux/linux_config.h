@@ -1,0 +1,55 @@
+#pragma once
+
+namespace PC8801 {
+class Config;
+}
+
+class PC88;
+
+// Defaults from src/win32/88config.cpp (LoadConfig with applydefault=true).
+void M88SetDefaultConfig(PC8801::Config* cfg);
+
+// Applies WinUI::ApplyConfig() core settings, then PC88::ApplyConfig().
+void M88ApplyConfig(PC88* pc88, PC8801::Config* cfg);
+
+// Parse keyboard layout name: 101/104/at101, 106/at106, 98/pc98. Returns -1 on failure.
+int M88ParseKeyboardType(const char* name);
+
+// Detect host keyboard layout (setxkbmap / localectl / locale). Overrides cfg->keytype.
+void M88ApplyDetectedKeyboard(PC8801::Config* cfg);
+
+const char* M88KeyboardTypeName(int keytype);
+
+// Host->PC-88 key remaps (m88.ini KeyFix=1, rules in m88_keyfix.ini). m88_ini_path may be "".
+// If m88_keyfix.ini is missing, creates it and sets KeyFix=1 in m88.ini (cfg + path required to save).
+bool M88KeyFixEnabled();
+void M88LoadKeyFixup(const char* m88_ini_path, PC8801::Config* cfg = nullptr);
+
+// Load KeyboardType / UseArrowForTenKey from an M88 Windows-compatible INI file.
+// Returns true if the file was opened and parsed (missing keys keep current values).
+bool M88LoadConfigFile(PC8801::Config* cfg, const char* path);
+
+// Load ./m88.ini from the current working directory when present.
+void M88LoadDefaultConfigFile(PC8801::Config* cfg);
+
+// Load INI if present; otherwise write defaults (see M88LoadStartupConfig).
+bool M88SaveConfigFile(const PC8801::Config* cfg, const char* path);
+
+// explicit_path: --config value or nullptr. Sets used_path and created_new_ini.
+void M88LoadStartupConfig(PC8801::Config* cfg, const char* explicit_path,
+                          char* used_path, size_t used_path_sz, bool* created_new_ini);
+
+const char* M88BasicModeName(int basicmode);
+
+// Apply Linux-port defaults that should survive partial Windows INI imports.
+void M88FinalizeConfig(PC8801::Config* cfg);
+
+// Optional debug overrides: M88_CPUCLOCK (MHz, e.g. 9 for 9MHz), M88_SPEED (percent).
+void M88ApplyEnvOverrides(PC8801::Config* cfg);
+
+// m88.ini ScreenScale: auto (default) or integer N>=1. --scale overrides when passed.
+bool M88ScreenScaleAuto();
+int M88ScreenScaleIniValue();
+int M88ResolveScreenScale(int avail_w, int avail_h, int chrome_w, int chrome_h,
+                          int cli_scale, bool cli_explicit);
+void M88PrintScreenScale(int scale, bool cli_explicit);

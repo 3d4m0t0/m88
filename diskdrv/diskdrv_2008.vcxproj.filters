@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="pch">
+      <UniqueIdentifier>{efd6fef9-2b3f-421b-99cb-923be4313756}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\pch.cpp">
+      <Filter>pch</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\win32\diag.cpp" />
+    <ClCompile Include="src\diskio.cpp" />
+    <ClCompile Include="..\src\win32\file.cpp" />
+    <ClCompile Include="src\guid.cpp" />
+    <ClCompile Include="src\moduleif.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\diskio.h" />
+    <ClInclude Include="..\src\Win32\File.h" />
+    <ClInclude Include="src\headers.h" />
+  </ItemGroup>
+</Project>

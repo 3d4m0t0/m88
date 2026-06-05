@@ -1,0 +1,692 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="pch">
+      <UniqueIdentifier>{aa192a91-d85d-4874-ba0f-86baa79b04f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{70346438-e034-4be7-80ea-ec81273effa3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices">
+      <UniqueIdentifier>{906e2296-2b24-462d-8bfb-d9b470a3899f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PC88">
+      <UniqueIdentifier>{fd365441-d811-4221-8de4-95f44393a46f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Win32">
+      <UniqueIdentifier>{921ef832-9bf8-41ee-9a00-caf9e7d8151d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Win32\romeo">
+      <UniqueIdentifier>{e88df048-5309-44cd-bb35-db69b0b246da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="interface">
+      <UniqueIdentifier>{61d80b49-77e9-4d31-acbe-48c88c74da59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="zlib">
+      <UniqueIdentifier>{f8a6cbbe-f37c-4cb2-beab-1783da3c8c18}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Win32\pch.cpp">
+      <Filter>pch</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\device.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\error.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\lpf.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\lz77d.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\memmgr.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\schedule.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\sndbuf2.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\soundbuf.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\srcbuf.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\fmgen.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\fmtimer.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\opm.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\opna.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\psg.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\Z80_x86.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\Z80c.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\Z80debug.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\Z80diag.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\Z80Test.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\base.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\beep.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\calender.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\crtc.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\diskmgr.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\fdc.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\fdu.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\floppy.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\intc.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\ioview.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\joypad.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\kanjirom.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\memory.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\memview.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\mouse.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\opnif.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\pc88.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\pd8257.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\pio.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\screen.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\sio.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\sound.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\subsys.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pc88\tapemgr.cpp">
+      <Filter>PC88</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\88config.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\about.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\basmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\cfgpage.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\codemon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\dderr.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\diag.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\DrawD2D.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\DrawDDS.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\DrawDDW.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\DrawGDI.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\extdev.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\File.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\filetest.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\guid.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\iomon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\keybconn.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\loadmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\main.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\memmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\module.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\mvmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\newdisk.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\regmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\sequence.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\soundds.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\soundds2.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\soundmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\soundwo.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\status.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\timekeep.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\Ui.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\wincfg.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\wincore.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\windraw.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\winexapi.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\WinJoy.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\WinKeyIF.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\winmon.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\winmouse.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Win32\winsound.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\winvars.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\romeo\juliet.cpp">
+      <Filter>Win32\romeo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\romeo\piccolo.cpp">
+      <Filter>Win32\romeo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\romeo\piccolo_gimic.cpp">
+      <Filter>Win32\romeo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\romeo\piccolo_romeo.cpp">
+      <Filter>Win32\romeo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\adler32.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\compress.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\crc32.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\deflate.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\inffast.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\inflate.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\inftrees.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\trees.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\uncompr.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zlib\zutil.c">
+      <Filter>zlib</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\common\device.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\device_i.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\draw.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\error.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\lpf.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\lz77d.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\memmgr.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\misc.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\schedule.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\sndbuf2.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\soundbuf.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\soundsrc.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\srcbuf.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\fmgen.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\fmgeninl.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\fmtimer.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\opm.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\opna.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\psg.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\Z80.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\Z80_x86.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\Z80c.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\Z80debug.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\Z80diag.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\Z80Test.h">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\base.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\beep.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\calender.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\config.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\crtc.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\diskmgr.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\fdc.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\fdu.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\floppy.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\intc.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\ioview.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\joypad.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\kanjirom.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\memory.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\memview.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\mouse.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\opnif.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PC88\pc88.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\pcinfo.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\pd8257.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\pio.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\screen.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\sio.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\sound.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\subsys.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pc88\tapemgr.h">
+      <Filter>PC88</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\88config.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\about.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\basmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\cfgpage.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\codemon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\CritSect.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\dderr.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\diag.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\DrawD2D.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\DrawDDS.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\DrawDDW.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\DrawGDI.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\extdev.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\File.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\filetest.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\headers.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\iomon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\keybconn.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\loadmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\memmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\messages.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\module.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\mvmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\newdisk.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\regmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\resource.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\sequence.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\sounddrv.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\soundds.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\soundds2.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\soundmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\soundwo.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\status.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\timekeep.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\types.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\ui.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\version.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\wincfg.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\wincore.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\windraw.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\winexapi.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\WinJoy.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\WinKeyIF.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\winmon.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\winmouse.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Win32\winsound.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\winvars.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\romeo\juliet.h">
+      <Filter>Win32\romeo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\romeo\piccolo.h">
+      <Filter>Win32\romeo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\romeo\piccolo_gimic.h">
+      <Filter>Win32\romeo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\romeo\piccolo_romeo.h">
+      <Filter>Win32\romeo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\romeo\romeo.h">
+      <Filter>Win32\romeo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\if\ifcommon.h">
+      <Filter>interface</Filter>
+    </ClInclude>
+    <ClInclude Include="src\if\ifguid.h">
+      <Filter>interface</Filter>
+    </ClInclude>
+    <ClInclude Include="src\if\ifpc88.h">
+      <Filter>interface</Filter>
+    </ClInclude>
+    <ClInclude Include="src\if\ifui.h">
+      <Filter>interface</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\deflate.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\inffast.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\inffixed.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\inftrees.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\trees.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\zconf.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\zlib.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zlib\zutil.h">
+      <Filter>zlib</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="src\Win32\M88.rc">
+      <Filter>Win32</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="src\Win32\M88.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="m88dev.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="memo.txt" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,33 @@
+# Compiled Object files
+x64/
+Debug/
+Release/
+*.lib
+*.obj
+*.aps
+
+# Work files
+*.ini
+*.ncb
+*.suo
+*.sdf
+*.opensdf
+*.user
+*.dmp
+*.*~
+
+# Binary files
+*.m88
+*.exe
+*.rom
+
+# Linux / local build trees (rebuild after checkout)
+build/
+build-*/
+.ccache/
+
+# Visual Studio / IDE
+.vs/
+Backup/
+UpgradeLog.htm
+

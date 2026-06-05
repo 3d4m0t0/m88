@@ -1,0 +1,47 @@
+#pragma once
+
+#include "draw.h"
+
+#include <mutex>
+#include <vector>
+
+// Thread-safe 8bpp framebuffer for Draw::Lock/Unlock (no platform blit).
+class SharedFramebufferDraw : public Draw {
+public:
+  SharedFramebufferDraw();
+  ~SharedFramebufferDraw() override;
+
+  bool Init(uint width, uint height, uint bpp) override;
+  bool Cleanup() override;
+
+  bool Lock(uint8** pimage, int* pbpl) override;
+  bool Unlock() override;
+
+  uint GetStatus() override;
+  void Resize(uint width, uint height) override;
+  void DrawScreen(const Region& region) override;
+  void SetPalette(uint index, uint nents, const Palette* pal) override;
+  bool SetFlipMode(bool) override { return true; }
+
+  // GUI thread: copy indexed screen + palette (after Unlock or when frame_ready).
+  bool CopyFrame(std::vector<uint8>* indices, std::vector<Palette>* palette,
+                 uint* width, uint* height, bool* palette_changed);
+
+  void SetImePreedit(const char* utf8);
+  const char* GetImePreedit() const { return ime_preedit_; }
+
+private:
+  void InitDefaultPalette();
+
+  // recursive: UpdateScreen holds Lock() while Screen::UpdatePalette calls SetPalette().
+  mutable std::recursive_mutex mutex_;
+  std::vector<uint8> image_;
+  Palette palette_[256];
+  uint width_ = 0;
+  uint height_ = 0;
+  int bpl_ = 0;
+  uint status_ = 0;
+  bool palette_dirty_ = true;
+  bool frame_ready_ = false;
+  char ime_preedit_[128];
+};
