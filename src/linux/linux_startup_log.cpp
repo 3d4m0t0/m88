@@ -59,3 +59,12 @@ void M88LogSdlVideoIndexed8() {
 void M88LogSdlVideoArgb() {
   std::fprintf(stderr, "M88: video ARGB8888 texture (LUT)\n");
 }
+
+void M88LogSdlVideoArgbFallback(const char* reason) {
+  if (reason && *reason) {
+    std::fprintf(stderr, "M88: video ARGB8888 texture (LUT); INDEX8 fallback: %s\n",
+                 reason);
+  } else {
+    M88LogSdlVideoArgb();
+  }
+}

@@ -5,15 +5,14 @@
 
 #include <QCloseEvent>
 #include <QCoreApplication>
-#include <QEventLoop>
 #include <QShowEvent>
 #include <QStatusBar>
 #include <QThread>
-#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
 #include <algorithm>
+#include <cstdio>
 
 void MainWindow::stopEmulator() {
   if (emu_stopped_) {
@@ -29,23 +28,38 @@ void MainWindow::stopEmulator() {
   if (controller_) {
     disconnect(controller_, nullptr, view_, nullptr);
     disconnect(controller_, nullptr, this, nullptr);
+    disconnect(&emu_thread_, nullptr, controller_, nullptr);
+    disconnect(controller_, nullptr, &emu_thread_, nullptr);
     controller_->requestStop();
   }
   if (view_) {
     disconnect(view_, nullptr, controller_, nullptr);
   }
 
-  // Do not QThread::wait() from the GUI thread during closeEvent: it stops the
-  // event loop, so queued quit()/deleteLater never run and Qt aborts (SIGABRT).
   if (emu_thread_.isRunning()) {
     emu_thread_.quit();
-    QEventLoop loop;
-    QTimer timeout;
-    timeout.setSingleShot(true);
-    connect(&emu_thread_, &QThread::finished, &loop, &QEventLoop::quit);
-    connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-    timeout.start(10000);
-    loop.exec(QEventLoop::ExcludeUserInputEvents);
+    // Poll with processEvents so pending cross-thread slots can finish; signals are
+    // already disconnected so wait() will not deadlock on BlockingQueuedConnection.
+    constexpr int kMaxMs = 5000;
+    int elapsed = 0;
+    while (emu_thread_.isRunning() && elapsed < kMaxMs) {
+      if (QCoreApplication* app = QCoreApplication::instance()) {
+        app->processEvents(QEventLoop::AllEvents, 25);
+      }
+      constexpr int kSliceMs = 25;
+      emu_thread_.wait(kSliceMs);
+      elapsed += kSliceMs;
+    }
+    if (emu_thread_.isRunning()) {
+      std::fprintf(stderr,
+                   "M88: emulator thread did not stop in 5s, terminating\n");
+      emu_thread_.terminate();
+      emu_thread_.wait(1000);
+    }
+  }
+
+  if (QCoreApplication* app = QCoreApplication::instance()) {
+    app->processEvents(QEventLoop::AllEvents);
   }
 
   // controller_ may already be null (deleteLater on emu_thread_.finished).
@@ -128,6 +142,10 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
           Qt::DirectConnection);
   connect(view_, &EmuView::keyUp, controller_, &EmulatorController::keyUp,
           Qt::DirectConnection);
+
+  if (QCoreApplication* app = QCoreApplication::instance()) {
+    connect(app, &QCoreApplication::aboutToQuit, this, [this]() { stopEmulator(); });
+  }
 
   emu_thread_.start();
 }

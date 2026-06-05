@@ -152,6 +152,21 @@ bool SharedFramebufferDraw::StageUiFrame() {
   ui_has_frame_ = true;
   frame_ready_ = false;
   ui_ready_ = true;
+  ++ui_frame_serial_;
+  return true;
+}
+
+bool SharedFramebufferDraw::ImeRepaintPending() const {
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  return ui_ime_dirty_;
+}
+
+bool SharedFramebufferDraw::ConsumeImeRepaint() {
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (!ui_ime_dirty_) {
+    return false;
+  }
+  ui_ime_dirty_ = false;
   return true;
 }
 
@@ -159,7 +174,8 @@ bool SharedFramebufferDraw::AcquireUiFrame(const uint8** out_data, int* out_bpl,
                                              uint* width, uint* height,
                                              bool* palette_changed,
                                              Palette* palette_out,
-                                             uint palette_capacity) {
+                                             uint palette_capacity,
+                                             Draw::Region* out_region) {
   if (!out_data || !out_bpl || !width || !height || !palette_changed ||
       !palette_out || palette_capacity < 256) {
     return false;
@@ -175,6 +191,9 @@ bool SharedFramebufferDraw::AcquireUiFrame(const uint8** out_data, int* out_bpl,
   *height = height_;
   *palette_changed = ui_palette_dirty_;
   std::memcpy(palette_out, ui_palette_, sizeof(ui_palette_));
+  if (out_region) {
+    *out_region = ui_region_;
+  }
   ui_palette_dirty_ = false;
   ui_ready_ = false;
   return true;
@@ -184,8 +203,10 @@ void SharedFramebufferDraw::SetImePreedit(const char* utf8) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (!utf8) {
     ime_preedit_[0] = '\0';
+    ui_ime_dirty_ = true;
     return;
   }
   std::strncpy(ime_preedit_, utf8, sizeof(ime_preedit_) - 1);
   ime_preedit_[sizeof(ime_preedit_) - 1] = '\0';
+  ui_ime_dirty_ = true;
 }

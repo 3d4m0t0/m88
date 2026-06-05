@@ -6,13 +6,16 @@
 #include "half_kana_ime.h"
 #include "linux_ime.h"
 #include "linux_input.h"
+#include "linux_emulation.h"
 #include "linux_frame_pace.h"
 #include "linux_sound.h"
 #include "linux_startup_log.h"
+#include "loadmon.h"
 #include "path.h"
 #include "../win32/WinKeyIF.h"
 #include "../linux_compat/winkeys.h"
 
+#include "error.h"
 #include "pc88/config.h"
 #include "pc88/diskmgr.h"
 #include "pc88/beep.h"
@@ -35,7 +38,7 @@ void PrintUsage(const char* prog) {
   std::fprintf(stderr,
                "Usage: %s [options]\n"
                "  --scale N         Window integer scale (overrides m88.ini ScreenScale)\n"
-               "  --rom-dir PATH    Directory containing pc88.rom / disk.rom\n"
+               "  --rom-dir PATH    Directory containing pc88.rom (and optional ROMs)\n"
                "                    (default: current working directory)\n"
                "  -d0 FILE          Mount disk image on drive 0 (optional)\n"
                "  --config FILE     Load settings from m88.ini-style file\n"
@@ -210,9 +213,9 @@ int main(int argc, char** argv) {
 
   M88InitRomPath(rom_dir);
 
-  if (!RomFileExists("pc88.rom") && !RomFileExists("disk.rom")) {
+  if (!RomFileExists("pc88.rom")) {
     std::fprintf(stderr,
-                 "ROM not found in %s (expected pc88.rom or disk.rom).\n",
+                 "ROM not found in %s (expected pc88.rom).\n",
                  m88dir);
     return 1;
   }
@@ -263,7 +266,9 @@ int main(int argc, char** argv) {
   PC88 pc88;
   if (!pc88.Init(&draw, &diskmgr, &tapemgr)) {
     std::fprintf(stderr, "Failed to initialize PC-8801 core.\n");
-    std::fprintf(stderr, "Ensure pc88.rom and disk.rom are available.\n");
+    if (const char* detail = Error::GetErrorText()) {
+      std::fprintf(stderr, "%s\n", detail);
+    }
     return 1;
   }
   if (!keyif.Init()) {
@@ -323,16 +328,22 @@ int main(int argc, char** argv) {
   }
   M88LogFdd(&config);
   MountDiskOptional(diskmgr, 0, disk0);
-  pc88.Reset();
-  pc88.UpdateScreen(true);
-  draw.Present();
 
   bool running = true;
+  bool hw_reset_done = false;
   const uint32 app_start = SDL_GetTicks();
   M88DrawSkip draw_skip;
-  draw_skip.Reset();
 
   while (running) {
+    if (!hw_reset_done) {
+      M88PostStartupCpuReset(pc88, &draw_skip);
+      pc88.UpdateScreen(true);
+      if (draw.NeedsPresent()) {
+        draw.Present();
+      }
+      hw_reset_done = true;
+    }
+
     FireAutoKeys(keyif, auto_keys, SDL_GetTicks() - app_start);
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
@@ -365,6 +376,7 @@ int main(int argc, char** argv) {
       }
     }
 
+    M88LoadmonFrameBegin();
     const uint32 frame_begin_ms = SDL_GetTicks();
     const int texec = pc88.GetFramePeriod();
     // Sequencer: SetSpeed(cfg.speed/10); eff = clock*speed/100 with speed=cfg.speed/10.
@@ -378,12 +390,15 @@ int main(int argc, char** argv) {
     if (draw_skip.AfterProceed(frame_begin_ms, texec, config.speed,
                                config.refreshtiming)) {
       pc88.UpdateScreen();
-      draw.Present();
+      if (draw.NeedsPresent()) {
+        draw.Present();
+      }
     }
     LinuxIme::Pump(&keyif);
     draw_skip.EndFrame(frame_begin_ms);
 
-    M88PaceFrame(frame_begin_ms, M88FramePeriodMs(texec, config.speed));
+    M88PaceFrame(frame_begin_ms, M88FramePeriodMs(texec, config.speed), &running);
+    M88LoadmonFrameEnd();
   }
 
   return 0;

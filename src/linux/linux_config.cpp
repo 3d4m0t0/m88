@@ -352,7 +352,7 @@ void M88SetDefaultConfig(Config* cfg) {
 
   cfg->clock = 40;
   cfg->speed = 1000;
-  cfg->refreshtiming = 1;
+  cfg->refreshtiming = 2;
   cfg->basicmode = Config::N88V2;
 
   cfg->sound = 55467;

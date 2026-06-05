@@ -55,12 +55,24 @@ void EmuView::refreshFrame() {
   if (!draw_) {
     return;
   }
+
+  if (ime_preedit_.isEmpty()) {
+    ime_preedit_ = QString::fromUtf8(draw_->GetImePreedit());
+  }
+
   const uint8* data = nullptr;
   int bpl = 0;
   uint w = 0;
   uint h = 0;
   bool pal_changed = false;
-  if (!draw_->AcquireUiFrame(&data, &bpl, &w, &h, &pal_changed, palette_, 256)) {
+  Draw::Region region {};
+  const bool got_frame =
+      draw_->AcquireUiFrame(&data, &bpl, &w, &h, &pal_changed, palette_, 256, &region);
+  const bool ime_only = draw_->ConsumeImeRepaint();
+  if (!got_frame) {
+    if (ime_only) {
+      update(QRect(0, height() - 28, width(), 28));
+    }
     return;
   }
   if (!data || bpl <= 0 || w == 0 || h == 0) {
@@ -72,8 +84,20 @@ void EmuView::refreshFrame() {
   if (pal_changed || indices_.colorTable().size() != 256) {
     indices_.setColorTable(colorTableFromPalette());
   }
-  if (ime_preedit_.isEmpty()) {
-    ime_preedit_ = QString::fromUtf8(draw_->GetImePreedit());
+
+  const bool region_valid = region.top <= region.bottom;
+  if (region_valid && !pal_changed) {
+    const int left = std::max(0, region.left);
+    const int top = std::max(0, region.top);
+    const int right = std::min(static_cast<int>(w), region.right + 1);
+    const int bottom = std::min(static_cast<int>(h), region.bottom + 1);
+    if (left < right && top < bottom) {
+      const int x = (width() - static_cast<int>(w) * scale_) / 2;
+      const int y = (height() - static_cast<int>(h) * scale_) / 2;
+      update(QRect(x + left * scale_, y + top * scale_, (right - left) * scale_,
+                   (bottom - top) * scale_));
+      return;
+    }
   }
   update();
 }

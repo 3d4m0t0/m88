@@ -27,25 +27,53 @@ sudo zypper install gcc-c++ cmake ninja pkg-config libSDL2-devel
 sudo zypper install qt6-qtbase-gui-devel
 ```
 
-Build core library and SDL2 frontend:
+Build core library and SDL2 frontend (Release is the default):
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build -G Ninja
 cmake --build build -j
+```
+
+Debug build:
+
+```bash
+cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-debug -j
+```
+
+Optional host CPU tuning (GCC/Clang):
+
+```bash
+cmake -S . -B build -DM88_NATIVE_ARCH=ON
 ```
 
 Build Qt frontend (`m88-qt`):
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DM88_BUILD_QT_FRONTEND=ON
+cmake -S . -B build -DM88_BUILD_QT_FRONTEND=ON
 cmake --build build -j --target m88-qt
 ```
 
-Run (requires `PC88.ROM` and `DISK.ROM` in cwd or `--rom-dir`):
+Simple frame profiler (`Core.CPU`, `Screen`, wall-clock frame time).
+Use `build/ys3demo.d88` (in-store demo) as the sample disk image.
+Run about **2 minutes** so the demo loop settles; the ys3demo in-store demo is
+lightweight — measured steady-state (last 30s avg, Release build):
 
 ```bash
-./build/m88 --rom-dir /path/to/roms -d0 game.d88
-./build/m88-qt --rom-dir build [--scale 2] [-d0 disk.d88]
+timeout 120 env M88_LOADMON=1 ./build/m88 --rom-dir build -d0 build/ys3demo.d88
+timeout 120 env M88_LOADMON=1 ./build/m88-qt --rom-dir build -d0 build/ys3demo.d88
+# ~1s rolling average on stderr; check lines from the last 30–60s, e.g.:
+# M88: profile (~1s): frame=17.08ms Core.CPU=0.55ms Screen=0.02ms Pace=16.40ms Draw.Present=0.05ms other=0.06ms (59 frames)
+# Pace = intentional frame wait; Draw.Present = SDL texture upload + flip.
+# Linux default RefreshTiming=2 (draw skip); override in m88.ini if needed.
+# Startup logs INDEX8 vs ARGB fallback reason when SDL_SetTexturePalette is unavailable.
+```
+
+Run (requires `pc88.rom` in cwd or `--rom-dir`; `disk.rom` is optional):
+
+```bash
+./build/m88 --rom-dir build -d0 build/ys3demo.d88
+./build/m88-qt --rom-dir build [--scale 2] -d0 build/ys3demo.d88
 ```
 
 ## Porting phases

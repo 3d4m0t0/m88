@@ -1,8 +1,11 @@
 #pragma once
 
+#include "loadmon.h"
+
 #include <SDL.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 
 // Wall-clock pacing: one Proceed per loop, never faster than realtime.
@@ -11,11 +14,54 @@ inline uint32_t M88FramePeriodMs(int texec, int config_speed) {
       std::max<int64_t>(1, (static_cast<int64_t>(texec) * 10) / config_speed));
 }
 
-inline void M88PaceFrame(uint32_t frame_begin_ms, uint32_t frame_ms) {
-  const uint32_t work_ms = SDL_GetTicks() - frame_begin_ms;
-  if (work_ms < frame_ms) {
-    SDL_Delay(frame_ms - work_ms);
+namespace M88FramePaceDetail {
+
+// Hybrid wait: SDL_Delay for bulk, spin the last ~1ms.  Uses elapsed time from
+// frame_begin so SDL_GetTicks wrap-around stays safe (deadline_ms = begin+period
+// can break when ticks wrap).
+inline void SleepRemainingMs(uint32_t frame_begin_ms, uint32_t frame_ms,
+                             const volatile bool* stop = nullptr) {
+  for (;;) {
+    if (stop && !*stop) {
+      return;
+    }
+    const uint32_t elapsed = SDL_GetTicks() - frame_begin_ms;
+    if (elapsed >= frame_ms) {
+      return;
+    }
+    const uint32_t remain = frame_ms - elapsed;
+    if (remain > 2) {
+      SDL_Delay(remain - 2);
+    }
   }
+}
+
+}  // namespace M88FramePaceDetail
+
+inline void M88PaceFrame(uint32_t frame_begin_ms, uint32_t frame_ms,
+                          const volatile bool* stop = nullptr) {
+  LOADBEGIN("Pace");
+  M88FramePaceDetail::SleepRemainingMs(frame_begin_ms, frame_ms, stop);
+  LOADEND("Pace");
+}
+
+inline void M88PaceFrame(uint32_t frame_begin_ms, uint32_t frame_ms,
+                          const std::atomic<bool>* stop) {
+  LOADBEGIN("Pace");
+  for (;;) {
+    if (stop && !stop->load(std::memory_order_relaxed)) {
+      break;
+    }
+    const uint32_t elapsed = SDL_GetTicks() - frame_begin_ms;
+    if (elapsed >= frame_ms) {
+      break;
+    }
+    const uint32_t remain = frame_ms - elapsed;
+    if (remain > 2) {
+      SDL_Delay(remain - 2);
+    }
+  }
+  LOADEND("Pace");
 }
 
 // Windows Sequencer-style draw skip: Proceed every frame; UpdateScreen only when

@@ -25,6 +25,7 @@ class LinuxDraw : public Draw {
   bool SetFlipMode(bool) override { return true; }
 
   bool InitWindow(const char* title, int scale);
+  bool NeedsPresent() const;
   void Present();
 
   SDL_Window* GetSdlWindow() const { return window; }
@@ -61,6 +62,7 @@ class LinuxDraw : public Draw {
   Palette palette[256];
   bool palette_dirty;
   bool use_index8_texture_;
+  const char* index8_fallback_reason_;
   bool cleaned;
   bool needs_present_;
 

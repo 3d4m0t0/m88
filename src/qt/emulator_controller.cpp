@@ -4,14 +4,17 @@
 #include "../linux/pc88_key_fixup.h"
 #include "../linux/half_kana_ime.h"
 #include "../linux/linux_ime.h"
+#include "../linux/linux_emulation.h"
 #include "../linux/linux_frame_pace.h"
 #include "../linux/linux_sound.h"
 #include "../linux/linux_startup_log.h"
+#include "../linux_compat/loadmon.h"
 #include "qt_video_log.h"
 #include "../linux/shared_framebuffer_draw.h"
 #include "../win32/WinKeyIF.h"
 #include "path.h"
 
+#include "error.h"
 #include "pc88/config.h"
 #include "pc88/diskmgr.h"
 #include "pc88/beep.h"
@@ -90,6 +93,7 @@ struct EmulatorController::Impl {
   std::unique_ptr<PC8801::LinuxSound> sound;
   std::unique_ptr<PC8801::WinKeyIF> keyif;
   M88DrawSkip draw_skip;
+  bool hw_reset_done = false;
 };
 
 EmulatorController::EmulatorController(SharedFramebufferDraw* draw, Options options,
@@ -115,8 +119,8 @@ bool EmulatorController::initialize() {
   M88InitRomPath(options_.rom_dir.isEmpty() ? nullptr
                                              : options_.rom_dir.toUtf8().constData());
 
-  if (!RomFileExists("pc88.rom") && !RomFileExists("disk.rom")) {
-    emit failed(QStringLiteral("ROM not found (pc88.rom or disk.rom)"));
+  if (!RomFileExists("pc88.rom")) {
+    emit failed(QStringLiteral("ROM not found (pc88.rom)"));
     return false;
   }
 
@@ -150,7 +154,10 @@ bool EmulatorController::initialize() {
   impl_->tapemgr = std::make_unique<TapeManager>();
   impl_->pc88 = std::make_unique<PC88>();
   if (!impl_->pc88->Init(draw_, impl_->diskmgr.get(), impl_->tapemgr.get())) {
-    emit failed(QStringLiteral("Failed to initialize PC-8801 core"));
+    const char* detail = Error::GetErrorText();
+    emit failed(detail && *detail
+                    ? QString::fromUtf8(detail)
+                    : QStringLiteral("Failed to initialize PC-8801 core"));
     return false;
   }
 
@@ -189,13 +196,6 @@ bool EmulatorController::initialize() {
   M88LogFdd(&impl_->config);
 
   MountDiskOptional(*impl_->diskmgr, 0, options_.disk0);
-  impl_->pc88->Reset();
-  impl_->draw_skip.Reset();
-  impl_->pc88->UpdateScreen(true);
-  if (draw_) {
-    draw_->StageUiFrame();
-  }
-  emit frameReady();
 
   emit started();
   return true;
@@ -232,30 +232,50 @@ void EmulatorController::shutdown() {
 }
 
 void EmulatorController::emulateFrame() {
-  if (!impl_ || !impl_->pc88) {
+  if (!running_ || !impl_ || !impl_->pc88) {
     return;
   }
+  if (!impl_->hw_reset_done) {
+    M88PostStartupCpuReset(*impl_->pc88, &impl_->draw_skip);
+    impl_->pc88->UpdateScreen(true);
+    if (draw_) {
+      draw_->StageUiFrame();
+    }
+    emit frameReady();
+    impl_->hw_reset_done = true;
+  }
+
+  M88LoadmonFrameBegin();
   const uint32 frame_begin_ms = SDL_GetTicks();
   const int texec = impl_->pc88->GetFramePeriod();
   const int effclock =
       std::max(1, impl_->config.clock * (impl_->config.speed / 10) / 100);
   impl_->pc88->TimeSync();
   impl_->pc88->Proceed(texec, impl_->config.clock, effclock);
+  bool emit_frame = false;
   if (impl_->draw_skip.AfterProceed(frame_begin_ms, texec, impl_->config.speed,
                                     impl_->config.refreshtiming)) {
     impl_->pc88->UpdateScreen();
     if (draw_) {
-      draw_->StageUiFrame();
+      emit_frame = draw_->StageUiFrame() || draw_->ImeRepaintPending();
     }
     LinuxIme::Pump(impl_->keyif.get());
-    emit frameReady();
+    if (emit_frame) {
+      emit frameReady();
+    }
   } else {
     LinuxIme::Pump(impl_->keyif.get());
+    if (draw_ && draw_->ImeRepaintPending()) {
+      emit frameReady();
+    }
   }
   impl_->draw_skip.EndFrame(frame_begin_ms);
 
-  M88PaceFrame(frame_begin_ms,
-               M88FramePeriodMs(texec, impl_->config.speed));
+  if (running_) {
+    M88PaceFrame(frame_begin_ms, M88FramePeriodMs(texec, impl_->config.speed),
+                 &running_);
+  }
+  M88LoadmonFrameEnd();
 }
 
 void EmulatorController::run() {
@@ -266,6 +286,8 @@ void EmulatorController::run() {
     }
     return;
   }
+
+  impl_->hw_reset_done = false;
 
   while (running_) {
     QCoreApplication::processEvents(QEventLoop::AllEvents);

@@ -9,6 +9,9 @@
 #include "headers.h"
 #include "file.h"
 #include "pc88/kanjirom.h"
+#ifdef M88_LINUX_PORT
+#include "path.h"
+#endif
 
 using namespace PC8801;
 
@@ -38,7 +41,13 @@ bool KanjiROM::Init(const char* filename)
 		return false;
 	memset(image, 0xff, 0x20000);
 
+#ifdef M88_LINUX_PORT
+	char path[MAX_PATH];
+	M88RomPath(path, sizeof(path), filename);
+	FileIO file(path, FileIO::readonly);
+#else
 	FileIO file(filename, FileIO::readonly);
+#endif
 	if (file.GetFlags() & FileIO::open)
 	{
 		file.Seek(0, FileIO::begin);

@@ -29,10 +29,13 @@ class SharedFramebufferDraw : public Draw {
 
   // GUI thread: acquire the displayed buffer (no pixel copy).
   bool AcquireUiFrame(const uint8** out_data, int* out_bpl, uint* width, uint* height,
-                      bool* palette_changed, Palette* palette_out, uint palette_capacity);
+                      bool* palette_changed, Palette* palette_out, uint palette_capacity,
+                      Draw::Region* out_region = nullptr);
 
   void SetImePreedit(const char* utf8);
   const char* GetImePreedit() const { return ime_preedit_; }
+  bool ImeRepaintPending() const;
+  bool ConsumeImeRepaint();
 
  private:
   void InitDefaultPalette();
@@ -58,4 +61,6 @@ class SharedFramebufferDraw : public Draw {
   bool ui_ready_ = false;
   bool ui_has_frame_ = false;
   int ui_read_index_ = 0;
+  bool ui_ime_dirty_ = false;
+  uint64_t ui_frame_serial_ = 0;
 };

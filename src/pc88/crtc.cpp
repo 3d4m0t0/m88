@@ -17,6 +17,9 @@
 #include "file.h"
 #include "error.h"
 #include "status.h"
+#ifdef M88_LINUX_PORT
+#include "path.h"
+#endif
 
 //#define LOGNAME "crtc"
 #include "diag.h"
@@ -392,8 +395,19 @@ uint CRTC::Command(bool a0, uint data)
 bool CRTC::LoadFontFile()
 {
 	FileIO file;
-	
-	if (file.Open("FONT80SR.ROM", FileIO::readonly))
+#ifdef M88_LINUX_PORT
+	char path[MAX_PATH];
+	auto open_rom = [&](const char* name) -> bool {
+		M88RomPath(path, sizeof(path), name);
+		return file.Open(path, FileIO::readonly);
+	};
+#else
+	auto open_rom = [&](const char* name) -> bool {
+		return file.Open(name, FileIO::readonly);
+	};
+#endif
+
+	if (open_rom("FONT80SR.ROM"))
 	{
 		delete[] cg80rom;
 		cg80rom = new uint8[0x2000];
@@ -401,13 +415,13 @@ bool CRTC::LoadFontFile()
 		file.Read(cg80rom, 0x2000);
 	}
 	
-	if (file.Open("FONT.ROM", FileIO::readonly))
+	if (open_rom("FONT.ROM"))
 	{
 		file.Seek(0, FileIO::begin);
 		file.Read(fontrom, 0x800);
 		return true;
 	}
-	if (file.Open("KANJI1.ROM", FileIO::readonly))
+	if (open_rom("KANJI1.ROM"))
 	{
 		file.Seek(0x1000, FileIO::begin);
 		file.Read(fontrom, 0x800);

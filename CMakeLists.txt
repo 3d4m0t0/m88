@@ -10,6 +10,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(M88_BUILD_CORE_ONLY "Build portable emulation core library" ON)
 option(M88_BUILD_LINUX_FRONTEND "Build Linux SDL2 frontend executable" ON)
 option(M88_BUILD_QT_FRONTEND "Build Qt6 frontend executable (m88-qt)" ON)
+option(M88_NATIVE_ARCH "Tune for host CPU (-march=native, GCC/Clang only)" OFF)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
+endif()
 
 set(M88_CORE_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat
@@ -43,6 +50,7 @@ list(REMOVE_ITEM M88_DEVICE_SOURCES
 add_library(m88_core STATIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/diag.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/file.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/loadmon.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/path.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/status.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_startup_log.cpp
@@ -66,8 +74,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     -Wall
     -Wextra
   )
+  if(M88_NATIVE_ARCH)
+    target_compile_options(m88_core PRIVATE -march=native)
+  endif()
 endif()
 
+message(STATUS "M88 build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Configured m88_core (Linux core library)")
 
 if(M88_BUILD_LINUX_FRONTEND)
@@ -105,6 +117,9 @@ if(M88_BUILD_LINUX_FRONTEND)
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
       target_compile_options(m88 PRIVATE -fpermissive)
+      if(M88_NATIVE_ARCH)
+        target_compile_options(m88 PRIVATE -march=native)
+      endif()
     endif()
 
     message(STATUS "Configured m88 (Linux SDL2 frontend)")
@@ -164,6 +179,9 @@ if(M88_BUILD_QT_FRONTEND)
 
       if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(m88-qt PRIVATE -fpermissive)
+        if(M88_NATIVE_ARCH)
+          target_compile_options(m88-qt PRIVATE -march=native)
+        endif()
       endif()
 
       message(STATUS "Configured m88-qt (Qt6 frontend)")

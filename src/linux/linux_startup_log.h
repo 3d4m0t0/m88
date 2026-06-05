@@ -11,3 +11,4 @@ void M88LogFdd(const PC8801::Config* config);
 void M88LogImeHalfKana();
 void M88LogSdlVideoIndexed8();
 void M88LogSdlVideoArgb();
+void M88LogSdlVideoArgbFallback(const char* reason);

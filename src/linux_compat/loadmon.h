@@ -1,10 +1,16 @@
 #pragma once
 
-// Linux core-only build: load monitor UI is not available.
+// Lightweight frame profiler for Linux (stderr, M88_LOADMON=1).
+// Existing LOADBEGIN/LOADEND markers in pc88.cpp (Core.CPU, Screen) are aggregated.
+
+void M88LoadmonBegin(const char* name);
+void M88LoadmonEnd(const char* name);
+void M88LoadmonFrameBegin();
+void M88LoadmonFrameEnd();
 
 #ifndef LOADBEGIN
-  #define LOADBEGIN(name) ((void)0)
+  #define LOADBEGIN(name) M88LoadmonBegin(name)
 #endif
 #ifndef LOADEND
-  #define LOADEND(name) ((void)0)
+  #define LOADEND(name) M88LoadmonEnd(name)
 #endif

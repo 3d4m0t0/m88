@@ -1,6 +1,7 @@
 #include "linux_draw.h"
 
 #include "linux_startup_log.h"
+#include "loadmon.h"
 
 #include <SDL.h>
 
@@ -41,7 +42,9 @@ void LinuxDraw::LogVideoBackendOnce() {
   if (use_index8_texture_) {
     M88LogSdlVideoIndexed8();
   } else {
-    M88LogSdlVideoArgb();
+    M88LogSdlVideoArgbFallback(index8_fallback_reason_
+                                   ? index8_fallback_reason_
+                                   : "unknown");
   }
 }
 
@@ -59,6 +62,7 @@ LinuxDraw::LinuxDraw()
       rgba_fallback_(nullptr),
       palette_dirty(true),
       use_index8_texture_(true),
+      index8_fallback_reason_(nullptr),
       cleaned(false),
       needs_present_(true),
       ime_cursor(0),
@@ -228,18 +232,28 @@ void LinuxDraw::EnsureTexture() {
     return;
   }
 
-  if (use_index8_texture_ && ResolveSetTexturePalette()) {
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX8,
-                                SDL_TEXTUREACCESS_STREAMING,
-                                static_cast<int>(width), static_cast<int>(height));
-    if (!texture) {
+  if (use_index8_texture_) {
+    if (!ResolveSetTexturePalette()) {
       use_index8_texture_ = false;
+      index8_fallback_reason_ = "SDL_SetTexturePalette unavailable";
+    } else {
+      texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_INDEX8,
+                                  SDL_TEXTUREACCESS_STREAMING,
+                                  static_cast<int>(width), static_cast<int>(height));
+      if (!texture) {
+        use_index8_texture_ = false;
+        index8_fallback_reason_ = SDL_GetError();
+        if (!index8_fallback_reason_ || !*index8_fallback_reason_) {
+          index8_fallback_reason_ = "SDL_PIXELFORMAT_INDEX8 texture creation failed";
+        }
+      }
     }
-  } else {
-    use_index8_texture_ = false;
   }
 
   if (!texture) {
+    if (!index8_fallback_reason_) {
+      index8_fallback_reason_ = "INDEX8 path disabled";
+    }
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
                                 SDL_TEXTUREACCESS_STREAMING,
                                 static_cast<int>(width), static_cast<int>(height));
@@ -368,7 +382,17 @@ void LinuxDraw::DrawImeOverlay() {
   SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
+bool LinuxDraw::NeedsPresent() const {
+  return needs_present_ || palette_dirty || (status & Draw::shouldrefresh) ||
+         ime_active;
+}
+
 void LinuxDraw::Present() {
+  if (!NeedsPresent()) {
+    return;
+  }
+
+  LOADBEGIN("Draw.Present");
   if (renderer && image && (palette_dirty || (status & Draw::shouldrefresh))) {
     Region full;
     full.left = 0;
@@ -377,11 +401,11 @@ void LinuxDraw::Present() {
     full.bottom = height > 0 ? static_cast<int>(height) - 1 : 0;
     BlitRegion(full);
   }
-  if (!renderer || !needs_present_) {
-    return;
+  if (renderer && needs_present_) {
+    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+    DrawImeOverlay();
+    SDL_RenderPresent(renderer);
+    needs_present_ = ime_active;
   }
-  SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-  DrawImeOverlay();
-  SDL_RenderPresent(renderer);
-  needs_present_ = ime_active;
+  LOADEND("Draw.Present");
 }
