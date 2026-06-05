@@ -8,6 +8,7 @@
 #include "linux_input.h"
 #include "linux_frame_pace.h"
 #include "linux_sound.h"
+#include "linux_startup_log.h"
 #include "path.h"
 #include "../win32/WinKeyIF.h"
 #include "../linux_compat/winkeys.h"
@@ -221,11 +222,7 @@ int main(int argc, char** argv) {
   bool ini_created = false;
   M88LoadStartupConfig(&config, config_file, ini_path, sizeof(ini_path), &ini_created);
   M88ApplyEnvOverrides(&config);
-  if (ini_created && ini_path[0]) {
-    std::fprintf(stderr, "M88: created default config: %s\n", ini_path);
-  } else if (ini_path[0]) {
-    std::fprintf(stderr, "M88: config: %s\n", ini_path);
-  }
+  M88LogConfigPath(ini_path, ini_created);
 
   std::vector<AutoKeyEvent> auto_keys;
   if (const char* aks = std::getenv("M88_AUTOKEY")) {
@@ -243,8 +240,7 @@ int main(int argc, char** argv) {
       return 1;
     }
     config.keytype = static_cast<PC8801::Config::KeyType>(keytype);
-    std::fprintf(stderr, "M88: keyboard=%s (--keyboard)\n",
-                 M88KeyboardTypeName(config.keytype));
+    M88NoteKeyboardCliOverride();
   } else {
     M88ApplyDetectedKeyboard(&config);
   }
@@ -295,13 +291,7 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "Failed to initialize SDL2 window: %s\n", SDL_GetError());
     return 1;
   }
-  std::fprintf(stderr, "M88: window open (scale=%d, close with Esc)\n", scale);
   LinuxIme::OnWindowShown(&draw);
-  if (LinuxIme::Enabled()) {
-    std::fprintf(stderr,
-                 "M88: IME half-kana on (default; M88_IME_KANA=0 to disable); "
-                 "fcitx5 per-app hiragana — see build/fcitx5-m88-ime.md\n");
-  }
   if (const char* adpcm = std::getenv("M88_DEBUG_ADPCM");
       adpcm && adpcm[0] && adpcm[0] != '0') {
     const char* logpath = std::getenv("M88_ADPCM_LOG");
@@ -323,19 +313,15 @@ int main(int argc, char** argv) {
   sound.ApplyConfig(&config);
   keyif.ApplyConfig(&config);
   keyif.Activate(true);
-  {
-    const int effclock_log =
-        std::max(1, config.clock * (config.speed / 10) / 100);
-    std::fprintf(stderr,
-                 "M88: BASICMode=%d (%s), CPUClock=%d (%.1f MHz), effclock=%d, "
-                 "speed %d%%, sound %u Hz, buffer %u ms, FDD %s\n",
-                 config.basicmode, M88BasicModeName(config.basicmode),
-                 config.clock, config.clock / 10.0, effclock_log,
-                 config.speed / 10, config.sound, config.soundbuffer,
-                 (config.flag2 & PC8801::Config::fddnowait) ? "no wait" : "wait");
-    std::fprintf(stderr,
-                 "M88: menu digits use top-row 1-9; numpad needs NumLock ON\n");
+  M88LogMachine(&config);
+  draw.LogVideoBackendOnce();
+  M88LogSound(&config);
+  M88LogKeyboard(&config);
+  M88LogKeyFix();
+  if (LinuxIme::Enabled() && config.keytype != PC8801::Config::PC98) {
+    M88LogImeHalfKana();
   }
+  M88LogFdd(&config);
   MountDiskOptional(diskmgr, 0, disk0);
   pc88.Reset();
   pc88.UpdateScreen(true);
@@ -343,6 +329,8 @@ int main(int argc, char** argv) {
 
   bool running = true;
   const uint32 app_start = SDL_GetTicks();
+  M88DrawSkip draw_skip;
+  draw_skip.Reset();
 
   while (running) {
     FireAutoKeys(keyif, auto_keys, SDL_GetTicks() - app_start);
@@ -367,7 +355,7 @@ int main(int argc, char** argv) {
       if (ev.type == SDL_QUIT) {
         running = false;
       } else if (ev.type == SDL_KEYDOWN) {
-        if (ev.key.keysym.sym == SDLK_ESCAPE) {
+        if (ev.key.keysym.sym == SDLK_ESCAPE && !ev.key.repeat) {
           running = false;
         } else {
           M88Input::HandleKeyDown(keyif, ev.key);
@@ -387,10 +375,13 @@ int main(int argc, char** argv) {
     // Audio is filled from OPNIF::TimeEvent during Proceed (same as Windows Sequencer).
     // Do not call sound.Update() here: Fill without opn.Count() causes wrong ADPCM pitch,
     // metallic noise, and timing drift.
-    pc88.UpdateScreen();
-
-    draw.Present();
+    if (draw_skip.AfterProceed(frame_begin_ms, texec, config.speed,
+                               config.refreshtiming)) {
+      pc88.UpdateScreen();
+      draw.Present();
+    }
     LinuxIme::Pump(&keyif);
+    draw_skip.EndFrame(frame_begin_ms);
 
     M88PaceFrame(frame_begin_ms, M88FramePeriodMs(texec, config.speed));
   }

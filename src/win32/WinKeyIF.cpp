@@ -30,6 +30,45 @@ using namespace PC8801;
 #ifdef M88_LINUX_PORT
 namespace {
 
+struct FixupPending {
+  uint8_t host_vk = 0;
+  uint8_t guest_vk = 0;
+  bool mask_host_shift = false;
+  bool guest_shift = false;
+  bool swallow = false;
+};
+
+constexpr int kMaxFixupPending = 16;
+FixupPending g_fixup_pending[kMaxFixupPending];
+int g_fixup_pending_count = 0;
+
+bool IsShiftVk(uint vk) {
+  return vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_SHIFT;
+}
+
+void PushFixupPending(uint8_t host_vk, uint8_t guest_vk, bool mask, bool guest_shift,
+                      bool swallow) {
+  if (g_fixup_pending_count >= kMaxFixupPending) {
+    return;
+  }
+  g_fixup_pending[g_fixup_pending_count++] = {host_vk, guest_vk, mask, guest_shift, swallow};
+}
+
+bool PopFixupPending(uint8_t host_vk, FixupPending* out) {
+  for (int i = g_fixup_pending_count - 1; i >= 0; --i) {
+    if (g_fixup_pending[i].host_vk == host_vk) {
+      if (out) {
+        *out = g_fixup_pending[i];
+      }
+      g_fixup_pending[i] = g_fixup_pending[--g_fixup_pending_count];
+      return true;
+    }
+  }
+  return false;
+}
+
+void ClearFixupPending() { g_fixup_pending_count = 0; }
+
 void SyncKeyboardArray(uint8* keyboard, const uint8* keystate) {
   for (int i = 0; i < 256; ++i) {
     const uint8 lock = keyboard[i] & 0x01u;
@@ -59,9 +98,152 @@ void WinKeyIF::ClearHostModifiers() {
 void WinKeyIF::FlushGuestKeys() {
   memset(keystate, 0, 512);
   SyncKeyboardArray(keyboard, keystate);
+  host_shift_refs_ = 0;
+  ClearFixupPending();
   for (int i = 0; i < 16; ++i) {
     keyport[i] = -1;
   }
+}
+
+void WinKeyIF::InvalidateKeyports() {
+  for (int i = 0; i < 16; ++i) {
+    keyport[i] = -1;
+  }
+}
+
+bool WinKeyIF::HostShiftDown() const {
+  return keystate[VK_SHIFT] || keystate[VK_LSHIFT] || keystate[VK_RSHIFT];
+}
+
+void WinKeyIF::ClearShiftKeystate() {
+  keystate[VK_SHIFT] = 0;
+  keystate[VK_LSHIFT] = 0;
+  keystate[VK_RSHIFT] = 0;
+  SyncKeyboardArray(keyboard, keystate);
+  InvalidateKeyports();
+}
+
+void WinKeyIF::RestoreShiftKeystate() {
+  if (host_shift_refs_ <= 0) {
+    return;
+  }
+  keystate[VK_LSHIFT] = 1;
+  keystate[VK_SHIFT] = 1;
+  SyncKeyboardArray(keyboard, keystate);
+  InvalidateKeyports();
+}
+
+void WinKeyIF::ApplyGuestShiftChordDown(uint vk, uint32 keydata) {
+  ClearShiftKeystate();
+  const uint keyindex = (vk & 0xffu) | ((keydata & M88_KEYDATA_EXTENDED) ? 0x100u : 0u);
+  keystate[VK_LSHIFT] = 1;
+  keystate[VK_SHIFT] = 1;
+  keystate[keyindex] = 1;
+  if ((vk & 0xffu) == VK_RETURN) {
+    keystate[VK_RETURN] = 1;
+    keystate[VK_RETURN | 0x100] = 1;
+  }
+  SyncKeyboardArray(keyboard, keystate);
+  InvalidateKeyports();
+}
+
+void WinKeyIF::ApplyGuestShiftChordUp(uint vk, uint32 keydata) {
+  const uint keyindex = (vk & 0xffu) | ((keydata & M88_KEYDATA_EXTENDED) ? 0x100u : 0u);
+  keystate[keyindex] = 0;
+  if ((vk & 0xffu) == VK_RETURN) {
+    keystate[VK_RETURN] = 0;
+    keystate[VK_RETURN | 0x100] = 0;
+  }
+  if (keytable == KeyTable106[0] || keytable == KeyTable101[0]) {
+    switch (keyindex) {
+      case VK_NUMPAD8:
+      case VK_UP:
+        keystate[VK_NUMPAD8] = keystate[VK_UP] = 0;
+        break;
+      case VK_NUMPAD9:
+      case VK_PRIOR:
+        keystate[VK_NUMPAD9] = keystate[VK_PRIOR] = 0;
+        break;
+      default:
+        break;
+    }
+  }
+  keystate[VK_LSHIFT] = 0;
+  keystate[VK_RSHIFT] = 0;
+  keystate[VK_SHIFT] = 0;
+  SyncKeyboardArray(keyboard, keystate);
+  InvalidateKeyports();
+}
+
+bool WinKeyIF::ApplyLinuxKeyFixupDown(uint vk, uint32 keydata) {
+  const bool shift = HostShiftDown() || ((keydata & M88_KEYDATA_HOST_SHIFT) != 0);
+  if (IsShiftVk(vk)) {
+    ++host_shift_refs_;
+    return false;
+  }
+
+  Pc88KeyFixup::KeyMap mapped{};
+  if (!Pc88KeyFixup::MapKey(host_keytype_, vk, shift, &mapped)) {
+    return false;
+  }
+
+  const bool mask_shift = mapped.mask_host_shift || mapped.guest_shift;
+  PushFixupPending(static_cast<uint8_t>(vk), mapped.vk, mask_shift, mapped.guest_shift,
+                   mapped.swallow);
+  if (mapped.swallow) {
+    if (mask_shift) {
+      ClearShiftKeystate();
+    }
+    return true;
+  }
+  if (mapped.guest_shift) {
+    ApplyGuestShiftChordDown(mapped.vk, keydata);
+    return true;
+  }
+  if (mask_shift) {
+    ClearShiftKeystate();
+  }
+  KeyDownImpl(mapped.vk, keydata & ~M88_KEYDATA_HOST_SHIFT);
+  return true;
+}
+
+bool WinKeyIF::ApplyLinuxKeyFixupUp(uint vk, uint32 keydata) {
+  if (IsShiftVk(vk)) {
+    if (host_shift_refs_ > 0) {
+      --host_shift_refs_;
+    }
+    return false;
+  }
+
+  FixupPending pending{};
+  if (!PopFixupPending(static_cast<uint8_t>(vk), &pending)) {
+    const bool shift = HostShiftDown() || ((keydata & M88_KEYDATA_HOST_SHIFT) != 0);
+    Pc88KeyFixup::KeyMap mapped{};
+    if (!Pc88KeyFixup::MapKey(host_keytype_, vk, shift, &mapped)) {
+      return false;
+    }
+    pending.guest_vk = mapped.vk;
+    pending.mask_host_shift = mapped.mask_host_shift || mapped.guest_shift;
+    pending.guest_shift = mapped.guest_shift;
+    pending.swallow = mapped.swallow;
+  }
+
+  const uint32 guest_keydata = keydata & ~M88_KEYDATA_HOST_SHIFT;
+  if (pending.guest_shift) {
+    ApplyGuestShiftChordUp(pending.guest_vk, guest_keydata);
+    if (pending.mask_host_shift) {
+      RestoreShiftKeystate();
+    }
+    return true;
+  }
+
+  if (!pending.swallow) {
+    KeyUpImpl(pending.guest_vk, guest_keydata);
+  }
+  if (pending.mask_host_shift) {
+    RestoreShiftKeystate();
+  }
+  return true;
 }
 #endif
 
@@ -144,6 +326,44 @@ void WinKeyIF::ApplyConfig(const Config* config)
 		keytable = KeyTable106[0];
 		break;
 	}
+#ifdef M88_LINUX_PORT
+	host_keytype_ = Config::AT101;
+	Pc88KeyFixup::SetHostKeyboard(host_keytype_);
+#endif
+}
+
+#ifdef M88_LINUX_PORT
+void WinKeyIF::KeyDownImpl(uint vkcode, uint32 keydata)
+#else
+static void KeyDownBody(PC8801::WinKeyIF* self, uint vkcode, uint32 keydata)
+#endif
+{
+#ifdef M88_LINUX_PORT
+	WinKeyIF* self = this;
+#endif
+	if (self->keytable == KeyTable106[0])
+	{
+		if (vkcode == 0xf3 || vkcode == 0xf4)
+		{
+			self->keystate[0xf4] = 3;
+			return;
+		}
+	}
+	uint keyindex = (vkcode & 0xff) | ((keydata & (1<<24)) ? 0x100 : 0);
+	LOG2("KeyDown  = %.2x %.3x\n", vkcode, keyindex);
+	self->keystate[keyindex] = 1;
+	const uint vk = vkcode & 0xff;
+	if (vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_SHIFT) {
+		self->keystate[VK_SHIFT] = 1;
+	}
+	if ((vkcode & 0xff) == VK_RETURN) {
+		self->keystate[VK_RETURN] = 1;
+		self->keystate[VK_RETURN | 0x100] = 1;
+	}
+#ifdef M88_LINUX_PORT
+	SyncKeyboardArray(self->keyboard, self->keystate);
+	self->InvalidateKeyports();
+#endif
 }
 
  // ---------------------------------------------------------------------------
@@ -151,20 +371,89 @@ void WinKeyIF::ApplyConfig(const Config* config)
 //
 void WinKeyIF::KeyDown(uint vkcode, uint32 keydata)
 {
+#ifdef M88_LINUX_PORT
 	if (keytable == KeyTable106[0])
 	{
-		// 半角・全角キー対策
 		if (vkcode == 0xf3 || vkcode == 0xf4)
 		{
 			keystate[0xf4] = 3;
 			return;
 		}
 	}
-	uint keyindex = (vkcode & 0xff) | ((keydata & (1<<24)) ? 0x100 : 0);
-	LOG2("KeyDown  = %.2x %.3x\n", vkcode, keyindex);
-	keystate[keyindex] = 1;
+	const uint vk = vkcode & 0xff;
+	if (ApplyLinuxKeyFixupDown(vk, keydata)) {
+		return;
+	}
+	KeyDownImpl(vkcode, keydata);
+#else
+	KeyDownBody(this, vkcode, keydata);
+#endif
+}
+
 #ifdef M88_LINUX_PORT
-	SyncKeyboardArray(keyboard, keystate);
+void WinKeyIF::KeyUpImpl(uint vkcode, uint32 keydata)
+#else
+static void KeyUpBody(PC8801::WinKeyIF* self, uint vkcode, uint32 keydata)
+#endif
+{
+#ifdef M88_LINUX_PORT
+	WinKeyIF* self = this;
+#endif
+	uint keyindex = (vkcode & 0xff) | (keydata & (1<<24) ? 0x100 : 0);
+	self->keystate[keyindex] = 0;
+	LOG2("KeyUp   = %.2x %.3x\n", vkcode, keyindex);
+	if ((vkcode & 0xff) == VK_RETURN) {
+		self->keystate[VK_RETURN] = 0;
+		self->keystate[VK_RETURN | 0x100] = 0;
+	}
+	
+	// SHIFT + テンキーによる押しっぱなし現象対策
+	
+	if (self->keytable == KeyTable106[0] || self->keytable == KeyTable101[0])
+	{
+		switch (keyindex)
+		{
+		case VK_NUMPAD0: case VK_INSERT:
+			self->keystate[VK_NUMPAD0] = self->keystate[VK_INSERT] = 0;
+			break;
+		case VK_NUMPAD1: case VK_END:
+			self->keystate[VK_NUMPAD1] = self->keystate[VK_END] = 0;
+			break;
+		case VK_NUMPAD2: case VK_DOWN:
+			self->keystate[VK_NUMPAD2] = self->keystate[VK_DOWN] = 0;
+			break;
+		case VK_NUMPAD3: case VK_NEXT:
+			self->keystate[VK_NUMPAD3] = self->keystate[VK_NEXT] = 0;
+			break;
+		case VK_NUMPAD4: case VK_LEFT:
+			self->keystate[VK_NUMPAD4] = self->keystate[VK_LEFT] = 0;
+			break;
+		case VK_NUMPAD5: case VK_CLEAR:
+			self->keystate[VK_NUMPAD5] = self->keystate[VK_CLEAR] = 0;
+			break;
+		case VK_NUMPAD6: case VK_RIGHT:
+			self->keystate[VK_NUMPAD6] = self->keystate[VK_RIGHT] = 0;
+			break;
+		case VK_NUMPAD7: case VK_HOME:
+			self->keystate[VK_NUMPAD7] = self->keystate[VK_HOME] = 0;
+			break;
+		case VK_NUMPAD8: case VK_UP:
+			self->keystate[VK_NUMPAD8] = self->keystate[VK_UP] = 0;
+			break;
+		case VK_NUMPAD9: case VK_PRIOR:
+			self->keystate[VK_NUMPAD9] = self->keystate[VK_PRIOR] = 0;
+			break;
+		}
+	}
+	const uint vk_up = vkcode & 0xff;
+	if (vk_up == VK_LSHIFT || vk_up == VK_RSHIFT || vk_up == VK_SHIFT) {
+		if (!self->keystate[VK_LSHIFT] && !self->keystate[VK_RSHIFT]) {
+			self->keystate[VK_SHIFT] = 0;
+		}
+	}
+#ifdef M88_LINUX_PORT
+	SyncKeyboardArray(self->keyboard, self->keystate);
+	self->InvalidateKeyports();
 #endif
 }
 
@@ -173,50 +462,14 @@ void WinKeyIF::KeyDown(uint vkcode, uint32 keydata)
 //
 void WinKeyIF::KeyUp(uint vkcode, uint32 keydata)
 {
-	uint keyindex = (vkcode & 0xff) | (keydata & (1<<24) ? 0x100 : 0);
-	keystate[keyindex] = 0;
-	LOG2("KeyUp   = %.2x %.3x\n", vkcode, keyindex);
-	
-	// SHIFT + テンキーによる押しっぱなし現象対策
-	
-	if (keytable == KeyTable106[0] || keytable == KeyTable101[0])
-	{
-		switch (keyindex)
-		{
-		case VK_NUMPAD0: case VK_INSERT:
-			keystate[VK_NUMPAD0] = keystate[VK_INSERT] = 0;
-			break;
-		case VK_NUMPAD1: case VK_END:
-			keystate[VK_NUMPAD1] = keystate[VK_END] = 0;
-			break;
-		case VK_NUMPAD2: case VK_DOWN:
-			keystate[VK_NUMPAD2] = keystate[VK_DOWN] = 0;
-			break;
-		case VK_NUMPAD3: case VK_NEXT:
-			keystate[VK_NUMPAD3] = keystate[VK_NEXT] = 0;
-			break;
-		case VK_NUMPAD4: case VK_LEFT:
-			keystate[VK_NUMPAD4] = keystate[VK_LEFT] = 0;
-			break;
-		case VK_NUMPAD5: case VK_CLEAR:
-			keystate[VK_NUMPAD5] = keystate[VK_CLEAR] = 0;
-			break;
-		case VK_NUMPAD6: case VK_RIGHT:
-			keystate[VK_NUMPAD6] = keystate[VK_RIGHT] = 0;
-			break;
-		case VK_NUMPAD7: case VK_HOME:
-			keystate[VK_NUMPAD7] = keystate[VK_HOME] = 0;
-			break;
-		case VK_NUMPAD8: case VK_UP:
-			keystate[VK_NUMPAD8] = keystate[VK_UP] = 0;
-			break;
-		case VK_NUMPAD9: case VK_PRIOR:
-			keystate[VK_NUMPAD9] = keystate[VK_PRIOR] = 0;
-			break;
-		}
-	}
 #ifdef M88_LINUX_PORT
-	SyncKeyboardArray(keyboard, keystate);
+	const uint vk = vkcode & 0xff;
+	if (ApplyLinuxKeyFixupUp(vk, keydata)) {
+		return;
+	}
+	KeyUpImpl(vkcode, keydata);
+#else
+	KeyUpBody(this, vkcode, keydata);
 #endif
 }
 
@@ -399,7 +652,7 @@ const WinKeyIF::Key WinKeyIF::KeyTable106[16 * 8][8] =
 	{ KEY(VK_NUMPAD9), KEYF(VK_PRIOR,  nex), TERM, },	// num 9
 	{ KEY(VK_MULTIPLY), TERM, },						// num *
 	{ KEY(VK_ADD),		TERM, },						// num +
-	{ TERM, },											// num =
+	{ KEY(0x92),		TERM, },						// num =
 	{ KEY(VK_SEPARATOR), KEYF(VK_DELETE, nex), TERM, },	// num ,
 	{ KEY(VK_DECIMAL),	TERM, },						// num .
 	{ KEY(VK_RETURN),	TERM, },						// RET
@@ -566,7 +819,7 @@ const WinKeyIF::Key WinKeyIF::KeyTable101[16 * 8][8] =
 	{ KEY(VK_NUMPAD9), KEYF(VK_PRIOR,  nex), TERM, },	// num 9
 	{ KEY(VK_MULTIPLY), TERM, },						// num *
 	{ KEY(VK_ADD),		TERM, },						// num +
-	{ TERM, },											// num =
+	{ KEY(0x92),		TERM, },						// num =
 	{ KEY(VK_SEPARATOR), KEYF(VK_DELETE, nex), TERM, },	// num ,
 	{ KEY(VK_DECIMAL),	TERM, },						// num .
 	{ KEY(VK_RETURN),	TERM, },						// RET

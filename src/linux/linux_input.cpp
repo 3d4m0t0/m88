@@ -42,17 +42,22 @@ uint32 SdlKeyData(const SDL_KeyboardEvent& key) {
 }
 
 void HandleKeyDown(PC8801::WinKeyIF& keyif, const SDL_KeyboardEvent& key) {
-  const uint vk = SdlEventToVk(key);
-  if (vk) {
-    keyif.KeyDown(vk, SdlKeyData(key));
+  if (key.repeat) {
+    return;
   }
+  const uint vk = SdlEventToVk(key);
+  if (!vk) {
+    return;
+  }
+  keyif.KeyDown(vk, SdlKeyData(key));
 }
 
 void HandleKeyUp(PC8801::WinKeyIF& keyif, const SDL_KeyboardEvent& key) {
   const uint vk = SdlEventToVk(key);
-  if (vk) {
-    keyif.KeyUp(vk, SdlKeyData(key));
+  if (!vk) {
+    return;
   }
+  keyif.KeyUp(vk, SdlKeyData(key));
 }
 
 uint SdlSymToVk(SDL_Keycode sym) {

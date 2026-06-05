@@ -60,11 +60,6 @@ int main(int argc, char** argv) {
       &config,
       options.config_file.isEmpty() ? nullptr : options.config_file.toUtf8().constData(),
       ini_path, sizeof(ini_path), &ini_created);
-  if (ini_created && ini_path[0]) {
-    std::fprintf(stderr, "M88: created default config: %s\n", ini_path);
-  } else if (ini_path[0]) {
-    std::fprintf(stderr, "M88: config: %s\n", ini_path);
-  }
 
   int desktop_w = 0;
   int desktop_h = 0;

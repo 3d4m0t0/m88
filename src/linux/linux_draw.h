@@ -5,9 +5,9 @@
 struct SDL_Window;
 struct SDL_Renderer;
 struct SDL_Texture;
-
+struct SDL_Palette;
 class LinuxDraw : public Draw {
-public:
+ public:
   LinuxDraw();
   ~LinuxDraw() override;
 
@@ -34,14 +34,20 @@ public:
   void SetImePreedit(const char* utf8, int cursor);
   void DrawImeOverlay();
 
-private:
+  static bool SdlSetTexturePaletteAvailable();
+  void LogVideoBackendOnce();
+
+ private:
   void EnsureTexture();
   void BlitRegion(const Region& region);
   void InitDefaultPalette();
+  void SyncTexturePalette();
+  void RebuildRgbaLut();
 
   SDL_Window* window;
   SDL_Renderer* renderer;
   SDL_Texture* texture;
+  SDL_Palette* sdl_palette_;
 
   uint width;
   uint height;
@@ -50,10 +56,13 @@ private:
   uint status;
 
   uint8* image;
-  uint32* rgba;
+  uint32* rgba_fallback_;
+  uint32 rgba_lut_[256];
   Palette palette[256];
   bool palette_dirty;
+  bool use_index8_texture_;
   bool cleaned;
+  bool needs_present_;
 
   char ime_preedit[128];
   int ime_cursor;

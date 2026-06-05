@@ -1,13 +1,24 @@
 #include "shared_framebuffer_draw.h"
 
+#include <algorithm>
 #include <cstring>
 
 SharedFramebufferDraw::SharedFramebufferDraw() {
   std::memset(palette_, 0, sizeof(palette_));
+  std::memset(ui_palette_, 0, sizeof(ui_palette_));
   ime_preedit_[0] = '\0';
 }
 
 SharedFramebufferDraw::~SharedFramebufferDraw() { Cleanup(); }
+
+void SharedFramebufferDraw::EnsureUiBuffers() {
+  const size_t bytes = static_cast<size_t>(width_) * height_;
+  for (int i = 0; i < 2; ++i) {
+    if (ui_image_[i].size() != bytes) {
+      ui_image_[i].assign(bytes, 0x40);
+    }
+  }
+}
 
 bool SharedFramebufferDraw::Init(uint w, uint h, uint /*bpp*/) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -18,6 +29,10 @@ bool SharedFramebufferDraw::Init(uint w, uint h, uint /*bpp*/) {
   status_ = Draw::readytodraw | Draw::shouldrefresh;
   palette_dirty_ = true;
   frame_ready_ = true;
+  ui_read_index_ = 0;
+  ui_has_frame_ = false;
+  ui_ready_ = false;
+  EnsureUiBuffers();
   InitDefaultPalette();
   return true;
 }
@@ -25,6 +40,10 @@ bool SharedFramebufferDraw::Init(uint w, uint h, uint /*bpp*/) {
 bool SharedFramebufferDraw::Cleanup() {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   image_.clear();
+  ui_image_[0].clear();
+  ui_image_[1].clear();
+  ui_ready_ = false;
+  ui_has_frame_ = false;
   width_ = height_ = 0;
   bpl_ = 0;
   return true;
@@ -60,8 +79,11 @@ void SharedFramebufferDraw::Resize(uint w, uint h) {
   Init(w, h, 8);
 }
 
-void SharedFramebufferDraw::DrawScreen(const Region& /*region*/) {
+void SharedFramebufferDraw::DrawScreen(const Region& region) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (region.top <= region.bottom) {
+    last_region_ = region;
+  }
   status_ &= ~Draw::shouldrefresh;
 }
 
@@ -94,27 +116,67 @@ void SharedFramebufferDraw::InitDefaultPalette() {
   }
 }
 
-bool SharedFramebufferDraw::CopyFrame(std::vector<uint8>* indices,
-                                      std::vector<Palette>* palette,
-                                      uint* width, uint* height,
-                                      bool* palette_changed) {
-  if (!indices || !palette || !width || !height || !palette_changed) {
-    return false;
-  }
+bool SharedFramebufferDraw::StageUiFrame() {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (image_.empty() || !frame_ready_) {
     return false;
   }
-  if (indices->size() != image_.size()) {
-    indices->resize(image_.size());
+
+  EnsureUiBuffers();
+  const int write_index = 1 - ui_read_index_;
+  std::vector<uint8>& dst = ui_image_[write_index];
+
+  const bool partial = ui_has_frame_ && !palette_dirty_ &&
+                       last_region_.top <= last_region_.bottom;
+  if (partial) {
+    std::memcpy(dst.data(), ui_image_[ui_read_index_].data(), dst.size());
+    const int left = std::max(0, last_region_.left);
+    const int top = std::max(0, last_region_.top);
+    const int right = std::min(static_cast<int>(width_), last_region_.right + 1);
+    const int bottom =
+        std::min(static_cast<int>(height_), last_region_.bottom + 1);
+    for (int y = top; y < bottom; ++y) {
+      std::memcpy(dst.data() + static_cast<size_t>(y) * bpl_ + left,
+                  image_.data() + static_cast<size_t>(y) * bpl_ + left,
+                  static_cast<size_t>(right - left));
+    }
+  } else {
+    std::memcpy(dst.data(), image_.data(), image_.size());
   }
-  std::memcpy(indices->data(), image_.data(), image_.size());
-  palette->assign(palette_, palette_ + 256);
+
+  ui_region_ = last_region_;
+  ui_palette_dirty_ = palette_dirty_;
+  std::memcpy(ui_palette_, palette_, sizeof(palette_));
+
+  ui_read_index_ = write_index;
+  ui_has_frame_ = true;
+  frame_ready_ = false;
+  ui_ready_ = true;
+  return true;
+}
+
+bool SharedFramebufferDraw::AcquireUiFrame(const uint8** out_data, int* out_bpl,
+                                             uint* width, uint* height,
+                                             bool* palette_changed,
+                                             Palette* palette_out,
+                                             uint palette_capacity) {
+  if (!out_data || !out_bpl || !width || !height || !palette_changed ||
+      !palette_out || palette_capacity < 256) {
+    return false;
+  }
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (!ui_ready_ || ui_image_[ui_read_index_].empty()) {
+    return false;
+  }
+
+  *out_data = ui_image_[ui_read_index_].data();
+  *out_bpl = bpl_;
   *width = width_;
   *height = height_;
-  *palette_changed = palette_dirty_;
-  palette_dirty_ = false;
-  frame_ready_ = false;
+  *palette_changed = ui_palette_dirty_;
+  std::memcpy(palette_out, ui_palette_, sizeof(ui_palette_));
+  ui_palette_dirty_ = false;
+  ui_ready_ = false;
   return true;
 }
 

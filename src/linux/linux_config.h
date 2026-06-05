@@ -18,7 +18,14 @@ int M88ParseKeyboardType(const char* name);
 // Detect host keyboard layout (setxkbmap / localectl / locale). Overrides cfg->keytype.
 void M88ApplyDetectedKeyboard(PC8801::Config* cfg);
 
+// Call when --keyboard overrides auto-detection (defers the keyboard log line).
+void M88NoteKeyboardCliOverride();
+
 const char* M88KeyboardTypeName(int keytype);
+
+// Deferred startup lines (keyboard / keyfix); emit after machine/video/sound.
+void M88LogKeyboard(const PC8801::Config* cfg);
+void M88LogKeyFix();
 
 // Host->PC-88 key remaps (m88.ini KeyFix=1, rules in m88_keyfix.ini). m88_ini_path may be "".
 // If m88_keyfix.ini is missing, creates it and sets KeyFix=1 in m88.ini (cfg + path required to save).

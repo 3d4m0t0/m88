@@ -14,6 +14,7 @@
 #include <QPainter>
 #include <QPaintEvent>
 
+#include <algorithm>
 #include <cstring>
 
 bool EmuView::imeComposing() const {
@@ -41,76 +42,53 @@ QSize EmuView::sizeHint() const {
   return QSize(640 * scale_, 400 * scale_);
 }
 
+QVector<QRgb> EmuView::colorTableFromPalette() const {
+  QVector<QRgb> table(256);
+  for (int i = 0; i < 256; ++i) {
+    const Draw::Palette& p = palette_[i];
+    table[i] = qRgb(p.red, p.green, p.blue);
+  }
+  return table;
+}
+
 void EmuView::refreshFrame() {
   if (!draw_) {
     return;
   }
-  std::vector<uint8> idx;
-  std::vector<Draw::Palette> pal;
+  const uint8* data = nullptr;
+  int bpl = 0;
   uint w = 0;
   uint h = 0;
   bool pal_changed = false;
-  if (!draw_->CopyFrame(&idx, &pal, &w, &h, &pal_changed)) {
+  if (!draw_->AcquireUiFrame(&data, &bpl, &w, &h, &pal_changed, palette_, 256)) {
     return;
   }
-  if (w == 0 || h == 0) {
+  if (!data || bpl <= 0 || w == 0 || h == 0) {
     return;
   }
 
-  if (indices_.width() != static_cast<int>(w) || indices_.height() != static_cast<int>(h)) {
-    indices_ = QImage(static_cast<int>(w), static_cast<int>(h), QImage::Format_Grayscale8);
+  indices_ = QImage(const_cast<uint8*>(data), static_cast<int>(w), static_cast<int>(h), bpl,
+                    QImage::Format_Indexed8);
+  if (pal_changed || indices_.colorTable().size() != 256) {
+    indices_.setColorTable(colorTableFromPalette());
   }
-  if (indices_.bytesPerLine() == static_cast<int>(w)) {
-    std::memcpy(indices_.bits(), idx.data(), idx.size());
-  } else {
-    for (uint y = 0; y < h; ++y) {
-      std::memcpy(indices_.scanLine(static_cast<int>(y)), idx.data() + y * w, w);
-    }
-  }
-  palette_.clear();
-  palette_.reserve(static_cast<int>(pal.size()));
-  for (const Draw::Palette& p : pal) {
-    palette_.append(p);
-  }
-  (void)pal_changed;
-  rebuildRgb();
   if (ime_preedit_.isEmpty()) {
     ime_preedit_ = QString::fromUtf8(draw_->GetImePreedit());
   }
   update();
 }
 
-void EmuView::rebuildRgb() {
-  if (indices_.isNull()) {
-    return;
-  }
-  const int w = indices_.width();
-  const int h = indices_.height();
-  rgb_ = QImage(w, h, QImage::Format_RGB32);
-  for (int y = 0; y < h; ++y) {
-    const uint8* row = indices_.constScanLine(y);
-    auto* out = reinterpret_cast<QRgb*>(rgb_.scanLine(y));
-    for (int x = 0; x < w; ++x) {
-      const uint8 idx = row[x];
-      const int pi = static_cast<int>(idx);
-      const Draw::Palette p =
-          (pi >= 0 && pi < palette_.size()) ? palette_[pi] : Draw::Palette{0, 0, 0};
-      out[x] = qRgb(p.red, p.green, p.blue);
-    }
-  }
-}
-
 void EmuView::paintEvent(QPaintEvent* /*event*/) {
   QPainter painter(this);
   painter.fillRect(rect(), Qt::black);
 
-  if (!rgb_.isNull()) {
-    const int dst_w = rgb_.width() * scale_;
-    const int dst_h = rgb_.height() * scale_;
+  if (!indices_.isNull()) {
+    const int dst_w = indices_.width() * scale_;
+    const int dst_h = indices_.height() * scale_;
     const int x = (width() - dst_w) / 2;
     const int y = (height() - dst_h) / 2;
     painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
-    painter.drawImage(QRect(x, y, dst_w, dst_h), rgb_);
+    painter.drawImage(QRect(x, y, dst_w, dst_h), indices_);
   }
 
   if (!ime_preedit_.isEmpty()) {
@@ -131,7 +109,6 @@ void EmuView::mousePressEvent(QMouseEvent* event) {
 }
 
 void EmuView::keyPressEvent(QKeyEvent* event) {
-  // IME composition: do not send to emulator; let Qt/IME handle the key.
   if (!ime_preedit_.isEmpty()) {
     event->ignore();
     return;

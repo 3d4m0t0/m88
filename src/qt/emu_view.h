@@ -2,7 +2,6 @@
 
 #include <QHash>
 #include <QImage>
-#include <QVector>
 #include <QWidget>
 
 #include "draw.h"
@@ -39,13 +38,12 @@ signals:
   void imeCommit(const QString& utf8);
 
 private:
-  void rebuildRgb();
+  QVector<QRgb> colorTableFromPalette() const;
   bool imeComposing() const;
 
   SharedFramebufferDraw* draw_ = nullptr;
-  QImage rgb_;
   QImage indices_;
-  QVector<Draw::Palette> palette_;
+  Draw::Palette palette_[256]{};
   int scale_ = 2;
   QString ime_preedit_;
   QHash<int, int> letter_shift_refs_;

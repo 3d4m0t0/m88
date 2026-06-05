@@ -29,8 +29,14 @@ bool LoadFromFile(const char* path);
 bool LoadStartup(const char* m88_ini_path);
 
 // Default install locations (not M88_KEYFIX). Write path: beside m88.ini or ./m88_keyfix.ini.
+// CreateDefaultIni writes embedded m88_keyfix.ini (repo standard); M88_KEYFIX_TEMPLATE overrides.
 bool DefaultIniExists(const char* m88_ini_path);
 bool ResolveDefaultIniPath(const char* m88_ini_path, char* out, size_t out_sz);
-bool CreateDefaultIni(const char* dest_path, const char* m88_ini_path);
+bool CreateDefaultIni(const char* dest_path, const char* m88_ini_path = nullptr);
+
+// Suppress keyfix stderr until FlushDeferredLogs() (startup log ordering).
+void SetDeferLogs(bool defer);
+void LogMessage(const char* fmt, ...);
+void FlushDeferredLogs();
 
 }  // namespace Pc88KeyFixup

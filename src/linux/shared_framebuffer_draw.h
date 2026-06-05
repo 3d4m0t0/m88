@@ -2,12 +2,13 @@
 
 #include "draw.h"
 
+#include <cstdint>
 #include <mutex>
 #include <vector>
 
 // Thread-safe 8bpp framebuffer for Draw::Lock/Unlock (no platform blit).
 class SharedFramebufferDraw : public Draw {
-public:
+ public:
   SharedFramebufferDraw();
   ~SharedFramebufferDraw() override;
 
@@ -23,15 +24,19 @@ public:
   void SetPalette(uint index, uint nents, const Palette* pal) override;
   bool SetFlipMode(bool) override { return true; }
 
-  // GUI thread: copy indexed screen + palette (after Unlock or when frame_ready).
-  bool CopyFrame(std::vector<uint8>* indices, std::vector<Palette>* palette,
-                 uint* width, uint* height, bool* palette_changed);
+  // Emulator thread: snapshot live framebuffer into the ping-pong UI buffer.
+  bool StageUiFrame();
+
+  // GUI thread: acquire the displayed buffer (no pixel copy).
+  bool AcquireUiFrame(const uint8** out_data, int* out_bpl, uint* width, uint* height,
+                      bool* palette_changed, Palette* palette_out, uint palette_capacity);
 
   void SetImePreedit(const char* utf8);
   const char* GetImePreedit() const { return ime_preedit_; }
 
-private:
+ private:
   void InitDefaultPalette();
+  void EnsureUiBuffers();
 
   // recursive: UpdateScreen holds Lock() while Screen::UpdatePalette calls SetPalette().
   mutable std::recursive_mutex mutex_;
@@ -43,5 +48,14 @@ private:
   uint status_ = 0;
   bool palette_dirty_ = true;
   bool frame_ready_ = false;
+  Draw::Region last_region_{};
   char ime_preedit_[128];
+
+  std::vector<uint8> ui_image_[2];
+  Palette ui_palette_[256];
+  Draw::Region ui_region_{};
+  bool ui_palette_dirty_ = true;
+  bool ui_ready_ = false;
+  bool ui_has_frame_ = false;
+  int ui_read_index_ = 0;
 };

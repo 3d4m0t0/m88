@@ -21,6 +21,8 @@ bool g_keyfix_enabled = true;
 bool g_screen_scale_auto = true;
 int g_screen_scale = 2;
 
+char g_keyboard_log_source[64] = "(default)";
+
 namespace {
 
 // Must match VOLUME_BIAS and LOADVOLUMEENTRY defaults in src/win32/88config.cpp,
@@ -571,26 +573,30 @@ void M88PrintScreenScale(int scale, bool cli_explicit) {
 }
 
 void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
+  Pc88KeyFixup::SetDeferLogs(true);
+  if (cfg) {
+    // m88_keyfix.ini [101] = physical US host layout (independent of guest matrix).
+    Pc88KeyFixup::SetHostKeyboard(Config::AT101);
+  }
+
   const char* env_keyfix = std::getenv("M88_KEYFIX");
-  if (!env_keyfix || !*env_keyfix) {
-    if (!Pc88KeyFixup::DefaultIniExists(m88_ini_path)) {
-      char write_path[512];
-      Pc88KeyFixup::ResolveDefaultIniPath(m88_ini_path, write_path, sizeof(write_path));
-      if (Pc88KeyFixup::CreateDefaultIni(write_path, m88_ini_path)) {
-        std::fprintf(stderr, "M88: keyfix: created default %s (KeyFix=1)\n", write_path);
-        g_keyfix_enabled = true;
-        if (cfg && m88_ini_path && *m88_ini_path) {
-          M88SaveConfigFile(cfg, m88_ini_path);
-        }
-      } else {
-        std::fprintf(stderr, "M88: keyfix: failed to create %s\n", write_path);
+  if ((!env_keyfix || !*env_keyfix) && g_keyfix_enabled &&
+      !Pc88KeyFixup::DefaultIniExists(m88_ini_path)) {
+    char write_path[512];
+    Pc88KeyFixup::ResolveDefaultIniPath(m88_ini_path, write_path, sizeof(write_path));
+    if (Pc88KeyFixup::CreateDefaultIni(write_path, m88_ini_path)) {
+      Pc88KeyFixup::LogMessage("M88: keyfix: created default %s\n", write_path);
+      if (cfg && m88_ini_path && *m88_ini_path) {
+        M88SaveConfigFile(cfg, m88_ini_path);
       }
+    } else {
+      Pc88KeyFixup::LogMessage("M88: keyfix: failed to create %s\n", write_path);
     }
   }
 
   ApplyKeyFixEnabled();
   if (!g_keyfix_enabled) {
-    std::fprintf(stderr, "M88: keyfix: disabled (m88.ini KeyFix=0)\n");
+    Pc88KeyFixup::LogMessage("M88: keyfix: disabled (m88.ini KeyFix=0)\n");
     return;
   }
   Pc88KeyFixup::LoadStartup(m88_ini_path && *m88_ini_path ? m88_ini_path : nullptr);
@@ -609,6 +615,21 @@ const char* M88KeyboardTypeName(int keytype) {
   }
 }
 
+void M88NoteKeyboardCliOverride() {
+  std::strncpy(g_keyboard_log_source, "(--keyboard)", sizeof(g_keyboard_log_source));
+  g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
+}
+
+void M88LogKeyboard(const Config* cfg) {
+  if (!cfg) {
+    return;
+  }
+  std::fprintf(stderr, "M88: keyboard=%s %s\n", M88KeyboardTypeName(cfg->keytype),
+               g_keyboard_log_source);
+}
+
+void M88LogKeyFix() { Pc88KeyFixup::FlushDeferredLogs(); }
+
 void M88ApplyDetectedKeyboard(Config* cfg) {
   if (!cfg) {
     return;
@@ -619,8 +640,8 @@ void M88ApplyDetectedKeyboard(Config* cfg) {
     const int k = M88ParseKeyboardType(env);
     if (k >= Config::AT106 && k <= Config::AT101) {
       cfg->keytype = static_cast<Config::KeyType>(k);
-      std::fprintf(stderr, "M88: keyboard=%s (M88_KEYBOARD)\n",
-                   M88KeyboardTypeName(cfg->keytype));
+      std::strncpy(g_keyboard_log_source, "(M88_KEYBOARD)", sizeof(g_keyboard_log_source));
+      g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
       return;
     }
   }
@@ -631,28 +652,29 @@ void M88ApplyDetectedKeyboard(Config* cfg) {
   if (RunShellCapture("setxkbmap -query 2>/dev/null", buf, sizeof(buf)) &&
       KeyTypeFromXkbOutput(buf, &detected)) {
     cfg->keytype = detected;
-    std::fprintf(stderr, "M88: keyboard=%s (setxkbmap)\n",
-                 M88KeyboardTypeName(cfg->keytype));
+    std::strncpy(g_keyboard_log_source, "(setxkbmap)", sizeof(g_keyboard_log_source));
+    g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
     return;
   }
 
   if (RunShellCapture("localectl status 2>/dev/null", buf, sizeof(buf)) &&
       KeyTypeFromLocalectlOutput(buf, &detected)) {
     cfg->keytype = detected;
-    std::fprintf(stderr, "M88: keyboard=%s (localectl)\n",
-                 M88KeyboardTypeName(cfg->keytype));
+    std::strncpy(g_keyboard_log_source, "(localectl)", sizeof(g_keyboard_log_source));
+    g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
     return;
   }
 
   if (LocaleIsJapanese()) {
     cfg->keytype = Config::AT106;
-    std::fprintf(stderr, "M88: keyboard=%s (locale)\n",
-                 M88KeyboardTypeName(cfg->keytype));
+    std::strncpy(g_keyboard_log_source, "(locale)", sizeof(g_keyboard_log_source));
+    g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
     return;
   }
 
   cfg->keytype = Config::AT101;
-  std::fprintf(stderr, "M88: keyboard=%s (default)\n", M88KeyboardTypeName(cfg->keytype));
+  std::strncpy(g_keyboard_log_source, "(default)", sizeof(g_keyboard_log_source));
+  g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
 }
 
 bool M88LoadConfigFile(Config* cfg, const char* path) {

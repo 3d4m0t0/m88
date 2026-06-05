@@ -6,6 +6,8 @@
 #include "../linux/linux_ime.h"
 #include "../linux/linux_frame_pace.h"
 #include "../linux/linux_sound.h"
+#include "../linux/linux_startup_log.h"
+#include "qt_video_log.h"
 #include "../linux/shared_framebuffer_draw.h"
 #include "../win32/WinKeyIF.h"
 #include "path.h"
@@ -87,6 +89,7 @@ struct EmulatorController::Impl {
   std::unique_ptr<PC88> pc88;
   std::unique_ptr<PC8801::LinuxSound> sound;
   std::unique_ptr<PC8801::WinKeyIF> keyif;
+  M88DrawSkip draw_skip;
 };
 
 EmulatorController::EmulatorController(SharedFramebufferDraw* draw, Options options,
@@ -124,15 +127,12 @@ bool EmulatorController::initialize() {
                                               : options_.config_file.toUtf8().constData(),
                        ini_path, sizeof(ini_path), &ini_created);
   M88ApplyEnvOverrides(&impl_->config);
-  if (ini_created && ini_path[0]) {
-    std::fprintf(stderr, "M88: created default config: %s\n", ini_path);
-  } else if (ini_path[0]) {
-    std::fprintf(stderr, "M88: config: %s\n", ini_path);
-  }
+  M88LogConfigPath(ini_path, ini_created);
 
   if (options_.keyboard_type >= 0) {
     impl_->config.keytype =
         static_cast<PC8801::Config::KeyType>(options_.keyboard_type);
+    M88NoteKeyboardCliOverride();
   } else {
     M88ApplyDetectedKeyboard(&impl_->config);
   }
@@ -178,15 +178,25 @@ bool EmulatorController::initialize() {
   impl_->keyif->ApplyConfig(&impl_->config);
   impl_->keyif->Activate(true);
   LinuxIme::InitHost();
+  M88LogMachine(&impl_->config);
+  M88LogQtVideoBackend();
+  M88LogSound(&impl_->config);
+  M88LogKeyboard(&impl_->config);
+  M88LogKeyFix();
   if (LinuxIme::Enabled() && impl_->config.keytype != PC8801::Config::PC98) {
-    std::fprintf(stderr, "M88: IME half-kana uses AT106 matrix during injection\n");
+    M88LogImeHalfKana();
   }
+  M88LogFdd(&impl_->config);
 
   MountDiskOptional(*impl_->diskmgr, 0, options_.disk0);
   impl_->pc88->Reset();
+  impl_->draw_skip.Reset();
   impl_->pc88->UpdateScreen(true);
+  if (draw_) {
+    draw_->StageUiFrame();
+  }
+  emit frameReady();
 
-  std::fprintf(stderr, "M88: emulator thread running (Qt UI)\n");
   emit started();
   return true;
 }
@@ -231,11 +241,18 @@ void EmulatorController::emulateFrame() {
       std::max(1, impl_->config.clock * (impl_->config.speed / 10) / 100);
   impl_->pc88->TimeSync();
   impl_->pc88->Proceed(texec, impl_->config.clock, effclock);
-  impl_->pc88->UpdateScreen();
-  LinuxIme::Pump(impl_->keyif.get());
-
-  // Queue UI blit before pacing sleep so copy can overlap with SDL_Delay.
-  emit frameReady();
+  if (impl_->draw_skip.AfterProceed(frame_begin_ms, texec, impl_->config.speed,
+                                    impl_->config.refreshtiming)) {
+    impl_->pc88->UpdateScreen();
+    if (draw_) {
+      draw_->StageUiFrame();
+    }
+    LinuxIme::Pump(impl_->keyif.get());
+    emit frameReady();
+  } else {
+    LinuxIme::Pump(impl_->keyif.get());
+  }
+  impl_->draw_skip.EndFrame(frame_begin_ms);
 
   M88PaceFrame(frame_begin_ms,
                M88FramePeriodMs(texec, impl_->config.speed));
@@ -251,8 +268,8 @@ void EmulatorController::run() {
   }
 
   while (running_) {
-    emulateFrame();
     QCoreApplication::processEvents(QEventLoop::AllEvents);
+    emulateFrame();
   }
 
   shutdown();

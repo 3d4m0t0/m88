@@ -5,6 +5,7 @@
 #include "../linux_compat/pc88_matrix_vk.h"
 
 #include <cctype>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -28,6 +29,21 @@ struct Rule {
 PC8801::Config::KeyType g_host = PC8801::Config::AT101;
 std::vector<Rule> g_rules;
 bool g_enabled = false;
+bool g_defer_logs = false;
+
+constexpr int kMaxDeferredLogs = 8;
+char g_deferred_logs[kMaxDeferredLogs][512];
+int g_deferred_log_count = 0;
+
+void QueueDeferredLog(const char* msg) {
+  if (g_deferred_log_count >= kMaxDeferredLogs) {
+    return;
+  }
+  std::strncpy(g_deferred_logs[g_deferred_log_count], msg,
+               sizeof(g_deferred_logs[g_deferred_log_count]) - 1);
+  g_deferred_logs[g_deferred_log_count][sizeof(g_deferred_logs[0]) - 1] = '\0';
+  ++g_deferred_log_count;
+}
 
 char* Trim(char* s) {
   while (*s && std::isspace(static_cast<unsigned char>(*s))) {
@@ -278,6 +294,32 @@ bool IsEnabled() { return g_enabled; }
 
 void SetHostKeyboard(PC8801::Config::KeyType host) { g_host = host; }
 
+void SetDeferLogs(bool defer) { g_defer_logs = defer; }
+
+void LogMessage(const char* fmt, ...) {
+  if (!fmt) {
+    return;
+  }
+  char buf[512];
+  va_list ap;
+  va_start(ap, fmt);
+  std::vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+  if (g_defer_logs) {
+    QueueDeferredLog(buf);
+  } else {
+    std::fputs(buf, stderr);
+  }
+}
+
+void FlushDeferredLogs() {
+  for (int i = 0; i < g_deferred_log_count; ++i) {
+    std::fputs(g_deferred_logs[i], stderr);
+  }
+  g_deferred_log_count = 0;
+  g_defer_logs = false;
+}
+
 bool MapKey(PC8801::Config::KeyType host, uint vk, bool shift, KeyMap* out) {
   if (!g_enabled || !out || !vk) {
     return false;
@@ -348,19 +390,21 @@ bool CopyFileIfExists(const char* src, const char* dest) {
   return ok;
 }
 
-// Shipped with the repo; used when no template file is found on disk.
+// Keep in sync with repo-root m88_keyfix.ini (written when no file is found).
 static const char kDefaultKeyfixIni[] =
     "; m88_keyfix.ini - US AT101 host -> PC-8801 (AT101 guest) key remaps\n"
     ";\n"
     "; m88.ini:  KeyFix=1   (KeyFix=0 disables)\n"
     "; Load: M88_KEYFIX, then beside m88.ini, then ./m88_keyfix.ini\n"
     ";\n"
+    "; Applied in WinKeyIF::ApplyLinuxKeyFixupDown/Up (m88 / m88-qt pass host VK).\n"
+    ";\n"
     "; Rule:  shift host_vk guest_vk [mask] [guest_shift]   ; comment\n"
     ";\n"
-    ";   shift        1 = host Shift held (Qt modifier or VK_LSHIFT in keyif)\n"
+    ";   shift        1 = host Shift held\n"
     ";   mask         clear host Shift from keystate before guest key\n"
-    ";   guest_shift  inject PC-88 Shift for this stroke (row05/06/07 shifted symbols)\n"
-    ";                guest_shift implies mask (avoid host+guest Shift both ON)\n"
+    ";   guest_shift  inject PC-88 Shift for this stroke (row06/07 shifted symbols)\n"
+    ";                guest_shift implies mask\n"
     ";\n"
     "; Guest VK aliases (src/linux_compat/pc88_matrix_vk.h):\n"
     ";   88_R01_EQ   0x92        row01  =  (tenkey upper row)\n"
@@ -381,7 +425,6 @@ static const char kDefaultKeyfixIni[] =
     ";   88_DOT      0xBE        row07  .\n"
     ";   88_SLASH    0xBF        row07  /   Shift -> ?\n"
     ";   88_USCR     0xE2        row07  _\n"
-    ";   88_CIRC     0xBB        row05  ^   Shift -> ~  (US Shift+` only; unshifted ` -> NONE)\n"
     ";\n"
     "; Matrix: http://www.maroon.dti.ne.jp/youkan/pc88/kbd.html\n"
     "\n"
@@ -440,40 +483,6 @@ bool WriteEmbeddedDefault(const char* dest) {
   return ok;
 }
 
-bool TryCopyTemplate(const char* dest, const char* m88_ini_path) {
-  const char* env = std::getenv("M88_KEYFIX_TEMPLATE");
-  if (env && *env && CopyFileIfExists(env, dest)) {
-    return true;
-  }
-
-  if (m88_ini_path && *m88_ini_path) {
-    char dir_path[512];
-    std::strncpy(dir_path, m88_ini_path, sizeof(dir_path) - 1);
-    dir_path[sizeof(dir_path) - 1] = '\0';
-    char* slash = std::strrchr(dir_path, '/');
-    if (slash) {
-      *slash = '\0';
-      char template_path[512];
-      static const char* kRel[] = {"../m88_keyfix.ini", "../../m88_keyfix.ini",
-                                   "m88_keyfix.ini"};
-      for (const char* rel : kRel) {
-        std::snprintf(template_path, sizeof(template_path), "%s/%s", dir_path, rel);
-        if (CopyFileIfExists(template_path, dest)) {
-          return true;
-        }
-      }
-    }
-  }
-
-  static const char* kCwd[] = {"../m88_keyfix.ini", "m88_keyfix.ini", "M88_keyfix.ini"};
-  for (const char* name : kCwd) {
-    if (CopyFileIfExists(name, dest)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 }  // namespace detail
 
 bool DefaultIniExists(const char* m88_ini_path) {
@@ -520,11 +529,12 @@ bool ResolveDefaultIniPath(const char* m88_ini_path, char* out, size_t out_sz) {
   return true;
 }
 
-bool CreateDefaultIni(const char* dest_path, const char* m88_ini_path) {
+bool CreateDefaultIni(const char* dest_path, const char* /*m88_ini_path*/) {
   if (!dest_path || !*dest_path) {
     return false;
   }
-  if (detail::TryCopyTemplate(dest_path, m88_ini_path)) {
+  const char* env = std::getenv("M88_KEYFIX_TEMPLATE");
+  if (env && *env && detail::CopyFileIfExists(env, dest_path)) {
     return true;
   }
   return detail::WriteEmbeddedDefault(dest_path);
@@ -559,8 +569,7 @@ bool LoadFromFile(const char* path) {
       }
       *end = '\0';
       if (!HostTypeFromSection(p + 1, &section)) {
-        std::fprintf(stderr, "M88: keyfix: ignore section [%s] (%s:%d)\n", p + 1, path,
-                     line_no);
+        LogMessage("M88: keyfix: ignore section [%s] (%s:%d)\n", p + 1, path, line_no);
         have_section = false;
         continue;
       }
@@ -571,12 +580,12 @@ bool LoadFromFile(const char* path) {
       continue;
     }
     if (!ParseRuleLine(p, section)) {
-      std::fprintf(stderr, "M88: keyfix: ignore line (%s:%d): %s\n", path, line_no, p);
+      LogMessage("M88: keyfix: ignore line (%s:%d): %s\n", path, line_no, p);
     }
   }
 
   std::fclose(fp);
-  std::fprintf(stderr, "M88: keyfix: loaded %zu rules from %s\n", g_rules.size(), path);
+  LogMessage("M88: keyfix: loaded %zu rules from %s\n", g_rules.size(), path);
   return true;
 }
 
@@ -591,7 +600,7 @@ bool LoadStartup(const char* m88_ini_path) {
     if (LoadFromFile(env)) {
       return true;
     }
-    std::fprintf(stderr, "M88: keyfix: failed to load M88_KEYFIX=%s\n", env);
+    LogMessage("M88: keyfix: failed to load M88_KEYFIX=%s\n", env);
   }
 
   if (m88_ini_path && *m88_ini_path) {
@@ -617,8 +626,8 @@ bool LoadStartup(const char* m88_ini_path) {
   }
 
   g_rules.clear();
-  std::fprintf(stderr,
-               "M88: keyfix: enabled but no m88_keyfix.ini found (no remaps applied)\n");
+  LogMessage(
+      "M88: keyfix: enabled but no m88_keyfix.ini found (no remaps applied)\n");
   return false;
 }
 

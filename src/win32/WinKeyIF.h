@@ -11,6 +11,7 @@
 #include "device.h"
 #ifdef M88_LINUX_PORT
 #include "../linux_compat/critsect.h"
+#include "pc88/config.h"
 #else
 #include "CritSect.h"
 #endif
@@ -82,6 +83,20 @@ private:
 
 	const Key* keytable;
 	int keyboardtype;
+#ifdef M88_LINUX_PORT
+	Config::KeyType host_keytype_ = Config::AT101;
+	int host_shift_refs_ = 0;
+	void KeyDownImpl(uint vkcode, uint32 keydata);
+	void KeyUpImpl(uint vkcode, uint32 keydata);
+	void InvalidateKeyports();
+	void ApplyGuestShiftChordDown(uint vk, uint32 keydata);
+	void ApplyGuestShiftChordUp(uint vk, uint32 keydata);
+	bool HostShiftDown() const;
+	void ClearShiftKeystate();
+	void RestoreShiftKeystate();
+	bool ApplyLinuxKeyFixupDown(uint vk, uint32 keydata);
+	bool ApplyLinuxKeyFixupUp(uint vk, uint32 keydata);
+#endif
 	bool active;
 	bool disable;
 	bool usearrow;
