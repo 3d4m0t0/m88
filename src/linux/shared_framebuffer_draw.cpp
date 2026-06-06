@@ -31,7 +31,6 @@ bool SharedFramebufferDraw::Init(uint w, uint h, uint /*bpp*/) {
   frame_ready_ = true;
   ui_read_index_ = 0;
   ui_has_frame_ = false;
-  ui_ready_ = false;
   EnsureUiBuffers();
   InitDefaultPalette();
   return true;
@@ -42,7 +41,6 @@ bool SharedFramebufferDraw::Cleanup() {
   image_.clear();
   ui_image_[0].clear();
   ui_image_[1].clear();
-  ui_ready_ = false;
   ui_has_frame_ = false;
   width_ = height_ = 0;
   bpl_ = 0;
@@ -116,6 +114,16 @@ void SharedFramebufferDraw::InitDefaultPalette() {
   }
 }
 
+void SharedFramebufferDraw::InvalidateUiStaging() {
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  ui_has_frame_ = false;
+  palette_dirty_ = true;
+  frame_ready_ = true;
+  last_region_ = {};
+  ui_region_ = {};
+  status_ |= Draw::shouldrefresh;
+}
+
 bool SharedFramebufferDraw::StageUiFrame() {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (image_.empty() || !frame_ready_) {
@@ -126,23 +134,9 @@ bool SharedFramebufferDraw::StageUiFrame() {
   const int write_index = 1 - ui_read_index_;
   std::vector<uint8>& dst = ui_image_[write_index];
 
-  const bool partial = ui_has_frame_ && !palette_dirty_ &&
-                       last_region_.top <= last_region_.bottom;
-  if (partial) {
-    std::memcpy(dst.data(), ui_image_[ui_read_index_].data(), dst.size());
-    const int left = std::max(0, last_region_.left);
-    const int top = std::max(0, last_region_.top);
-    const int right = std::min(static_cast<int>(width_), last_region_.right + 1);
-    const int bottom =
-        std::min(static_cast<int>(height_), last_region_.bottom + 1);
-    for (int y = top; y < bottom; ++y) {
-      std::memcpy(dst.data() + static_cast<size_t>(y) * bpl_ + left,
-                  image_.data() + static_cast<size_t>(y) * bpl_ + left,
-                  static_cast<size_t>(right - left));
-    }
-  } else {
-    std::memcpy(dst.data(), image_.data(), image_.size());
-  }
+  // Always copy the full emulator buffer. Partial updates read the displayed
+  // ping-pong slot while the GUI may still paint it (QImage held the pointer).
+  std::memcpy(dst.data(), image_.data(), image_.size());
 
   ui_region_ = last_region_;
   ui_palette_dirty_ = palette_dirty_;
@@ -151,9 +145,13 @@ bool SharedFramebufferDraw::StageUiFrame() {
   ui_read_index_ = write_index;
   ui_has_frame_ = true;
   frame_ready_ = false;
-  ui_ready_ = true;
   ++ui_frame_serial_;
   return true;
+}
+
+uint64_t SharedFramebufferDraw::UiFrameSerial() const {
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  return ui_frame_serial_;
 }
 
 bool SharedFramebufferDraw::ImeRepaintPending() const {
@@ -181,7 +179,7 @@ bool SharedFramebufferDraw::AcquireUiFrame(const uint8** out_data, int* out_bpl,
     return false;
   }
   std::lock_guard<std::recursive_mutex> lock(mutex_);
-  if (!ui_ready_ || ui_image_[ui_read_index_].empty()) {
+  if (!ui_has_frame_ || ui_image_[ui_read_index_].empty()) {
     return false;
   }
 
@@ -195,7 +193,6 @@ bool SharedFramebufferDraw::AcquireUiFrame(const uint8** out_data, int* out_bpl,
     *out_region = ui_region_;
   }
   ui_palette_dirty_ = false;
-  ui_ready_ = false;
   return true;
 }
 

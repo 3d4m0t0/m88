@@ -1,8 +1,7 @@
 #pragma once
 
+#include "linux_monotonic.h"
 #include "loadmon.h"
-
-#include <SDL.h>
 
 #include <algorithm>
 #include <atomic>
@@ -10,57 +9,24 @@
 
 // Wall-clock pacing: one Proceed per loop, never faster than realtime.
 inline uint32_t M88FramePeriodMs(int texec, int config_speed) {
-  return static_cast<uint32_t>(
-      std::max<int64_t>(1, (static_cast<int64_t>(texec) * 10) / config_speed));
+  return static_cast<uint32_t>(M88FramePeriodNs(texec, config_speed) / 1'000'000ULL);
 }
 
-namespace M88FramePaceDetail {
-
-// Hybrid wait: SDL_Delay for bulk, spin the last ~1ms.  Uses elapsed time from
-// frame_begin so SDL_GetTicks wrap-around stays safe (deadline_ms = begin+period
-// can break when ticks wrap).
-inline void SleepRemainingMs(uint32_t frame_begin_ms, uint32_t frame_ms,
-                             const volatile bool* stop = nullptr) {
-  for (;;) {
-    if (stop && !*stop) {
-      return;
-    }
-    const uint32_t elapsed = SDL_GetTicks() - frame_begin_ms;
-    if (elapsed >= frame_ms) {
-      return;
-    }
-    const uint32_t remain = frame_ms - elapsed;
-    if (remain > 2) {
-      SDL_Delay(remain - 2);
-    }
-  }
-}
-
-}  // namespace M88FramePaceDetail
-
-inline void M88PaceFrame(uint32_t frame_begin_ms, uint32_t frame_ms,
+inline void M88PaceFrame(uint64_t frame_begin_ns, uint64_t frame_period_ns,
                           const volatile bool* stop = nullptr) {
   LOADBEGIN("Pace");
-  M88FramePaceDetail::SleepRemainingMs(frame_begin_ms, frame_ms, stop);
+  M88MonotonicDetail::SleepRemainingNs(
+      frame_begin_ns, frame_period_ns,
+      [&]() { return stop && !*stop; });
   LOADEND("Pace");
 }
 
-inline void M88PaceFrame(uint32_t frame_begin_ms, uint32_t frame_ms,
+inline void M88PaceFrame(uint64_t frame_begin_ns, uint64_t frame_period_ns,
                           const std::atomic<bool>* stop) {
   LOADBEGIN("Pace");
-  for (;;) {
-    if (stop && !stop->load(std::memory_order_relaxed)) {
-      break;
-    }
-    const uint32_t elapsed = SDL_GetTicks() - frame_begin_ms;
-    if (elapsed >= frame_ms) {
-      break;
-    }
-    const uint32_t remain = frame_ms - elapsed;
-    if (remain > 2) {
-      SDL_Delay(remain - 2);
-    }
-  }
+  M88MonotonicDetail::SleepRemainingNs(
+      frame_begin_ns, frame_period_ns,
+      [&]() { return stop && !stop->load(std::memory_order_relaxed); });
   LOADEND("Pace");
 }
 
@@ -73,16 +39,26 @@ class M88DrawSkip {
     refresh_count_ = 0;
     skipped_frames_ = 0;
     proceed_on_time_ = true;
-    frame_ms_ = 1;
+    frame_period_ns_ = 1'000'000ULL;
   }
 
-  bool AfterProceed(uint32_t frame_begin_ms, int texec, int config_speed,
-                    int refresh_timing) {
-    frame_ms_ = M88FramePeriodMs(texec, config_speed);
+  // After CPU reset: draw_skip::Reset() leaves draw_next_=false so RefreshTiming>1
+  // can skip UpdateScreen for many frames (black/frozen screen while CPU runs).
+  void ForceUpdateAfterReset(int refresh_timing) {
+    Reset();
     const uint32_t timing = static_cast<uint32_t>(std::max(1, refresh_timing));
-    const uint32_t elapsed = SDL_GetTicks() - frame_begin_ms;
+    draw_next_ = true;
+    refresh_count_ = timing;
+    skipped_frames_ = 0;
+  }
 
-    if (elapsed < frame_ms_) {
+  bool AfterProceed(uint64_t frame_begin_ns, int texec, int config_speed,
+                    int refresh_timing) {
+    frame_period_ns_ = M88FramePeriodNs(texec, config_speed);
+    const uint32_t timing = static_cast<uint32_t>(std::max(1, refresh_timing));
+    const uint64_t elapsed_ns = M88MonotonicNowNs() - frame_begin_ns;
+
+    if (elapsed_ns < frame_period_ns_) {
       proceed_on_time_ = true;
       if (draw_next_ && ++refresh_count_ >= timing) {
         skipped_frames_ = 0;
@@ -101,12 +77,12 @@ class M88DrawSkip {
     return false;
   }
 
-  void EndFrame(uint32_t frame_begin_ms) {
+  void EndFrame(uint64_t frame_begin_ns) {
     if (!proceed_on_time_) {
       return;
     }
-    const uint32_t elapsed = SDL_GetTicks() - frame_begin_ms;
-    draw_next_ = elapsed <= frame_ms_;
+    const uint64_t elapsed_ns = M88MonotonicNowNs() - frame_begin_ns;
+    draw_next_ = elapsed_ns <= frame_period_ns_;
   }
 
  private:
@@ -114,5 +90,5 @@ class M88DrawSkip {
   uint32_t refresh_count_ = 0;
   uint32_t skipped_frames_ = 0;
   bool proceed_on_time_ = true;
-  uint32_t frame_ms_ = 1;
+  uint64_t frame_period_ns_ = 1'000'000ULL;
 };

@@ -97,6 +97,7 @@ if(M88_BUILD_LINUX_FRONTEND)
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_input.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk_sdl.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_sound.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
@@ -154,6 +155,7 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_input.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_video_log.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk_sdl.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/shared_framebuffer_draw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp

@@ -24,6 +24,9 @@ class SharedFramebufferDraw : public Draw {
   void SetPalette(uint index, uint nents, const Palette* pal) override;
   bool SetFlipMode(bool) override { return true; }
 
+  // Drop staged UI state so the next StageUiFrame copies the full emulator buffer.
+  void InvalidateUiStaging();
+
   // Emulator thread: snapshot live framebuffer into the ping-pong UI buffer.
   bool StageUiFrame();
 
@@ -36,6 +39,7 @@ class SharedFramebufferDraw : public Draw {
   const char* GetImePreedit() const { return ime_preedit_; }
   bool ImeRepaintPending() const;
   bool ConsumeImeRepaint();
+  uint64_t UiFrameSerial() const;
 
  private:
   void InitDefaultPalette();
@@ -58,7 +62,6 @@ class SharedFramebufferDraw : public Draw {
   Palette ui_palette_[256];
   Draw::Region ui_region_{};
   bool ui_palette_dirty_ = true;
-  bool ui_ready_ = false;
   bool ui_has_frame_ = false;
   int ui_read_index_ = 0;
   bool ui_ime_dirty_ = false;

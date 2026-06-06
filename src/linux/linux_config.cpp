@@ -1,5 +1,6 @@
 #include "headers.h"
 #include "linux_config.h"
+#include "path.h"
 
 #include "display_scale.h"
 #include "pc88_key_fixup.h"
@@ -343,16 +344,17 @@ int SoundRateToIniValue(uint rate) {
 void M88SetDefaultConfig(Config* cfg) {
   std::memset(cfg, 0, sizeof(Config));
 
-  cfg->flags = Config::savedirectory | Config::force480 | Config::enablewait |
-               Config::opnaona8 | Config::precisemixing;
+  // Match Windows 88config.cpp default Flags (subcpucontrol ON).
+  cfg->flags = Config::subcpucontrol | Config::savedirectory | Config::force480 |
+               Config::enablewait | Config::opnaona8 | Config::precisemixing;
   cfg->flags &= ~Config::specialpalette;
 
-  cfg->flag2 = Config::genscrnshotname | Config::fddnowait;
+  cfg->flag2 = Config::genscrnshotname;
   cfg->flag2 &= ~(Config::mask0 | Config::mask1 | Config::mask2);
 
   cfg->clock = 40;
   cfg->speed = 1000;
-  cfg->refreshtiming = 2;
+  cfg->refreshtiming = 1;
   cfg->basicmode = Config::N88V2;
 
   cfg->sound = 55467;
@@ -785,6 +787,16 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   return true;
 }
 
+static bool LoadIniFromPath(Config* cfg, const char* path) {
+  if (!cfg || !path || !*path || !ConfigFileExists(path)) {
+    return false;
+  }
+  M88LoadConfigFile(cfg, path);
+  M88FinalizeConfig(cfg);
+  MergeMissingIniDefaults(cfg, path);
+  return true;
+}
+
 void M88LoadStartupConfig(Config* cfg, const char* explicit_path, char* used_path,
                           size_t used_path_sz, bool* created_new_ini) {
   if (created_new_ini) {
@@ -803,12 +815,16 @@ void M88LoadStartupConfig(Config* cfg, const char* explicit_path, char* used_pat
     }
   };
 
+  auto try_load = [&](const char* path) -> bool {
+    if (!LoadIniFromPath(cfg, path)) {
+      return false;
+    }
+    note_path(path);
+    return true;
+  };
+
   if (explicit_path && *explicit_path) {
-    if (ConfigFileExists(explicit_path)) {
-      M88LoadConfigFile(cfg, explicit_path);
-      M88FinalizeConfig(cfg);
-      MergeMissingIniDefaults(cfg, explicit_path);
-      note_path(explicit_path);
+    if (try_load(explicit_path)) {
       return;
     }
     M88FinalizeConfig(cfg);
@@ -817,48 +833,53 @@ void M88LoadStartupConfig(Config* cfg, const char* explicit_path, char* used_pat
       if (created_new_ini) {
         *created_new_ini = true;
       }
+    } else {
+      std::fprintf(stderr, "M88: failed to create config: %s\n", explicit_path);
     }
     return;
   }
 
   static const char* kLocalNames[] = {"m88.ini", "M88.ini", "M88.INI"};
   for (const char* name : kLocalNames) {
-    if (ConfigFileExists(name)) {
-      M88LoadConfigFile(cfg, name);
-      M88FinalizeConfig(cfg);
-      MergeMissingIniDefaults(cfg, name);
-      note_path(name);
+    if (try_load(name)) {
       return;
     }
+  }
+
+  char rom_ini[MAX_PATH];
+  M88RomPath(rom_ini, sizeof(rom_ini), "m88.ini");
+  if (try_load(rom_ini)) {
+    return;
   }
 
   const char* home = std::getenv("HOME");
   if (home && *home) {
     char desktop_path[512];
     std::snprintf(desktop_path, sizeof(desktop_path), "%s/Desktop/M88.ini", home);
-    if (ConfigFileExists(desktop_path)) {
-      M88LoadConfigFile(cfg, desktop_path);
-      M88FinalizeConfig(cfg);
-      MergeMissingIniDefaults(cfg, desktop_path);
-      note_path(desktop_path);
+    if (try_load(desktop_path)) {
       return;
     }
     std::snprintf(desktop_path, sizeof(desktop_path), "%s/Desktop/m88.ini", home);
-    if (ConfigFileExists(desktop_path)) {
-      M88LoadConfigFile(cfg, desktop_path);
-      M88FinalizeConfig(cfg);
-      MergeMissingIniDefaults(cfg, desktop_path);
-      note_path(desktop_path);
+    if (try_load(desktop_path)) {
       return;
     }
   }
 
   M88FinalizeConfig(cfg);
+  if (M88SaveConfigFile(cfg, rom_ini)) {
+    note_path(rom_ini);
+    if (created_new_ini) {
+      *created_new_ini = true;
+    }
+    return;
+  }
   if (M88SaveConfigFile(cfg, "m88.ini")) {
     note_path("m88.ini");
     if (created_new_ini) {
       *created_new_ini = true;
     }
+  } else {
+    std::fprintf(stderr, "M88: failed to create default config (m88.ini)\n");
   }
 }
 
@@ -893,8 +914,6 @@ void M88FinalizeConfig(Config* cfg) {
   if (!(cfg->flags & (Config::opnaona8 | Config::opnona8))) {
     cfg->flags |= Config::opnaona8;
   }
-  // Linux default: FDD read without wait (Windows INI default has wait enabled).
-  cfg->flag2 |= Config::fddnowait;
   // SDL output is slightly quiet on ADPCM; boost unless VolumeADPCM came from ini.
   if (!g_ini_keys.volumeadpcm) {
     cfg->voladpcm = 3;
@@ -910,7 +929,6 @@ void M88ApplyConfig(PC88* pc88, Config* cfg) {
     cfg->flags &= ~Config::specialpalette;
     cfg->flag2 &= ~(Config::mask0 | Config::mask1 | Config::mask2);
   }
-  cfg->flags &= ~Config::subcpucontrol;
 
   pc88->ApplyConfig(cfg);
 }

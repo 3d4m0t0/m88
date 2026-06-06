@@ -2,6 +2,7 @@
 
 #include "../win32/WinKeyIF.h"
 #include "keyboard_vk.h"
+#include "keyboard_vk_sdl.h"
 #include "winkeys.h"
 
 namespace M88Input {

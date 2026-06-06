@@ -44,6 +44,7 @@ void PrintUsage(const char* prog) {
                "  --config FILE     Load settings from m88.ini-style file\n"
                "  --keyboard TYPE   Override auto-detected keyboard (101/us, 106/jp, 98/pc98)\n"
                "  --arrow-tenkey    Map arrow keys to ten-key (UseArrowForTenKey=1)\n"
+               "  F5                Reset machine (host key, not sent to guest)\n"
                "  -h, --help        Show this help\n"
                "\n"
                "If ./m88.ini exists it is loaded automatically (same format as Windows M88).\n"
@@ -331,12 +332,17 @@ int main(int argc, char** argv) {
 
   bool running = true;
   bool hw_reset_done = false;
+  bool reset_requested = false;
+  int beep_diag_frames = 0;
   const uint32 app_start = SDL_GetTicks();
   M88DrawSkip draw_skip;
 
   while (running) {
+    const int effclock =
+        std::max(1, config.clock * (config.speed / 10) / 100);
+
     if (!hw_reset_done) {
-      M88PostStartupCpuReset(pc88, &draw_skip);
+      M88PostStartupCpuReset(pc88, &draw_skip, config.refreshtiming);
       pc88.UpdateScreen(true);
       if (draw.NeedsPresent()) {
         draw.Present();
@@ -368,6 +374,8 @@ int main(int argc, char** argv) {
       } else if (ev.type == SDL_KEYDOWN) {
         if (ev.key.keysym.sym == SDLK_ESCAPE && !ev.key.repeat) {
           running = false;
+        } else if (ev.key.keysym.sym == SDLK_F5 && !ev.key.repeat) {
+          reset_requested = true;
         } else {
           M88Input::HandleKeyDown(keyif, ev.key);
         }
@@ -376,28 +384,54 @@ int main(int argc, char** argv) {
       }
     }
 
-    M88LoadmonFrameBegin();
-    const uint32 frame_begin_ms = SDL_GetTicks();
-    const int texec = pc88.GetFramePeriod();
-    // Sequencer: SetSpeed(cfg.speed/10); eff = clock*speed/100 with speed=cfg.speed/10.
-    const int effclock =
-        std::max(1, config.clock * (config.speed / 10) / 100);
-    pc88.TimeSync();
-    pc88.Proceed(texec, config.clock, effclock);
-    // Audio is filled from OPNIF::TimeEvent during Proceed (same as Windows Sequencer).
-    // Do not call sound.Update() here: Fill without opn.Count() causes wrong ADPCM pitch,
-    // metallic noise, and timing drift.
-    if (draw_skip.AfterProceed(frame_begin_ms, texec, config.speed,
-                               config.refreshtiming)) {
-      pc88.UpdateScreen();
+    if (reset_requested) {
+      reset_requested = false;
+      beep_diag_frames = 0;
+      HalfKanaIme::InjectEndSession(&keyif, &config);
+      keyif.FlushGuestKeys();
+      keyif.ApplyConfig(&config);
+      M88UserCpuReset(pc88, &draw_skip, config.refreshtiming);
+      pc88.UpdateScreen(true);
       if (draw.NeedsPresent()) {
         draw.Present();
       }
     }
-    LinuxIme::Pump(&keyif);
-    draw_skip.EndFrame(frame_begin_ms);
 
-    M88PaceFrame(frame_begin_ms, M88FramePeriodMs(texec, config.speed), &running);
+    if (const char* beep_dbg = std::getenv("M88_DEBUG_BEEP");
+        beep_dbg && beep_dbg[0] && beep_dbg[0] != '0') {
+      if (++beep_diag_frames == 180 && pc88.GetBEEP() &&
+          !pc88.GetBEEP()->HadOutSinceReset()) {
+        std::fprintf(stderr,
+                     "M88: no port40 OUT after ~3s (BIOS beep not reached) "
+                     "cpu1=%04x cpu2=%04x\n",
+                     static_cast<uint>(pc88.GetCPU1()->GetPC()),
+                     static_cast<uint>(pc88.GetCPU2()->GetPC()));
+      }
+    }
+
+    M88LoadmonFrameBegin();
+    const uint64_t frame_begin_ns = M88MonotonicNowNs();
+    const int texec = pc88.GetFramePeriod();
+    pc88.TimeSync();
+    pc88.Proceed(static_cast<uint>(texec), static_cast<uint>(config.clock),
+                 static_cast<uint>(effclock));
+    // Audio is filled from OPNIF::TimeEvent during Proceed (same as Windows Sequencer).
+    // Do not call sound.Update() here: Fill without opn.Count() causes wrong ADPCM pitch,
+    // metallic noise, and timing drift.
+    // draw_skip: skip Present when unchanged (disk I/O no longer needs every-frame GPU).
+    if (draw_skip.AfterProceed(frame_begin_ns, texec, config.speed,
+                               config.refreshtiming)) {
+      pc88.UpdateScreen(false);
+      if (draw.NeedsPresent()) {
+        draw.Present();
+      }
+      draw_skip.EndFrame(frame_begin_ns);
+    } else {
+      draw_skip.EndFrame(frame_begin_ns);
+    }
+    LinuxIme::Pump(&keyif);
+
+    M88PaceFrame(frame_begin_ns, M88FramePeriodNs(texec, config.speed), &running);
     M88LoadmonFrameEnd();
   }
 

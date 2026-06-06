@@ -26,9 +26,10 @@ void M88LogMachine(const PC8801::Config* config) {
   const int effclock = std::max(1, config->clock * (config->speed / 10) / 100);
   std::fprintf(stderr,
                "M88: BASICMode=%d (%s), CPUClock=%d (%.1f MHz), effclock=%d, "
-               "speed %d%%\n",
+               "speed %d%%, subcpucontrol=%s\n",
                config->basicmode, M88BasicModeName(config->basicmode), config->clock,
-               config->clock / 10.0, effclock, config->speed / 10);
+               config->clock / 10.0, effclock, config->speed / 10,
+               (config->flags & PC8801::Config::subcpucontrol) ? "on" : "off");
 }
 
 void M88LogSound(const PC8801::Config* config) {
