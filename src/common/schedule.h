@@ -25,7 +25,7 @@ public:
 	typedef SchedulerEvent Event;
 	enum
 	{
-		maxevents = 16,
+		maxevents = 96,
 	};
 
 public:

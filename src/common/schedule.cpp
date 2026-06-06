@@ -30,7 +30,7 @@ bool Scheduler::Init()
 }
 
 // ---------------------------------------------------------------------------
-//	時間イベントを追加
+//	????C?x???g????
 //	
 Scheduler::Event* IFCALL Scheduler::AddEvent
 (int count, IDevice* inst, IDevice::TimeFunc func, int arg, bool repeat)
@@ -39,12 +39,17 @@ Scheduler::Event* IFCALL Scheduler::AddEvent
 	assert(count > 0);
 	
 	int i;
-	// 空いてる Event を探す
+	// ???? Event ??T??
 	for (i=0; i<=evlast; i++)
 		if (!events[i].inst)
 			break;
-	if (i>=maxevents)
+	if (i>=maxevents) {
+#ifdef M88_LINUX_PORT
+		std::fprintf(stderr, "M88: scheduler event table full (maxevents=%d)\n",
+		             maxevents);
+#endif
 		return 0;
+	}
 	if (i>evlast)
 		evlast = i;
 	
@@ -53,7 +58,7 @@ Scheduler::Event* IFCALL Scheduler::AddEvent
 	ev.inst = inst, ev.func = func, ev.arg = arg;
 	ev.time = repeat ? count : 0;
 	
-	// 最短イベント発生時刻を更新する？
+	// ??Z?C?x???g???????????X?V????H
 	if ((etime - ev.count) > 0)
 	{
 		Shorten(etime - ev.count);
@@ -63,7 +68,7 @@ Scheduler::Event* IFCALL Scheduler::AddEvent
 }
 
 // ---------------------------------------------------------------------------
-//	時間イベントの属性変更
+//	????C?x???g???????X
 //	
 void IFCALL Scheduler::SetEvent
 (Event* ev, int count, IDevice* inst, IDevice::TimeFunc func, int arg, bool repeat)
@@ -75,7 +80,7 @@ void IFCALL Scheduler::SetEvent
 	ev->inst = inst, ev->func = func, ev->arg = arg;
 	ev->time = repeat ? count : 0;
 	
-	// 最短イベント発生時刻を更新する？
+	// ??Z?C?x???g???????????X?V????H
 	if ((etime - ev->count) > 0)
 	{
 		Shorten(etime - ev->count);
@@ -85,7 +90,7 @@ void IFCALL Scheduler::SetEvent
 
 
 // ---------------------------------------------------------------------------
-//	時間イベントを削除
+//	????C?x???g????
 //	
 bool IFCALL Scheduler::DelEvent(IDevice* inst)
 {
@@ -114,7 +119,7 @@ bool IFCALL Scheduler::DelEvent(Event* ev)
 }
 
 // ---------------------------------------------------------------------------
-//	時間を進める
+//	?????i???
 //
 int Scheduler::Proceed(int ticks)
 {
@@ -128,19 +133,24 @@ int Scheduler::Proceed(int ticks)
 			Event& ev = events[i];
 			if (ev.inst)
 			{
-				int l = ev.count - time;
+				const int l = ev.count - time;
 				if (l < ptime)
 					ptime = l;
 			}
 		}
-		
+
+		// Overdue events use ptime<=0; Execute(0) spins forever without this.
+		if (ptime <= 0)
+			ptime = 1;
+
 		etime = time + ptime;
-		
+
 		int xtime = Execute(ptime);
+		if (xtime <= 0)
+			xtime = 1;
 		etime = time += xtime;
 		t -= xtime;
 
-		// イベントを駆動
 		for (i=evlast; i>=0; i--)
 		{
 			Event& ev = events[i];
