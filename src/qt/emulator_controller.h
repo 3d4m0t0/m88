@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <atomic>
+#include <mutex>
 
 #include "pc88/config.h"
 
@@ -24,19 +25,22 @@ public:
                             QObject* parent = nullptr);
   ~EmulatorController() override;
 
-  void requestStop();
-
 public slots:
+  void requestStop();
   void run();
   void keyDown(quint32 vk, quint32 keydata);
   void keyUp(quint32 vk, quint32 keydata);
   void clearHostModifiers();
   void flushGuestKeys();
   void commitImeText(const QString& utf8);
+  void mountDisk0(const QString& path);
+  void ejectDisk0();
+  void resetMachine();
 
 signals:
   void frameReady();
   void failed(const QString& message);
+  void statusMessage(const QString& message, int timeoutMs = 3000);
   void started();
   void finished();
 
@@ -44,10 +48,16 @@ private:
   bool initialize();
   void shutdown();
   void emulateFrame();
+  void processDeferredActions();
+  void applyUserResetAndRefresh();
+  void refreshDisplayAfterDiskChange();
+  void processImeCommit(const QString& utf8);
+  void proceedFrame(int texec, uint clk, uint effclock);
 
   SharedFramebufferDraw* draw_ = nullptr;
   Options options_;
   std::atomic<bool> running_{true};
+  std::atomic<bool> reset_requested_{false};
 
   struct Impl;
   Impl* impl_ = nullptr;

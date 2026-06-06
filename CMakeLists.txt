@@ -132,16 +132,7 @@ if(M88_BUILD_QT_FRONTEND)
   if(NOT Qt6_FOUND)
     message(WARNING "Qt6 not found; m88-qt will not be built (install qt6-qtbase-gui-devel)")
   else()
-    if(NOT SDL2_FOUND)
-      find_package(PkgConfig QUIET)
-      if(PkgConfig_FOUND)
-        pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
-      endif()
-    endif()
-    if(NOT SDL2_FOUND)
-      message(WARNING "SDL2 not found; m88-qt needs SDL2 for audio")
-    else()
-      set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTOMOC ON)
 
       add_executable(m88-qt
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_qt.cpp
@@ -155,13 +146,12 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_input.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_video_log.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk_sdl.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/shared_framebuffer_draw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_key_fixup.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_sound.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/qt_miniaudio_sound.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_keyboard.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/win32/WinKeyIF.cpp
       )
@@ -169,10 +159,11 @@ if(M88_BUILD_QT_FRONTEND)
       target_include_directories(m88-qt PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniaudio
         ${M88_CORE_INCLUDE_DIRS}
       )
 
-      target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets PkgConfig::SDL2)
+      target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets pthread dl m)
 
       target_compile_definitions(m88-qt PRIVATE
         M88_LINUX_PORT=1
@@ -186,7 +177,6 @@ if(M88_BUILD_QT_FRONTEND)
         endif()
       endif()
 
-      message(STATUS "Configured m88-qt (Qt6 frontend)")
-    endif()
+      message(STATUS "Configured m88-qt (Qt6 frontend, miniaudio)")
   endif()
 endif()

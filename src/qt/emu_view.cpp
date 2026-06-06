@@ -66,9 +66,14 @@ void EmuView::refreshFrame() {
   uint h = 0;
   bool pal_changed = false;
   Draw::Region region {};
+  const uint64_t serial = draw_->UiFrameSerial();
+  const bool ime_only = draw_->ConsumeImeRepaint();
+  if (serial == last_frame_serial_ && !ime_only) {
+    return;
+  }
+
   const bool got_frame =
       draw_->AcquireUiFrame(&data, &bpl, &w, &h, &pal_changed, palette_, 256, &region);
-  const bool ime_only = draw_->ConsumeImeRepaint();
   if (!got_frame) {
     if (ime_only) {
       update(QRect(0, height() - 28, width(), 28));
@@ -79,25 +84,25 @@ void EmuView::refreshFrame() {
     return;
   }
 
-  indices_ = QImage(const_cast<uint8*>(data), static_cast<int>(w), static_cast<int>(h), bpl,
-                    QImage::Format_Indexed8);
+  last_frame_serial_ = serial;
+
+  const int iw = static_cast<int>(w);
+  const int ih = static_cast<int>(h);
+  if (indices_.width() != iw || indices_.height() != ih ||
+      indices_.format() != QImage::Format_Indexed8) {
+    indices_ = QImage(iw, ih, QImage::Format_Indexed8);
+  }
+  const int dst_bpl = indices_.bytesPerLine();
+  if (dst_bpl == bpl) {
+    std::memcpy(indices_.bits(), data, static_cast<size_t>(bpl) * ih);
+  } else {
+    for (int y = 0; y < ih; ++y) {
+      std::memcpy(indices_.scanLine(y), data + static_cast<size_t>(y) * bpl,
+                  static_cast<size_t>(iw));
+    }
+  }
   if (pal_changed || indices_.colorTable().size() != 256) {
     indices_.setColorTable(colorTableFromPalette());
-  }
-
-  const bool region_valid = region.top <= region.bottom;
-  if (region_valid && !pal_changed) {
-    const int left = std::max(0, region.left);
-    const int top = std::max(0, region.top);
-    const int right = std::min(static_cast<int>(w), region.right + 1);
-    const int bottom = std::min(static_cast<int>(h), region.bottom + 1);
-    if (left < right && top < bottom) {
-      const int x = (width() - static_cast<int>(w) * scale_) / 2;
-      const int y = (height() - static_cast<int>(h) * scale_) / 2;
-      update(QRect(x + left * scale_, y + top * scale_, (right - left) * scale_,
-                   (bottom - top) * scale_));
-      return;
-    }
   }
   update();
 }

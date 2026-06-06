@@ -3,6 +3,7 @@
 
 #include "../linux/display_scale.h"
 #include "../linux/linux_config.h"
+#include "../linux_compat/path.h"
 #include "../pc88/config.h"
 
 #include <QApplication>
@@ -52,6 +53,9 @@ int main(int argc, char** argv) {
   }
 
   QApplication app(argc, argv);
+
+  M88InitRomPath(options.rom_dir.isEmpty() ? nullptr
+                                            : options.rom_dir.toUtf8().constData());
 
   PC8801::Config config;
   char ini_path[512];

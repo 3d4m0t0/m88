@@ -50,4 +50,5 @@ private:
   QHash<int, QtInput::LetterShiftAdjust> letter_shift_adj_;
 
   bool ime_block_keys_ = false;
+  uint64_t last_frame_serial_ = 0;
 };

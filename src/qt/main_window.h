@@ -23,9 +23,12 @@ protected:
   void changeEvent(QEvent* event) override;
 
 private:
+  void setupMenuBar();
+  void applyViewScale(int scale);
   void stopEmulator();
   void focusEmuView();
 
+  int view_scale_ = 2;
   SharedFramebufferDraw* draw_ = nullptr;
   EmuView* view_ = nullptr;
   QPointer<EmulatorController> controller_;
