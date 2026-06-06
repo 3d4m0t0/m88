@@ -5,8 +5,7 @@
 
 #include <cstdio>
 
-// Full machine (CPU/HW) reset on the first main-loop iteration (after config /
-// disk / sound are ready). Call once when the emulation loop has started.
+// Full machine reset after ApplyConfig (WinUI::InitM88: ApplyConfig then Reset).
 inline void M88PostStartupCpuReset(PC88& pc88, M88DrawSkip* draw_skip = nullptr,
                                     int refresh_timing = 1) {
   pc88.Reset();

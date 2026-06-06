@@ -223,6 +223,16 @@ bool EmulatorController::initialize() {
 
   MountDiskOptional(*impl_->diskmgr, 0, options_.disk0);
 
+  M88PostStartupCpuReset(*impl_->pc88, &impl_->draw_skip, impl_->config.refreshtiming);
+  impl_->hw_reset_done = true;
+  impl_->pc88->UpdateScreen(true);
+  if (draw_) {
+    draw_->InvalidateUiStaging();
+    draw_->StageUiFrame();
+  }
+  impl_->post_reset_redraw_frames_ = 60;
+  emit frameReady();
+
   emit started();
   return true;
 }
@@ -374,19 +384,6 @@ void EmulatorController::emulateFrame() {
   processDeferredActions();
   if (!running_) {
     return;
-  }
-
-  if (!impl_->hw_reset_done) {
-    M88PostStartupCpuReset(*impl_->pc88, &impl_->draw_skip,
-                           impl_->config.refreshtiming);
-    impl_->pc88->UpdateScreen(true);
-    if (draw_) {
-      draw_->InvalidateUiStaging();
-      draw_->StageUiFrame();
-    }
-    impl_->post_reset_redraw_frames_ = 60;
-    emit frameReady();
-    impl_->hw_reset_done = true;
   }
 
   M88LoadmonFrameBegin();

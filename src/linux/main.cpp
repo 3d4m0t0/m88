@@ -330,25 +330,22 @@ int main(int argc, char** argv) {
   M88LogFdd(&config);
   MountDiskOptional(diskmgr, 0, disk0);
 
+  M88DrawSkip draw_skip;
+  // WinUI::InitM88: ApplyConfig() then core.Reset() before the message loop.
+  M88PostStartupCpuReset(pc88, &draw_skip, config.refreshtiming);
+  pc88.UpdateScreen(true);
+  if (draw.NeedsPresent()) {
+    draw.Present();
+  }
+
   bool running = true;
-  bool hw_reset_done = false;
   bool reset_requested = false;
   int beep_diag_frames = 0;
   const uint32 app_start = SDL_GetTicks();
-  M88DrawSkip draw_skip;
 
   while (running) {
     const int effclock =
         std::max(1, config.clock * (config.speed / 10) / 100);
-
-    if (!hw_reset_done) {
-      M88PostStartupCpuReset(pc88, &draw_skip, config.refreshtiming);
-      pc88.UpdateScreen(true);
-      if (draw.NeedsPresent()) {
-        draw.Present();
-      }
-      hw_reset_done = true;
-    }
 
     FireAutoKeys(keyif, auto_keys, SDL_GetTicks() - app_start);
     SDL_Event ev;
