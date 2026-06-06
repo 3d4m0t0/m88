@@ -196,6 +196,12 @@ void IOCALL OPNIF::Reset(uint, uint)
 
 	if (chip)
 		chip->Reset(opnamode);
+
+	// Match LoadStatus: avoid one huge opn.Count / Mix after warm reset.
+	if (scheduler) {
+		prevtime = scheduler->GetTime();
+		scheduler->DelEvent(this);
+	}
 }
 
 // ---------------------------------------------------------------------------

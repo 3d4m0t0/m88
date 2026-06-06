@@ -66,6 +66,7 @@ public:
 
 	bool Init(DiskManager* dm, Scheduler* scheduler, IOBus* bus, int intport, int statport = -1);
 	void ApplyConfig(const Config* cfg);
+	void SetDiskWait(bool wait) { diskwait = wait; }
 
 	bool IsBusy() { return phase != idlephase; }
 	

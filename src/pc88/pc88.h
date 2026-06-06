@@ -98,7 +98,7 @@ public:
 	uint IFCALL GetCPUSpeed() { return clock; }
 	uint GetEffectiveSpeed() { return eclock; }
 	void TimeSync();
-	
+
 	void UpdateScreen(bool refresh = false);
 	bool IsCDSupported();
 	bool IsN80Supported();
@@ -106,6 +106,7 @@ public:
 
 	PC8801::Memory* GetMem1() { return mem1; }
 	PC8801::SubSystem* GetMem2() { return subsys; }
+	PC8801::FDC* GetFDC() { return fdc; }
 	PC8801::OPNIF*	GetOPN1() { return opn1; }
 	PC8801::OPNIF*	GetOPN2() { return opn2; }
 	Z80*			GetCPU1() { return &cpu1; }

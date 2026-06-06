@@ -138,7 +138,10 @@ int PC88::Execute(int ticks)
 {
 	LOADBEGIN("Core.CPU");
 	int exc = ticks * clock;
-	if (!(cpumode & stopwhenidle) || subsys->IsBusy() || fdc->IsBusy())
+	int mode = cpumode;
+	const bool run_dual =
+	    !(mode & stopwhenidle) || subsys->IsBusy() || fdc->IsBusy();
+	if (run_dual)
 	{
 		if ((cpumode & 1) == ms11)
 			exc = Z80::ExecDual(&cpu1, &cpu2, exc);
@@ -235,6 +238,8 @@ void PC88::UpdateScreen(bool refresh)
 //
 void PC88::Reset()
 {
+	dexc = 0;
+
 	bool cd = false;
 	if (IsCDSupported())
 		cd = (base->GetBasicMode() & 0x40) != 0;
@@ -270,7 +275,11 @@ void PC88::Reset()
 	bus1.Out(0x33, isn80v2 ? 0x82 : 0x02);
 	bus1.Out(0x34, 0);
 	bus1.Out(0x35, 0);
-	bus1.Out(0x40, 0);
+	if (beep) {
+		beep->QuietForReset();
+	} else {
+		bus1.Out(0x40, 0);
+	}
 	bus1.Out(0x53, 0);
 	bus1.Out(0x5f, 0);
 	bus1.Out(0x70, 0);
@@ -472,7 +481,6 @@ bool PC88::ConnectDevices()
 	};
 	subsys = new PC8801::SubSystem(DEV_ID('S', 'U', 'B', ' '));
 	if (!subsys || !bus1.Connect(subsys, c_subsys)) return false;
-
 	static const IOBus::Connector c_sio[] =
 	{
 		{ pres,  IOBus::portout, SIO::reset },
@@ -556,7 +564,9 @@ bool PC88::ConnectDevices()
 	beep = new PC8801::Beep(DEV_ID('B', 'E', 'E', 'P'));
 	if (!beep || !beep->Init()) return false;
 	if (!bus1.Connect(beep, c_beep)) return false;
-
+#ifdef M88_LINUX_PORT
+	beep->BindHost(this);
+#endif
 
 	static const IOBus::Connector c_siom[] =
 	{
