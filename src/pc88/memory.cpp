@@ -98,6 +98,10 @@ bool Memory::Init(MemoryManager* _mm, IOBus* _bus, CRTC* _crtc, int* wt)
 //	
 void Memory::Reset(uint, uint newmode)
 {
+	// Warm reset (F5): restore power-on RAM pattern so disk-boot paths are deterministic.
+	SetRAMPattern(ram, 0x10000);
+	ram[0xff33] = 0;
+
 	sw31 = bus->In(0x31);
 	bool high = !(bus->In(0x6e) & 0x80);
 
