@@ -10,6 +10,8 @@ This document tracks the Linux-native porting path.
 - `m88_core` static library builds on Linux (GCC/Clang).
 - `m88` SDL2 frontend executable added (`src/linux/main.cpp`).
 - `m88-qt` Qt6 frontend (`src/qt/`, option `M88_BUILD_QT_FRONTEND=ON`).
+  - Audio: miniaudio (`qt_miniaudio_sound.cpp`, vendored header); no SDL2 dependency.
+  - Frame pacing: `std::chrono::steady_clock` (nanosecond resolution).
   - 640x400 indexed framebuffer via `LinuxDraw`
   - Basic frame loop (Proceed / UpdateScreen / present)
   - CLI: `--scale N` (overrides ini), `--rom-dir`, `-d0`
@@ -23,7 +25,7 @@ Dependencies (openSUSE example):
 
 ```bash
 sudo zypper install gcc-c++ cmake ninja pkg-config libSDL2-devel
-# Qt frontend (optional):
+# Qt frontend (optional; audio via vendored miniaudio, not SDL2):
 sudo zypper install qt6-qtbase-gui-devel
 ```
 
@@ -116,3 +118,64 @@ Run (requires `pc88.rom` in cwd or `--rom-dir`; `disk.rom` is optional):
 - Create minimal Linux main entry (`src/linux/main.cpp`) that can initialize
   core and run one frame loop stub.
 - Add `M88_BUILD_LINUX_FRONTEND` CMake option and SDL2 dependency wiring.
+
+## Alternating freeze / disk-boot workarounds (removed)
+
+Earlier Linux bring-up added many patches aimed at **交互停止** (main/sub CPU
+appearing to alternate stall) and **`-d0` disk boot** deadlocks. They did not
+prove effective as a fix and were removed to match the Windows Sequencer model:
+
+one `Proceed(frame_period)` per wall-clock frame, `subcpucontrol` from ini, Z80
+`Sync` slack of 1 on PIO ports FC–FF, no ROM/PIO assists.
+
+### Root-cause analysis (what was actually going wrong)
+
+1. **Frame loop vs Windows Sequencer**  
+   Windows runs one monolithic `Proceed(texec)` per frame. Early Linux code split
+   the frame into slices so CRTC/VRTC scheduler edges would fire between CPU
+   bursts (BIOS `port40` polling). That **breaks main/sub PIO handshakes** on
+   ports FC–FF (documented in the original `linux_frame_pace.h` comment): with
+   `-d0`, the main CPU and sub CPU must execute `IN`/`OUT` on Sync ports in
+   lockstep.
+
+2. **Misread “freeze” as CPU hang**  
+   gdb often showed the main thread in `Present` / EGL wait. That is **rendering
+   back-pressure**, not proof that the Z80 pair is deadlocked. Treating it as a
+   CPU bug led to more CPU-side hacks.
+
+3. **Workaround cascade made timing worse**  
+   Patches piled on without fixing the scheduler model:
+   - `M_Read2` / `S_Read2` fake `IN (FEh)` responses  
+   - `Base::In40` VRTC bit synthesis  
+   - CRTC longer `vretrace`  
+   - Z80 `Sync` always-allow or large slack  
+   - `subcpucontrol` forced off in `M88ApplyConfig`  
+   - `stopwhenidle` cleared when disk mounted  
+   - Sub ROM patch / CPU kick to `00C1`  
+   - Unconditional `Present` when disk mounted  
+
+   These let one CPU **run ahead** of the other, so disk boot either deadlocked
+   at `37dc`/`06e4` or fell through to ROM BASIC after retries.
+
+4. **What actually helped disk boot (when it worked)**  
+   Reverting to **monolithic Proceed with disk mounted** and removing fake PIO
+   assists—not the ROM patches or VRTC kicks.
+
+### Current Linux frame loop (baseline)
+
+- `pc88.Proceed(GetFramePeriod(), clock, effclock)` once per frame  
+- `M88DrawSkip` + `M88PaceFrame` for draw and realtime pacing (same idea as
+  Windows Sequencer refresh timing)  
+- No VRTC watchdog, no Proceed slices, no disk-specific CPU assists  
+
+### If alternating stop or disk boot regresses
+
+Debug in this order:
+
+1. Confirm one full-frame `Proceed` (no slices).  
+2. Compare `subcpucontrol` on/off with the same disk image.  
+3. Log main/sub PC when stall happens (`cpu1`, `cpu2`); typical disk-boot
+   waits: main `37dc` (`IN FE`), sub `06e4` (`7F16` handshake) or sub `00cc`
+   (disk BIOS).  
+4. Use gdb: if backtrace is in `Present`/EGL, investigate GPU/present rate before
+   changing CPU emulation.
