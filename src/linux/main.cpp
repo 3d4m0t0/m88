@@ -18,9 +18,9 @@
 #include "error.h"
 #include "pc88/config.h"
 #include "pc88/diskmgr.h"
-#include "pc88/beep.h"
 #include "pc88/opnif.h"
 #include "pc88/pc88.h"
+#include "pc88/beep.h"
 #include "pc88/tapemgr.h"
 
 #include <SDL.h>
@@ -340,7 +340,6 @@ int main(int argc, char** argv) {
 
   bool running = true;
   bool reset_requested = false;
-  int beep_diag_frames = 0;
   const uint32 app_start = SDL_GetTicks();
 
   while (running) {
@@ -383,7 +382,6 @@ int main(int argc, char** argv) {
 
     if (reset_requested) {
       reset_requested = false;
-      beep_diag_frames = 0;
       HalfKanaIme::InjectEndSession(&keyif, &config);
       keyif.FlushGuestKeys();
       keyif.ApplyConfig(&config);
@@ -391,18 +389,6 @@ int main(int argc, char** argv) {
       pc88.UpdateScreen(true);
       if (draw.NeedsPresent()) {
         draw.Present();
-      }
-    }
-
-    if (const char* beep_dbg = std::getenv("M88_DEBUG_BEEP");
-        beep_dbg && beep_dbg[0] && beep_dbg[0] != '0') {
-      if (++beep_diag_frames == 180 && pc88.GetBEEP() &&
-          !pc88.GetBEEP()->HadOutSinceReset()) {
-        std::fprintf(stderr,
-                     "M88: no port40 OUT after ~3s (BIOS beep not reached) "
-                     "cpu1=%04x cpu2=%04x\n",
-                     static_cast<uint>(pc88.GetCPU1()->GetPC()),
-                     static_cast<uint>(pc88.GetCPU2()->GetPC()));
       }
     }
 
