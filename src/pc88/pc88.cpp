@@ -275,11 +275,7 @@ void PC88::Reset()
 	bus1.Out(0x33, isn80v2 ? 0x82 : 0x02);
 	bus1.Out(0x34, 0);
 	bus1.Out(0x35, 0);
-	if (beep) {
-		beep->QuietForReset();
-	} else {
-		bus1.Out(0x40, 0);
-	}
+	bus1.Out(0x40, 0);
 	bus1.Out(0x53, 0);
 	bus1.Out(0x5f, 0);
 	bus1.Out(0x70, 0);
@@ -564,9 +560,6 @@ bool PC88::ConnectDevices()
 	beep = new PC8801::Beep(DEV_ID('B', 'E', 'E', 'P'));
 	if (!beep || !beep->Init()) return false;
 	if (!bus1.Connect(beep, c_beep)) return false;
-#ifdef M88_LINUX_PORT
-	beep->BindHost(this);
-#endif
 
 	static const IOBus::Connector c_siom[] =
 	{
