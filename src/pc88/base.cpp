@@ -55,6 +55,8 @@ void Base::SetSwitch(const Config* cfg)
 	dipsw = cfg->dipsw;
 	flags = cfg->flags;
 	fv15k = cfg->IsFV15k();
+	// Port 6e bit7: 8MHz when set (same as Reset; needed for runtime clock changes).
+	sw6e = (sw6e & 0x7f) | ((!clock || Abs(clock) >= 60) ? 0 : 0x80);
 }
 
 // ---------------------------------------------------------------------------

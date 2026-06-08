@@ -1,4 +1,5 @@
 #include "headers.h"
+#include "file.h"
 #include "path.h"
 
 #include <cstdio>
@@ -33,4 +34,18 @@ void M88RomPath(char* out, size_t outlen, const char* filename) {
     std::snprintf(out, outlen, "%s/%s", m88dir, filename);
   }
   out[outlen - 1] = '\0';
+}
+
+bool M88RomExists(const char* filename) {
+  if (!filename || !*filename) {
+    return false;
+  }
+  char path[MAX_PATH];
+  M88RomPath(path, sizeof(path), filename);
+  FileIO file;
+  return file.Open(path, FileIO::readonly);
+}
+
+bool M88HasRequiredRoms() {
+  return M88RomExists("pc88.rom") || M88RomExists("n88.rom");
 }

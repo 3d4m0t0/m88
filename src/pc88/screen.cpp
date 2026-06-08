@@ -95,6 +95,15 @@ bool Screen::Init(IOBus* _bus, Memory* mem, CRTC* _crtc)
 	bgpal.green = 0;
 	bgpal.blue = 0;
 	gmask = 0;
+	port30 = 0;
+	port31 = 0;
+	port32 = 0;
+	port33 = 0;
+	port53 = 0;
+	prevpmode = -1;
+	prevgmode = -1;
+	color = false;
+	displaygraphics = false;
 	for (int c=0; c<8; c++)
 	{
 		pal[c].green = c & 4 ? 255 : 0;
@@ -108,12 +117,25 @@ void IOCALL Screen::Reset(uint,uint)
 {
 	n80mode = (newmode & 2) != 0;
 	palettechanged = true;
+	modechanged = true;
 	displaygraphics = false;
 	textpriority = false;
 	grphpriority = false;
-	port31 = ~port31;
-	Out31(0x31, ~port31);
-	modechanged = true;
+	color = false;
+	line400 = !n80mode;
+	line320 = false;
+	port30 = 0;
+	port31 = 0;
+	port32 = 0;
+	port33 = 0;
+	port53 = 0;
+	prevpmode = -1;
+	prevgmode = -1;
+	// PC88::Reset Out(0x31/0x32/0x53) follows pres; avoid port31 toggle that
+	// depends on the previous session (N mode -> N88 switch left stale latches).
+	if (crtc) {
+		crtc->SetTextMode(color);
+	}
 }
 
 static inline Draw::Palette Avg(Draw::Palette a, Draw::Palette b)
@@ -1483,7 +1505,13 @@ void Screen::ApplyConfig(const Config* config)
 	if (fullline != flp)
 		modechanged = true;
 	palettechanged = true;
+	if (newmode != config->basicmode) {
+		prevpmode = -1;
+		prevgmode = -1;
+		modechanged = true;
+	}
 	newmode = config->basicmode;
+	n80mode = (newmode & 2) != 0;
 	gmask = (config->flag2 / Config::mask0) & 7;
 }
 

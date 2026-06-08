@@ -4,6 +4,7 @@
 #include "../linux/shared_framebuffer_draw.h"
 
 #include "../linux/display_scale.h"
+#include "../pc88/config.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -25,6 +26,21 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+
+namespace {
+
+QAction* AddPlaceholder(QMenu* menu, const QString& text, bool checkable = false,
+                        bool checked = false) {
+  QAction* action = menu->addAction(text);
+  action->setEnabled(false);
+  if (checkable) {
+    action->setCheckable(true);
+    action->setChecked(checked);
+  }
+  return action;
+}
+
+}  // namespace
 
 void MainWindow::stopEmulator() {
   if (emu_stopped_) {
@@ -96,55 +112,146 @@ void MainWindow::applyViewScale(int scale) {
          kM88EmuHeight * view_scale_ + chrome_h);
 }
 
-void MainWindow::setupMenuBar() {
-  auto* file_menu = menuBar()->addMenu(tr("ファイル(&F)"));
-  auto* open_disk = file_menu->addAction(tr("ディスクを開く(&O)..."));
-  open_disk->setShortcut(QKeySequence::Open);
-  auto* eject_disk = file_menu->addAction(tr("ディスクを取り出す(&J)"));
-  file_menu->addSeparator();
-  auto* exit_action = file_menu->addAction(tr("終了(&X)"));
-  exit_action->setShortcut(QKeySequence::Quit);
-
-  auto* view_menu = menuBar()->addMenu(tr("表示(&V)"));
-  auto* scale_group = new QActionGroup(this);
-  scale_group->setExclusive(true);
-  for (int scale : {1, 2, 3, 4}) {
-    auto* action = view_menu->addAction(tr("倍率 %1×").arg(scale));
-    action->setCheckable(true);
-    action->setData(scale);
-    scale_group->addAction(action);
-    if (scale == view_scale_) {
-      action->setChecked(true);
+void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
+                                    bool n80v2_supported, bool cd_supported) {
+  if (clock_4mhz_) {
+    clock_4mhz_->setChecked(clock == 40);
+  }
+  if (clock_8mhz_) {
+    clock_8mhz_->setChecked(clock == 80);
+  }
+  for (QAction* action : mode_actions_) {
+    const int mode = action->data().toInt();
+    action->setChecked(mode == basicmode);
+    bool enabled = true;
+    if (mode == static_cast<int>(PC8801::Config::N802)) {
+      enabled = n80_supported;
+    } else if (mode == static_cast<int>(PC8801::Config::N80V2)) {
+      enabled = n80v2_supported;
+    } else if (mode == static_cast<int>(PC8801::Config::N88V2CD)) {
+      enabled = cd_supported;
     }
+    action->setEnabled(enabled);
+  }
+}
+
+void MainWindow::setupMenuBar() {
+  // Match Win32 IDR_MENU_M88 (M88.rc); unimplemented items stay visible but disabled.
+  control_menu_ = menuBar()->addMenu(tr("&Control"));
+
+  clock_group_ = new QActionGroup(this);
+  clock_group_->setExclusive(true);
+  clock_4mhz_ = control_menu_->addAction(tr("4MHz"));
+  clock_4mhz_->setCheckable(true);
+  clock_group_->addAction(clock_4mhz_);
+  clock_8mhz_ = control_menu_->addAction(tr("8MHz"));
+  clock_8mhz_->setCheckable(true);
+  clock_group_->addAction(clock_8mhz_);
+
+  control_menu_->addSeparator();
+
+  mode_group_ = new QActionGroup(this);
+  mode_group_->setExclusive(true);
+  static const struct {
+    const char* label;
+    PC8801::Config::BASICMode mode;
+  } kModes[] = {
+      {"N88-V&1(S) mode", PC8801::Config::N88V1},
+      {"N88-V1(&H) mode", PC8801::Config::N88V1H},
+      {"N88-V&2 mode", PC8801::Config::N88V2},
+      {"N88-V2(C&D) mode", PC8801::Config::N88V2CD},
+      {"&N mode", PC8801::Config::N80},
+      {"N8&0 mode", PC8801::Config::N802},
+      {"N&80SR mode", PC8801::Config::N80V2},
+  };
+  mode_actions_.clear();
+  for (const auto& item : kModes) {
+    QAction* action = control_menu_->addAction(tr(item.label));
+    action->setCheckable(true);
+    action->setData(static_cast<int>(item.mode));
+    mode_group_->addAction(action);
+    mode_actions_.push_back(action);
+    const int mode = static_cast<int>(item.mode);
+    connect(action, &QAction::triggered, this, [this, mode]() {
+      if (controller_) {
+        QMetaObject::invokeMethod(controller_, "setBasicMode", Qt::QueuedConnection,
+                                  Q_ARG(int, mode));
+      }
+    });
   }
 
-  auto* machine_menu = menuBar()->addMenu(tr("マシン(&M)"));
-  auto* reset_action = machine_menu->addAction(tr("リセット(&R)"));
-  reset_action->setShortcut(Qt::Key_F5);
+  connect(clock_4mhz_, &QAction::triggered, this, [this]() {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setClock", Qt::QueuedConnection,
+                                Q_ARG(int, 40));
+    }
+  });
+  connect(clock_8mhz_, &QAction::triggered, this, [this]() {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setClock", Qt::QueuedConnection,
+                                Q_ARG(int, 80));
+    }
+  });
 
-  auto* help_menu = menuBar()->addMenu(tr("ヘルプ(&H)"));
-  auto* about_action = help_menu->addAction(tr("M88 について(&A)"));
+  control_menu_->addSeparator();
+  AddPlaceholder(control_menu_, tr("&Burst mode"), true, false);
 
-  connect(open_disk, &QAction::triggered, this, [this]() {
+  auto* reset_action = control_menu_->addAction(tr("&Reset"));
+  reset_action->setShortcut(Qt::Key_F12);
+
+  control_menu_->addSeparator();
+  auto* exit_action = control_menu_->addAction(tr("E&xit"));
+  exit_action->setShortcut(QKeySequence::Quit);
+
+  auto* disk_menu = menuBar()->addMenu(tr("&Disk"));
+  auto* drive1_action = disk_menu->addAction(tr("Drive &1..."));
+  drive1_action->setShortcut(QKeySequence::Open);
+  AddPlaceholder(disk_menu, tr("Drive &2..."));
+  disk_menu->addSeparator();
+  AddPlaceholder(disk_menu, tr("&Change disk image..."));
+
+  auto* tape_menu = menuBar()->addMenu(tr("Ta&pe"));
+  AddPlaceholder(tape_menu, tr("&Open..."));
+
+  auto* tools_menu = menuBar()->addMenu(tr("&Tools"));
+  AddPlaceholder(tools_menu, tr("&Configure..."));
+  tools_menu->addSeparator();
+  AddPlaceholder(tools_menu, tr("S&how Status"), true, false);
+  QAction* capture_action = AddPlaceholder(tools_menu, tr("&Capture..."));
+  capture_action->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F2));
+  AddPlaceholder(tools_menu, tr("&Record Sound"), true, false);
+  tools_menu->addSeparator();
+  QAction* save_snapshot = AddPlaceholder(tools_menu, tr("&Save Snapshot"));
+  save_snapshot->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F10));
+  QAction* load_snapshot = AddPlaceholder(tools_menu, tr("&Load Snapshot"));
+  load_snapshot->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F1));
+
+  auto* debug_menu = menuBar()->addMenu(tr("D&ebug"));
+  AddPlaceholder(debug_menu, tr("Show &FDC Status"), true, false);
+  AddPlaceholder(debug_menu, tr("Show &Register"), true, false);
+  AddPlaceholder(debug_menu, tr("Show &OPN Register"), true, false);
+  AddPlaceholder(debug_menu, tr("Show &Memory"), true, false);
+  AddPlaceholder(debug_menu, tr("Show &Code"), true, false);
+  AddPlaceholder(debug_menu, tr("Show &Basic code"), true, false);
+  AddPlaceholder(debug_menu, tr("Show Out&port"), true, false);
+  AddPlaceholder(debug_menu, tr("&Load Monitor"), true, false);
+  debug_menu->addSeparator();
+  AddPlaceholder(debug_menu, tr("Dump CPU&1 Log"), true, false);
+  AddPlaceholder(debug_menu, tr("Dump CPU&2 Log"), true, false);
+
+  auto* help_menu = menuBar()->addMenu(tr("&Help"));
+  auto* about_action = help_menu->addAction(tr("&About"));
+
+  connect(drive1_action, &QAction::triggered, this, [this]() {
     const QString path = QFileDialog::getOpenFileName(
-        this, tr("ディスクイメージを開く"), QString(),
-        tr("ディスクイメージ (*.d88 *.hdm *.xdf *.dup *.2hd);;すべてのファイル (*)"));
+        this, tr("Open Disk Image"), QString(),
+        tr("Disk images (*.d88 *.hdm *.xdf *.dup *.2hd);;All files (*)"));
     if (!path.isEmpty() && controller_) {
       QMetaObject::invokeMethod(controller_, "mountDisk0", Qt::QueuedConnection,
                                 Q_ARG(QString, path));
     }
   });
-  connect(eject_disk, &QAction::triggered, this, [this]() {
-    if (controller_) {
-      QMetaObject::invokeMethod(controller_, "ejectDisk0", Qt::QueuedConnection);
-    }
-  });
   connect(exit_action, &QAction::triggered, this, &QWidget::close);
-  connect(scale_group, &QActionGroup::triggered, this, [this](QAction* action) {
-    if (action) {
-      applyViewScale(action->data().toInt());
-    }
-  });
   connect(reset_action, &QAction::triggered, this, [this]() {
     if (controller_) {
       QMetaObject::invokeMethod(controller_, "resetMachine", Qt::QueuedConnection);
@@ -152,11 +259,11 @@ void MainWindow::setupMenuBar() {
   });
   connect(about_action, &QAction::triggered, this, [this]() {
     QMessageBox::about(
-        this, tr("M88 について"),
+        this, tr("About M88"),
         tr("<h3>M88</h3>"
-           "<p>PC-8801 エミュレータ（Linux Qt フロントエンド）</p>"
-           "<p>キー入力は画面をクリックしてフォーカスを合わせてください。"
-           "ディスクは「ファイル」メニューからマウントできます。</p>"));
+           "<p>PC-8801 emulator (Linux Qt frontend)</p>"
+           "<p>Click the display to focus keyboard input. "
+           "Mount a disk from Disk → Drive 1.</p>"));
   });
 }
 
@@ -165,12 +272,6 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     : QMainWindow(parent) {
   setWindowTitle(QStringLiteral("M88"));
   view_scale_ = std::max(1, scale);
-
-  // Avoid KDE/Qt theme window color flashing before the first emulator frame.
-  setAutoFillBackground(true);
-  QPalette win_pal = palette();
-  win_pal.setColor(QPalette::Window, Qt::black);
-  setPalette(win_pal);
 
   // Draw::Init is called from PC88::Init on the emulator thread (do not Init here).
   draw_ = new SharedFramebufferDraw();
@@ -193,7 +294,17 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   setupMenuBar();
   applyViewScale(view_scale_);
 
-  statusBar()->setFocusPolicy(Qt::NoFocus);
+  // Menu bar / status bar follow the desktop theme; only the emu view stays black.
+  const QPalette app_pal = QApplication::palette();
+  if (QMenuBar* mb = menuBar()) {
+    mb->setAutoFillBackground(false);
+    mb->setPalette(app_pal);
+  }
+  if (QStatusBar* sb = statusBar()) {
+    sb->setAutoFillBackground(false);
+    sb->setPalette(app_pal);
+    sb->setFocusPolicy(Qt::NoFocus);
+  }
 
   controller_ = new EmulatorController(draw_, options);
   controller_->moveToThread(&emu_thread_);
@@ -226,6 +337,16 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   connect(controller_, &EmulatorController::started, this, [this]() {
     statusBar()->showMessage(tr("Emulator running"), 3000);
   });
+  connect(controller_, &EmulatorController::machineConfigChanged, this,
+          &MainWindow::updateControlMenu);
+  if (control_menu_) {
+    connect(control_menu_, &QMenu::aboutToShow, this, [this]() {
+      if (controller_) {
+        QMetaObject::invokeMethod(controller_, "emitMachineConfig",
+                                  Qt::QueuedConnection);
+      }
+    });
+  }
   connect(controller_, &EmulatorController::statusMessage, this,
           [this](const QString& msg, int timeoutMs) {
             statusBar()->showMessage(msg, timeoutMs);

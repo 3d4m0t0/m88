@@ -2,7 +2,7 @@
 //	M88 - PC-8801 series emulator
 //	Copyright (C) cisc 1999.
 // ----------------------------------------------------------------------------
-//	Main ë§ÉÅÉÇÉä(ä‹ALU)ÇÃé¿ëï
+//	Main ????????(??ALU)?????
 // ----------------------------------------------------------------------------
 //	$Id: memory.h,v 1.26 2003/09/28 14:58:54 cisc Exp $
 
@@ -68,6 +68,7 @@ public:
 	bool IsN80Ready() { return !!n80rom; }
 	bool IsN80V2Ready() { return !!n80v2rom; }
 	bool IsCDBIOSReady() { return !!cdbios; }
+	uint GetPort31() const { return port31; }
 
 	bool Init(MemoryManager* mgr, IOBus* bus, CRTC* crtc, int* waittbl);
 	void IOCALL Reset(uint, uint);
@@ -103,7 +104,7 @@ private:
 
 	enum
 	{
-		ssrev = 2,			// Status ÇçXêVéûÇ…ëùÇ‚Ç∑Ç±Ç∆
+		ssrev = 2,			// Status ???X?V???????????
 	};
 	struct Status
 	{
@@ -120,7 +121,7 @@ private:
 
 	bool InitMemory();
 	bool LoadROM();
-	bool LoadROMImage(uint8* at, const char* file, int length);
+	bool LoadROMImage(uint8* at, const char* file, int length, bool required = false);
 	bool LoadOptROM(const char* file, uint8*& rom, int length);
 	void SetWait();
 	void SetWaits(uint, uint, uint);
@@ -150,11 +151,11 @@ private:
 	uint8* ram;
 	uint8* eram;
 	uint8* tvram;
-	uint8* dicrom;		// é´èëROM
+	uint8* dicrom;		// ????ROM
 	uint8* cdbios;		// CD-ROM BIOS ROM
 	uint8* n80rom;		// N80-BASIC ROM
 	uint8* n80v2rom;	// N80SR
-	uint8* erom[8+1];	// ägí£ ROM
+	uint8* erom[8+1];	// ?g?? ROM
 
 	uint port31, port32, port33, port34, port35, port40, port5x;
 	uint port99, txtwnd, port71, porte2, porte3, portf0;

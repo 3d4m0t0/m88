@@ -119,6 +119,23 @@ public:
 
 	int  GetFramePeriod();
 
+#ifdef M88_LINUX_PORT
+	struct M88CpuProbe {
+		uint pc1;
+		uint pc2;
+		uint in30;
+		uint in31;
+		uint in40;
+		uint mem_port31;
+		uint crtc_status;
+		uint crtc_mode;
+		uint scrn_port53;
+		int exec1;
+		int exec2;
+	};
+	void ProbeCpuState(M88CpuProbe* out) const;
+#endif
+
 public:
 	enum SpecialPort
 	{

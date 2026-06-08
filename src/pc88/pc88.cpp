@@ -9,6 +9,9 @@
 //	Memory Bus Banksize <= 0x400
 
 #include "headers.h"
+#ifdef M88_LINUX_PORT
+#include "rom_log.h"
+#endif
 #include "pc88/pc88.h"
 #include "pc88/config.h"
 #include "pc88/memory.h"
@@ -104,9 +107,16 @@ bool PC88::Init(Draw* _draw, DiskManager* disk, TapeManager* tape)
 	if (!bus1.Init(portend, &devlist) || !bus2.Init(portend2, &devlist))
 		return false;
 
-	if (!ConnectDevices() || !ConnectDevices2()) 
+	if (!ConnectDevices() || !ConnectDevices2()) {
+#ifdef M88_LINUX_PORT
+		M88RomLogEnd(false);
+#endif
 		return false;
+	}
 
+#ifdef M88_LINUX_PORT
+	M88RomLogEnd(true);
+#endif
 	Reset();
 	region.Reset();
 	clock = 1;
@@ -711,3 +721,23 @@ bool PC88::IsN80V2Supported()
 {
 	return mem1->IsN80V2Ready();
 }
+
+#ifdef M88_LINUX_PORT
+void PC88::ProbeCpuState(M88CpuProbe* out) const
+{
+	if (!out) {
+		return;
+	}
+	out->pc1 = cpu1.GetPC();
+	out->pc2 = cpu2.GetPC();
+	out->in30 = bus1.In(0x30);
+	out->in31 = bus1.In(0x31);
+	out->in40 = bus1.In(0x40);
+	out->mem_port31 = mem1 ? mem1->GetPort31() : 0;
+	out->crtc_status = crtc ? crtc->GetDiagStatus() : 0;
+	out->crtc_mode = crtc ? crtc->GetDiagMode() : 0;
+	out->scrn_port53 = scrn ? scrn->GetPort53() : 0;
+	out->exec1 = cpu1.GetCount();
+	out->exec2 = cpu2.GetCount();
+}
+#endif

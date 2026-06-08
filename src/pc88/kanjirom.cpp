@@ -11,6 +11,7 @@
 #include "pc88/kanjirom.h"
 #ifdef M88_LINUX_PORT
 #include "path.h"
+#include "rom_log.h"
 #endif
 
 using namespace PC8801;
@@ -52,7 +53,15 @@ bool KanjiROM::Init(const char* filename)
 	{
 		file.Seek(0, FileIO::begin);
 		file.Read(image, 0x20000);
+#ifdef M88_LINUX_PORT
+		M88RomLogLoaded(path, "kanji ROM 128K");
+#endif
 	}
+#ifdef M88_LINUX_PORT
+	else {
+		M88RomLogSkipped(path, "not found, using 0xFF fill");
+	}
+#endif
 	return true;
 }
 

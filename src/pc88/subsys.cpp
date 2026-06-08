@@ -14,6 +14,7 @@
 
 #ifdef M88_LINUX_PORT
 #include "path.h"
+#include "rom_log.h"
 #endif
 
 //#define LOGNAME "subsys"
@@ -101,15 +102,20 @@ bool SubSystem::LoadROM()
 	{
 		fio.Seek(0x14000, FileIO::begin);
 		fio.Read(rom, 0x2000);
+		M88RomLogLoaded(path, "sub CPU disk ROM 8K from offset 0x14000");
 		return true;
 	}
+	M88RomLogSkipped(path, "not found (sub CPU disk ROM)");
+	M88RomLogFallback("disk.rom or built-in halt stub");
 	M88RomPath(path, sizeof(path), "disk.rom");
 	if (fio.Open(path, FileIO::readonly))
 	{
 		fio.Seek(0, FileIO::begin);
 		fio.Read(rom, 0x2000);
+		M88RomLogLoaded(path, "sub CPU disk ROM 8K (SubSystem::LoadROM)");
 		return true;
 	}
+	M88RomLogSkipped(path, "not found");
 #else
 	if (fio.Open("PC88.ROM", FileIO::readonly))
 	{
@@ -126,6 +132,9 @@ bool SubSystem::LoadROM()
 #endif
 	rom[0] = 0xf3;
 	rom[1] = 0x76;
+#ifdef M88_LINUX_PORT
+	M88RomLogLoaded("(built-in)", "sub CPU disk ROM stub (DI/HALT)");
+#endif
 	return false;
 }
 

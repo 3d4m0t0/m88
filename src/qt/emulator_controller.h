@@ -36,9 +36,14 @@ public slots:
   void mountDisk0(const QString& path);
   void ejectDisk0();
   void resetMachine();
+  void setClock(int clock);
+  void setBasicMode(int mode);
+  void emitMachineConfig();
 
 signals:
   void frameReady();
+  void machineConfigChanged(int clock, int basicmode, bool n80_supported,
+                            bool n80v2_supported, bool cd_supported);
   void failed(const QString& message);
   void statusMessage(const QString& message, int timeoutMs = 3000);
   void started();
@@ -49,6 +54,7 @@ private:
   void shutdown();
   void emulateFrame();
   void processDeferredActions();
+  void applyConfigAndReset(const char* diag_tag = "reset", int prev_basicmode = -1);
   void applyUserResetAndRefresh();
   void refreshDisplayAfterDiskChange();
   void processImeCommit(const QString& utf8);

@@ -60,6 +60,11 @@ public:
 	void SetTextMode(bool color);
 	void SetTextSize(bool wide);
 
+#ifdef M88_LINUX_PORT
+	uint GetDiagStatus() const { return status; }
+	uint GetDiagMode() const { return mode; }
+#endif
+
 private:
 	enum Mode
 	{

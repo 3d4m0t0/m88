@@ -19,6 +19,7 @@
 #include "status.h"
 #ifdef M88_LINUX_PORT
 #include "path.h"
+#include "rom_log.h"
 #endif
 
 //#define LOGNAME "crtc"
@@ -407,26 +408,42 @@ bool CRTC::LoadFontFile()
 	};
 #endif
 
-	if (open_rom("FONT80SR.ROM"))
+	if (open_rom("font80sr.rom"))
 	{
 		delete[] cg80rom;
 		cg80rom = new uint8[0x2000];
 		file.Seek(0, FileIO::begin);
 		file.Read(cg80rom, 0x2000);
+#ifdef M88_LINUX_PORT
+		M88RomLogLoaded(path, "optional N80SR CG font, 8K");
+#endif
 	}
 	
-	if (open_rom("FONT.ROM"))
+	if (open_rom("font.rom"))
 	{
 		file.Seek(0, FileIO::begin);
 		file.Read(fontrom, 0x800);
+#ifdef M88_LINUX_PORT
+		M88RomLogLoaded(path, "text font 2K (CRTC::LoadFontFile)");
+#endif
 		return true;
 	}
-	if (open_rom("KANJI1.ROM"))
+#ifdef M88_LINUX_PORT
+	M88RomLogSkipped(path, "font.rom not found");
+	M88RomLogFallback("text font from kanji1.rom offset 0x1000");
+#endif
+	if (open_rom("kanji1.rom"))
 	{
 		file.Seek(0x1000, FileIO::begin);
 		file.Read(fontrom, 0x800);
+#ifdef M88_LINUX_PORT
+		M88RomLogLoaded(path, "text font 2K from offset 0x1000");
+#endif
 		return true;
 	}
+#ifdef M88_LINUX_PORT
+	M88RomLogSkipped(path, "kanji1.rom not found (text font required)");
+#endif
 	return false;
 }
 

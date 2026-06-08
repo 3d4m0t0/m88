@@ -5,6 +5,7 @@
 #include "../linux/half_kana_ime.h"
 #include "../linux/linux_ime.h"
 #include "../linux/linux_emulation.h"
+#include "../linux/linux_reset_diag.h"
 #include "../linux/linux_frame_pace.h"
 #include "../linux/qt_miniaudio_sound.h"
 #include "../linux/linux_startup_log.h"
@@ -36,10 +37,7 @@
 namespace {
 
 bool RomFileExists(const char* filename) {
-  char path[MAX_PATH];
-  M88RomPath(path, sizeof(path), filename);
-  struct stat st {};
-  return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+  return M88RomExists(filename);
 }
 
 bool DiskFileExists(const char* path) {
@@ -149,8 +147,8 @@ bool EmulatorController::initialize() {
   M88InitRomPath(options_.rom_dir.isEmpty() ? nullptr
                                              : options_.rom_dir.toUtf8().constData());
 
-  if (!RomFileExists("pc88.rom")) {
-    emit failed(QStringLiteral("ROM not found (pc88.rom)"));
+  if (!M88HasRequiredRoms()) {
+    emit failed(QStringLiteral("ROM not found (pc88.rom or n88.rom)"));
     return false;
   }
 
@@ -224,6 +222,13 @@ bool EmulatorController::initialize() {
   MountDiskOptional(*impl_->diskmgr, 0, options_.disk0);
 
   M88PostStartupCpuReset(*impl_->pc88, &impl_->draw_skip, impl_->config.refreshtiming);
+  {
+    const int effclock =
+        std::max(1, impl_->config.clock * (impl_->config.speed / 10) / 100);
+    M88DiagAfterReset(*impl_->pc88, "startup",
+                      static_cast<int>(impl_->config.basicmode), -1,
+                      impl_->config.clock, effclock);
+  }
   impl_->hw_reset_done = true;
   impl_->pc88->UpdateScreen(true);
   if (draw_) {
@@ -233,6 +238,7 @@ bool EmulatorController::initialize() {
   impl_->post_reset_redraw_frames_ = 60;
   emit frameReady();
 
+  emitMachineConfig();
   emit started();
   return true;
 }
@@ -483,21 +489,48 @@ void EmulatorController::refreshDisplayAfterDiskChange() {
   }
 }
 
-void EmulatorController::applyUserResetAndRefresh() {
+void EmulatorController::emitMachineConfig() {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  emit machineConfigChanged(
+      impl_->config.clock, static_cast<int>(impl_->config.basicmode),
+      impl_->pc88->IsN80Supported(), impl_->pc88->IsN80V2Supported(),
+      impl_->pc88->IsCDSupported());
+}
+
+void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basicmode) {
   if (!impl_ || !impl_->pc88 || !impl_->keyif) {
     return;
   }
+  // WinUI::Reset: keyif/core ApplyConfig then PC88::Reset.
   HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
   impl_->keyif->FlushGuestKeys();
   impl_->keyif->ApplyConfig(&impl_->config);
+  M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+  if (impl_->sound) {
+    impl_->sound->ApplyConfig(&impl_->config);
+  }
   M88UserCpuReset(*impl_->pc88, &impl_->draw_skip, impl_->config.refreshtiming);
   impl_->pc88->UpdateScreen(true);
   if (draw_) {
     draw_->InvalidateUiStaging();
     draw_->StageUiFrame();
   }
+  {
+    const int effclock =
+        std::max(1, impl_->config.clock * (impl_->config.speed / 10) / 100);
+    M88DiagAfterReset(*impl_->pc88, diag_tag,
+                      static_cast<int>(impl_->config.basicmode), prev_basicmode,
+                      impl_->config.clock, effclock);
+  }
   impl_->post_reset_redraw_frames_ = 60;
   emit frameReady();
+}
+
+void EmulatorController::applyUserResetAndRefresh() {
+  applyConfigAndReset("user_reset");
+  emit statusMessage(tr("リセットしました"), 2000);
 }
 
 void EmulatorController::mountDisk0(const QString& path) {
@@ -523,5 +556,47 @@ void EmulatorController::resetMachine() {
     return;
   }
   reset_requested_.store(true, std::memory_order_release);
+}
+
+void EmulatorController::setClock(int clock) {
+  if (!impl_ || !impl_->pc88 || !impl_->keyif || (clock != 40 && clock != 80)) {
+    return;
+  }
+  if (impl_->config.clock == clock) {
+    return;
+  }
+  impl_->config.clock = clock;
+  // WinUI::IDM_4MHZ/8MHZ call Reset(), but real hardware only changes clock.
+  impl_->keyif->ApplyConfig(&impl_->config);
+  M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+  if (impl_->sound) {
+    impl_->sound->ApplyConfig(&impl_->config);
+  }
+  emitMachineConfig();
+  emit statusMessage(tr("Clock: %1 MHz").arg(clock / 10), 2000);
+}
+
+void EmulatorController::setBasicMode(int mode) {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  const auto bm = static_cast<PC8801::Config::BASICMode>(mode);
+  if (bm == PC8801::Config::N802 && !impl_->pc88->IsN80Supported()) {
+    return;
+  }
+  if (bm == PC8801::Config::N80V2 && !impl_->pc88->IsN80V2Supported()) {
+    return;
+  }
+  if (bm == PC8801::Config::N88V2CD && !impl_->pc88->IsCDSupported()) {
+    return;
+  }
+  if (impl_->config.basicmode == bm) {
+    return;
+  }
+  const int prev_basicmode = static_cast<int>(impl_->config.basicmode);
+  impl_->config.basicmode = bm;
+  applyConfigAndReset("mode_switch", prev_basicmode);
+  emitMachineConfig();
+  emit statusMessage(tr("Basic mode changed"), 2000);
 }
 

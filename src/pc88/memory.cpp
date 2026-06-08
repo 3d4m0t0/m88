@@ -10,8 +10,12 @@
 
 #include "headers.h"
 
+#include <cstdio>
+#include <cstring>
+
 #ifdef M88_LINUX_PORT
 #include "path.h"
+#include "rom_log.h"
 #endif
 #include "file.h"
 #include "device.h"
@@ -137,6 +141,21 @@ void Memory::Reset(uint, uint newmode)
 	mm->AllocW(mid, 0x8000, 0x8000, ram + 0x8000);
 	if (!n80mode)
 	{
+		// pres runs before PC88::Out(31/32/33/70); drop N-session banking and
+		// text-window state so Update* does not remap ROM/RAM with stale ports.
+		port31 = 0;
+		port32 = 0;
+		port33 = 0;
+		port35 = 0;
+		port71 = 0xff;
+		txtwnd = 0;
+		porte2 = 0;
+		porte3 = 0;
+		port99 = 0;
+		if ((sw31 & 0x40) && tvram) {
+			memset(tvram, 0, 0x1000);
+		}
+		memset(dirty, 1, 0x400);
 		Update00R();
 		Update00W();
 		Update60R();
@@ -233,9 +252,12 @@ void IOCALL Memory::Out31(uint, uint data)
 {
 	if (!n80mode)
 	{
-		if ((data ^ port31) & 6)
+		// PC88::Reset Out(0x31,0) must drop ROM bank (bit2) left from N mode; the
+		// change mask (&6) alone skips the write when only bit2 was set before.
+		uint new31 = data ? (data & 6) : 0;
+		if (new31 != port31)
 		{
-			port31 = data & 6;
+			port31 = new31;
 			Update00R();
 			Update60R();
 			Update80();
@@ -1056,6 +1078,9 @@ bool Memory::InitMemory()
 	
 	if (!LoadROM())
 	{
+#ifdef M88_LINUX_PORT
+		M88RomLogEnd(false);
+#endif
 		Error::SetError(Error::NoROM);
 		return false;
 	}
@@ -1068,7 +1093,13 @@ bool Memory::InitMemory()
 bool Memory::LoadOptROM(const char* name, uint8*& rom, int size)
 {
 	FileIO file;
+#ifdef M88_LINUX_PORT
+	char path[MAX_PATH];
+	M88RomPath(path, sizeof(path), name);
+	if (file.Open(path, FileIO::readonly))
+#else
 	if (file.Open(name, FileIO::readonly))
+#endif
 	{
 		file.Seek(0, FileIO::begin);
 		delete[] rom;
@@ -1077,12 +1108,21 @@ bool Memory::LoadOptROM(const char* name, uint8*& rom, int size)
 		{
 			int r = file.Read(rom, size);
 			memset(rom + r, 0xff, size - r);
-			if (r > 0)
+			if (r > 0) {
+#ifdef M88_LINUX_PORT
+				char detail[64];
+				std::snprintf(detail, sizeof(detail), "optional, %d bytes", r);
+				M88RomLogLoaded(path, detail);
+#endif
 				return true;
+			}
 		}
 	}
 	delete[] rom;
 	rom = 0;
+#ifdef M88_LINUX_PORT
+	M88RomLogSkipped(path, "optional, not found");
+#endif
 	return false;
 }
 
@@ -1092,6 +1132,10 @@ bool Memory::LoadOptROM(const char* name, uint8*& rom, int size)
 bool Memory::LoadROM()
 {
 	FileIO file;
+
+#ifdef M88_LINUX_PORT
+	M88RomLogBegin();
+#endif
 
 	LoadOptROM("jisyo.rom", dicrom, 512*1024);
 	LoadOptROM("cdbios.rom", cdbios, 0x10000);
@@ -1122,10 +1166,19 @@ bool Memory::LoadROM()
 		file.Read(rom + n88e, 0x8000);
 		file.Seek(0x2000, FileIO::current);
 		file.Read(rom + n80, 0x6000);
+#ifdef M88_LINUX_PORT
+		M88RomLogLoaded(rompath,
+		                "bundle: n88 32K + n80 32K + n88e 32K (Memory::LoadROM)");
+#endif
 		return true;
 	}
+
+#ifdef M88_LINUX_PORT
+	M88RomLogSkipped(rompath, "not found");
+	M88RomLogFallback("split ROM files (n88.rom required, others optional)");
+#endif
 	
-	if (!LoadROMImage(rom+n88, "n88.rom", 0x8000))
+	if (!LoadROMImage(rom+n88, "n88.rom", 0x8000, true))
 		return false;
 	LoadROMImage(rom+n80,         "n80.rom",   0x8000);
 	LoadROMImage(rom+n88e,        "n88_0.rom", 0x2000);
@@ -1136,7 +1189,7 @@ bool Memory::LoadROM()
 	return true;
 }
 
-bool Memory::LoadROMImage(uint8* dest, const char* filename, int size)
+bool Memory::LoadROMImage(uint8* dest, const char* filename, int size, bool required)
 {
 	FileIO file;
 #ifdef M88_LINUX_PORT
@@ -1144,10 +1197,23 @@ bool Memory::LoadROMImage(uint8* dest, const char* filename, int size)
 	M88RomPath(path, sizeof(path), filename);
 	if (!file.Open(path, FileIO::readonly))
 #else
+	const char* path = filename;
 	if (!file.Open(filename, FileIO::readonly))
 #endif
+	{
+#ifdef M88_LINUX_PORT
+		M88RomLogSkipped(path, required ? "required, not found"
+		                                : "optional split ROM, not found");
+#endif
 		return false;
+	}
 	file.Read(dest, size);
+#ifdef M88_LINUX_PORT
+	char detail[64];
+	std::snprintf(detail, sizeof(detail), "%s, %d bytes",
+	              required ? "required" : "optional split ROM", size);
+	M88RomLogLoaded(path, detail);
+#endif
 	return true;
 }
 
@@ -1228,7 +1294,12 @@ void Memory::ApplyConfig(const Config* cfg)
 	enablewait = (cfg->flags & Config::enablewait) != 0;
 	neweram = cfg->erambanks;
 	if (enablewait)
+	{
+		sw31 = bus->In(0x31);
+		const bool high = !(bus->In(0x6e) & 0x80);
+		waitmode = ((sw31 & 0x40) || (n80mode && n80srmode) ? 12 : 0) + (high ? 24 : 0);
 		SetWait();
+	}
 	else
 		SetWaits(0, 0x10000, 0);
 }

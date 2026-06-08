@@ -38,7 +38,7 @@ void PrintUsage(const char* prog) {
   std::fprintf(stderr,
                "Usage: %s [options]\n"
                "  --scale N         Window integer scale (overrides m88.ini ScreenScale)\n"
-               "  --rom-dir PATH    Directory containing pc88.rom (and optional ROMs)\n"
+               "  --rom-dir PATH    Directory containing pc88.rom or split ROMs (n88.rom, ...)\n"
                "                    (default: current working directory)\n"
                "  -d0 FILE          Mount disk image on drive 0 (optional)\n"
                "  --config FILE     Load settings from m88.ini-style file\n"
@@ -55,10 +55,7 @@ void PrintUsage(const char* prog) {
 }
 
 bool RomFileExists(const char* filename) {
-  char path[MAX_PATH];
-  M88RomPath(path, sizeof(path), filename);
-  struct stat st {};
-  return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+  return M88RomExists(filename);
 }
 
 bool DiskFileExists(const char* path) {
@@ -214,9 +211,9 @@ int main(int argc, char** argv) {
 
   M88InitRomPath(rom_dir);
 
-  if (!RomFileExists("pc88.rom")) {
+  if (!M88HasRequiredRoms()) {
     std::fprintf(stderr,
-                 "ROM not found in %s (expected pc88.rom).\n",
+                 "ROM not found in %s (expected pc88.rom or n88.rom).\n",
                  m88dir);
     return 1;
   }

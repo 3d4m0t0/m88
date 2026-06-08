@@ -8,3 +8,9 @@ extern char m88dir[MAX_PATH];
 void M88InitRomPath(const char* rom_dir);
 
 void M88RomPath(char* out, size_t outlen, const char* filename);
+
+// True if the ROM file exists (case-insensitive leaf name under rom_dir).
+bool M88RomExists(const char* filename);
+
+// pc88.rom bundle or split n88.rom (minimum required for Memory::LoadROM).
+bool M88HasRequiredRoms();
