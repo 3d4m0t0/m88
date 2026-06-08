@@ -20,7 +20,8 @@ using namespace PC8801;
 //	生成・破棄
 //
 Sound::Sound()
-: Device(0), sslist(0), mixingbuf(0), enabled(false), cfgflg(0)
+: Device(0), sslist(0), mixingbuf(0), enabled(false), cfgflg(0), lpf_enabled_(false),
+  lpf_fc_(8000), lpf_order_(4)
 {
 }
 
@@ -87,6 +88,7 @@ bool Sound::SetRate(uint rate, int bufsize)
 		tdiff = 0;
 		enabled = true;
 	}
+	RebuildLpf();
 	return true;
 }
 
@@ -159,6 +161,31 @@ void Sound::ApplyConfig(const Config* config)
 	} else {
 		mixthreshold = (config->flags & Config::precisemixing) ? 100 : 2000;
 	}
+	lpf_enabled_ = (config->flag2 & Config::lpfenable) != 0;
+	lpf_fc_ = config->lpffc ? config->lpffc : 8000;
+	lpf_order_ = config->lpforder ? config->lpforder : 4;
+	RebuildLpf();
+}
+
+void Sound::RebuildLpf()
+{
+	if (lpf_enabled_ && samplingrate > 0) {
+		lpf_.MakeFilter(lpf_fc_, samplingrate, lpf_order_);
+	}
+}
+
+int Sound::GetOutput(Sample* dest, int nsamples)
+{
+	const int got = soundbuf.Get(dest, nsamples);
+	if (!lpf_enabled_ || got <= 0) {
+		return got;
+	}
+	for (int i = 0; i < got; ++i) {
+		Sample* frame = dest + i * 2;
+		frame[0] = static_cast<Sample>(Limit(lpf_.Filter(0, frame[0]), 32767, -32768));
+		frame[1] = static_cast<Sample>(Limit(lpf_.Filter(1, frame[1]), 32767, -32768));
+	}
+	return got;
 }
 
 // ---------------------------------------------------------------------------

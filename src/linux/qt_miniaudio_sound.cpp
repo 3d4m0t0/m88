@@ -168,10 +168,7 @@ void QtMiniaudioSound::FillAudio(int16_t* stream, int frame_count) {
   const int samples = frame_count;
   int written = 0;
 
-  SoundSource* src = GetSoundSource();
-  if (src) {
-    written = src->Get(out, samples);
-  }
+  written = GetOutput(out, samples);
 
   if (written < samples) {
     std::memset(out + written * 2, 0,

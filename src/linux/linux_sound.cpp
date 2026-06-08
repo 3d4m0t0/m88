@@ -145,10 +145,7 @@ void LinuxSound::FillAudio(Uint8* stream, int len_bytes) {
   const int samples = len_bytes / static_cast<int>(sizeof(Sample) * 2);
   int written = 0;
 
-  SoundSource* src = GetSoundSource();
-  if (src) {
-    written = src->Get(out, samples);
-  }
+  written = GetOutput(out, samples);
 
   if (written < samples) {
     std::memset(out + written * 2, 0,

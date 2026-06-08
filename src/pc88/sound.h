@@ -44,6 +44,7 @@ public:
 	void FillWhenEmpty(bool f) { soundbuf.FillWhenEmpty(f); }
 
 	SoundSource* GetSoundSource() { return &soundbuf; }
+	int GetOutput(Sample* dest, int nsamples);
 
 	int		Get(Sample* dest, int size);
 	int		Get(SampleL* dest, int size);
@@ -79,6 +80,13 @@ private:
 	uint mixthreshold;
 
 	bool enabled;
+
+	void RebuildLpf();
+
+	IIR_LPF lpf_;
+	bool lpf_enabled_;
+	uint lpf_fc_;
+	uint lpf_order_;
 	
 	SSNode* sslist;
 	CriticalSection cs_ss;
