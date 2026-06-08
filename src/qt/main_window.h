@@ -29,15 +29,32 @@ protected:
 private slots:
   void updateControlMenu(int clock, int basicmode, bool n80_supported,
                          bool n80v2_supported, bool cd_supported);
+  void updateDiskMenu(QString drive0Path, int drive0NumDisks, int drive0Current,
+                      QStringList drive0Titles, QString drive1Path,
+                      int drive1NumDisks, int drive1Current,
+                      QStringList drive1Titles);
 
 private:
   void setupMenuBar();
   void applyViewScale(int scale);
   void stopEmulator();
   void focusEmuView();
+  void openDiskImageDialog(int drive);
+  void openBothDrivesDialog();
+  void rebuildDriveMenu(int drive, const QString& path, int numDisks,
+                        int currentDisk, const QStringList& titles);
+  static QString DriveBaseName(const QString& path);
+
+  static constexpr const char* kDiskImageFilter =
+      "8801 disk image (*.d88);;All files (*)";
 
   int view_scale_ = 2;
   QMenu* control_menu_ = nullptr;
+  QMenu* disk_menu_ = nullptr;
+  QAction* drive_actions_[2] = {nullptr, nullptr};
+  QMenu* drive_submenus_[2] = {nullptr, nullptr};
+  QActionGroup* disk_select_groups_[2] = {nullptr, nullptr};
+  QAction* change_both_action_ = nullptr;
   QActionGroup* clock_group_ = nullptr;
   QAction* clock_4mhz_ = nullptr;
   QAction* clock_8mhz_ = nullptr;

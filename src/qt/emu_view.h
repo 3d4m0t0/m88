@@ -22,6 +22,7 @@ public slots:
   void refreshFrame();
 
 protected:
+  bool event(QEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void keyReleaseEvent(QKeyEvent* event) override;

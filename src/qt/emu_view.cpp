@@ -9,6 +9,7 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QInputMethodEvent>
+#include <QEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -16,6 +17,16 @@
 
 #include <algorithm>
 #include <cstring>
+
+namespace {
+
+bool HostShortcutModifiers(const QKeyEvent& event) {
+  return event.modifiers().testFlag(Qt::ControlModifier) ||
+         event.modifiers().testFlag(Qt::AltModifier) ||
+         event.modifiers().testFlag(Qt::MetaModifier);
+}
+
+}  // namespace
 
 bool EmuView::imeComposing() const {
   return ime_block_keys_ || !ime_preedit_.isEmpty();
@@ -137,7 +148,22 @@ void EmuView::mousePressEvent(QMouseEvent* event) {
   QWidget::mousePressEvent(event);
 }
 
+bool EmuView::event(QEvent* event) {
+  if (event->type() == QEvent::ShortcutOverride) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    if (HostShortcutModifiers(*key)) {
+      key->ignore();
+      return false;
+    }
+  }
+  return QWidget::event(event);
+}
+
 void EmuView::keyPressEvent(QKeyEvent* event) {
+  if (HostShortcutModifiers(*event)) {
+    event->ignore();
+    return;
+  }
   if (!ime_preedit_.isEmpty()) {
     event->ignore();
     return;
@@ -165,6 +191,10 @@ void EmuView::keyPressEvent(QKeyEvent* event) {
 }
 
 void EmuView::keyReleaseEvent(QKeyEvent* event) {
+  if (HostShortcutModifiers(*event)) {
+    event->ignore();
+    return;
+  }
   if (imeComposing()) {
     if (!event->isAutoRepeat()) {
       const uint vk = QtInput::VkFromKeyEvent(*event);

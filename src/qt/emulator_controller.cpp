@@ -48,30 +48,18 @@ bool DiskFileExists(const char* path) {
   return stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-bool UnmountDrives(DiskManager& diskmgr, int drive) {
-  bool had_disk = false;
-  if (drive != 1) {
-    had_disk = diskmgr.GetNumDisks(0) > 0 || diskmgr.GetNumDisks(1) > 0;
-    diskmgr.Unmount(0);
-    diskmgr.Unmount(1);
-  } else {
-    had_disk = diskmgr.GetNumDisks(drive) > 0;
-    diskmgr.Unmount(drive);
-  }
-  return had_disk;
+QString ResolveDiskPath(const QString& path) {
+  const QString resolved = QFileInfo(path).canonicalFilePath();
+  return resolved.isEmpty() ? path : resolved;
 }
 
-bool MountDiskPath(DiskManager& diskmgr, int drive, const QString& path,
-                   QString* error_out = nullptr, bool unmount_first = true) {
-  if (unmount_first) {
-    UnmountDrives(diskmgr, drive);
-  }
+bool MountDriveImage(DiskManager& diskmgr, int drive, const QString& path,
+                     int index, QString* error_out = nullptr) {
   if (path.isEmpty()) {
     return true;
   }
-  const QString resolved = QFileInfo(path).canonicalFilePath();
-  const QByteArray utf8 =
-      resolved.isEmpty() ? path.toUtf8() : resolved.toUtf8();
+  const QString resolved = ResolveDiskPath(path);
+  const QByteArray utf8 = resolved.toUtf8();
   if (!DiskFileExists(utf8.constData())) {
     if (error_out) {
       *error_out = QObject::tr("ディスクが見つかりません: %1").arg(path);
@@ -79,7 +67,8 @@ bool MountDiskPath(DiskManager& diskmgr, int drive, const QString& path,
     std::fprintf(stderr, "Disk not found: %s\n", utf8.constData());
     return false;
   }
-  if (!diskmgr.Mount(static_cast<uint>(drive), utf8.constData(), false, 0, false)) {
+  if (!diskmgr.Mount(static_cast<uint>(drive), utf8.constData(), false, index,
+                     false)) {
     diskmgr.Unmount(drive);
     if (error_out) {
       *error_out = QObject::tr("ディスクのマウントに失敗しました: %1").arg(path);
@@ -87,19 +76,21 @@ bool MountDiskPath(DiskManager& diskmgr, int drive, const QString& path,
     std::fprintf(stderr, "Failed to mount disk: %s\n", utf8.constData());
     return false;
   }
-  std::fprintf(stderr, "M88: mounted drive %d: %s\n", drive, utf8.constData());
-  if (diskmgr.GetNumDisks(0) > 1) {
-    if (!diskmgr.Mount(1, utf8.constData(), false, 1, false)) {
-      diskmgr.Unmount(1);
-      std::fprintf(stderr, "Warning: failed to mount second disk in image: %s\n",
-                   utf8.constData());
-    }
-  }
+  std::fprintf(stderr, "M88: mounted drive %d disk %d: %s\n", drive, index,
+               utf8.constData());
   return true;
 }
 
-void MountDiskOptional(DiskManager& diskmgr, int drive, const QString& path) {
-  MountDiskPath(diskmgr, drive, path, nullptr);
+void OpenDiskImageStartup(DiskManager& diskmgr, const QString& path) {
+  if (path.isEmpty()) {
+    return;
+  }
+  MountDriveImage(diskmgr, 0, path, 0);
+  if (diskmgr.GetNumDisks(0) > 1) {
+    MountDriveImage(diskmgr, 1, path, 1);
+  } else {
+    diskmgr.Unmount(1);
+  }
 }
 
 }  // namespace
@@ -115,11 +106,14 @@ struct EmulatorController::Impl {
   bool hw_reset_done = false;
   int post_reset_redraw_frames_ = 0;
 
-  std::mutex pending_mutex;
-  QString pending_mount_path;
+  QString drive_path[2];
   QString pending_ime_utf8;
-  bool mount_requested = false;
-  bool eject_requested = false;
+  EmulatorController::DiskOpType pending_disk_op = EmulatorController::DiskOpType::None;
+  int pending_disk_drive = 0;
+  int pending_disk_index = 0;
+  QString pending_disk_path;
+
+  std::mutex pending_mutex;
   bool ime_commit_requested = false;
 
 };
@@ -219,7 +213,13 @@ bool EmulatorController::initialize() {
   }
   M88LogFdd(&impl_->config);
 
-  MountDiskOptional(*impl_->diskmgr, 0, options_.disk0);
+  if (!options_.disk0.isEmpty()) {
+    OpenDiskImageStartup(*impl_->diskmgr, options_.disk0);
+    impl_->drive_path[0] = options_.disk0;
+    if (impl_->diskmgr->GetNumDisks(0) > 1) {
+      impl_->drive_path[1] = options_.disk0;
+    }
+  }
 
   M88PostStartupCpuReset(*impl_->pc88, &impl_->draw_skip, impl_->config.refreshtiming);
   {
@@ -239,6 +239,7 @@ bool EmulatorController::initialize() {
   emit frameReady();
 
   emitMachineConfig();
+  emitDiskConfiguration();
   emit started();
   return true;
 }
@@ -298,67 +299,163 @@ void EmulatorController::processImeCommit(const QString& utf8) {
   HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
 }
 
+void EmulatorController::emitDiskConfigurationLocked() {
+  if (!impl_ || !impl_->diskmgr) {
+    return;
+  }
+  QStringList titles0;
+  QStringList titles1;
+  const int nd0 = static_cast<int>(impl_->diskmgr->GetNumDisks(0));
+  const int nd1 = static_cast<int>(impl_->diskmgr->GetNumDisks(1));
+  for (int i = 0; i < nd0 && i < 60; ++i) {
+    const char* title = impl_->diskmgr->GetImageTitle(0, static_cast<uint>(i));
+    titles0.push_back(title && *title ? QString::fromUtf8(title)
+                                      : QStringLiteral("(untitled)"));
+  }
+  for (int i = 0; i < nd1 && i < 60; ++i) {
+    const char* title = impl_->diskmgr->GetImageTitle(1, static_cast<uint>(i));
+    titles1.push_back(title && *title ? QString::fromUtf8(title)
+                                      : QStringLiteral("(untitled)"));
+  }
+  emit diskConfigurationChanged(
+      impl_->drive_path[0], nd0, impl_->diskmgr->GetCurrentDisk(0), titles0,
+      impl_->drive_path[1], nd1, impl_->diskmgr->GetCurrentDisk(1), titles1);
+}
+
+void EmulatorController::emitDiskConfiguration() {
+  if (!impl_) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(impl_->pending_mutex);
+  emitDiskConfigurationLocked();
+}
+
+void EmulatorController::syncDrive1AfterDrive0Change() {
+  if (!impl_ || !impl_->diskmgr) {
+    return;
+  }
+  if (impl_->diskmgr->GetNumDisks(0) > 1) {
+    if (impl_->drive_path[1].isEmpty()) {
+      if (MountDriveImage(*impl_->diskmgr, 1, impl_->drive_path[0], 1)) {
+        impl_->drive_path[1] = impl_->drive_path[0];
+      }
+    }
+  } else {
+    impl_->diskmgr->Unmount(1);
+    impl_->drive_path[1].clear();
+  }
+}
+
+void EmulatorController::applyChangeDiskImage(int drive, const QString& path) {
+  if (!impl_ || !impl_->diskmgr || drive < 0 || drive > 1) {
+    return;
+  }
+
+  impl_->diskmgr->Unmount(drive);
+
+  if (path.isEmpty()) {
+    impl_->drive_path[drive].clear();
+    if (drive == 0) {
+      options_.disk0.clear();
+      syncDrive1AfterDrive0Change();
+    }
+    refreshDisplayAfterDiskChange();
+    emit statusMessage(tr("ドライブ %1 を取り出しました").arg(drive + 1), 2000);
+    emitDiskConfigurationLocked();
+    return;
+  }
+
+  QString error;
+  if (!MountDriveImage(*impl_->diskmgr, drive, path, 0, &error)) {
+    impl_->drive_path[drive].clear();
+    emit statusMessage(error.isEmpty() ? tr("ディスクのマウントに失敗しました")
+                                       : error,
+                       5000);
+    emitDiskConfigurationLocked();
+    return;
+  }
+
+  impl_->drive_path[drive] = path;
+  if (drive == 0) {
+    options_.disk0 = path;
+    syncDrive1AfterDrive0Change();
+  }
+  refreshDisplayAfterDiskChange();
+  emit statusMessage(tr("ドライブ %1 にマウント: %2")
+                         .arg(drive + 1)
+                         .arg(QFileInfo(path).fileName()));
+  emitDiskConfigurationLocked();
+}
+
+void EmulatorController::applyBothDrives(const QString& path) {
+  if (!impl_ || !impl_->diskmgr) {
+    return;
+  }
+  impl_->diskmgr->Unmount(1);
+  impl_->drive_path[1].clear();
+  applyChangeDiskImage(0, path);
+}
+
+void EmulatorController::applySelectDisk(int drive, int index) {
+  if (!impl_ || !impl_->diskmgr || drive < 0 || drive > 1) {
+    return;
+  }
+  if (impl_->drive_path[drive].isEmpty()) {
+    return;
+  }
+
+  int mount_index = index;
+  if (index == 63) {
+    mount_index = -1;
+  }
+
+  const QString resolved = ResolveDiskPath(impl_->drive_path[drive]);
+  const QByteArray utf8 = resolved.toUtf8();
+  if (!impl_->diskmgr->Mount(static_cast<uint>(drive), utf8.constData(), false,
+                              mount_index, false)) {
+    emit statusMessage(tr("ディスクの選択に失敗しました"), 5000);
+    emitDiskConfigurationLocked();
+    return;
+  }
+
+  refreshDisplayAfterDiskChange();
+  emitDiskConfigurationLocked();
+}
+
 void EmulatorController::processDeferredActions() {
   if (!impl_) {
     return;
   }
 
-  bool do_eject = false;
+  DiskOpType disk_op = DiskOpType::None;
+  int disk_drive = 0;
+  int disk_index = 0;
+  QString disk_path;
   {
     std::lock_guard<std::mutex> lock(impl_->pending_mutex);
-    do_eject = impl_->eject_requested;
-    impl_->eject_requested = false;
+    disk_op = impl_->pending_disk_op;
+    disk_drive = impl_->pending_disk_drive;
+    disk_index = impl_->pending_disk_index;
+    disk_path = impl_->pending_disk_path;
+    impl_->pending_disk_op = DiskOpType::None;
+    impl_->pending_disk_path.clear();
   }
-  if (do_eject) {
-    QString msg;
-    if (impl_->diskmgr) {
-      if (!UnmountDrives(*impl_->diskmgr, 0)) {
-        msg = tr("マウントされているディスクはありません");
-      } else {
-        options_.disk0.clear();
-        msg = tr("ドライブ 0 を取り出しました");
-      }
-      if (!msg.isEmpty()) {
-        emit statusMessage(msg, 2000);
-      }
-    }
-  }
-
-  QString mount_path;
-  {
-    std::lock_guard<std::mutex> lock(impl_->pending_mutex);
-    if (impl_->mount_requested) {
-      impl_->mount_requested = false;
-      mount_path = impl_->pending_mount_path;
-      impl_->pending_mount_path.clear();
-    }
-  }
-  if (!mount_path.isEmpty()) {
+  if (disk_op != DiskOpType::None) {
     if (!impl_->diskmgr) {
       emit statusMessage(tr("エミュレータの準備ができていません"));
     } else {
-      const QString resolved = QFileInfo(mount_path).canonicalFilePath();
-      const QByteArray utf8 =
-          resolved.isEmpty() ? mount_path.toUtf8() : resolved.toUtf8();
-      if (!DiskFileExists(utf8.constData())) {
-        emit statusMessage(tr("ディスクが見つかりません: %1").arg(mount_path), 5000);
-      } else {
-        if (UnmountDrives(*impl_->diskmgr, 0)) {
-          options_.disk0.clear();
-          std::fprintf(stderr,
-                       "M88: unmounted previous disk before opening new image\n");
-          emit statusMessage(tr("マウント済みのディスクを取り出しました"), 2000);
-        }
-        QString error;
-        if (!MountDiskPath(*impl_->diskmgr, 0, mount_path, &error, false)) {
-          emit statusMessage(
-              error.isEmpty() ? tr("ディスクのマウントに失敗しました") : error, 5000);
-        } else {
-          options_.disk0 = mount_path;
-          refreshDisplayAfterDiskChange();
-          emit statusMessage(
-              tr("ドライブ 0 にマウント: %1").arg(QFileInfo(mount_path).fileName()));
-        }
+      switch (disk_op) {
+        case DiskOpType::ChangeImage:
+          applyChangeDiskImage(disk_drive, disk_path);
+          break;
+        case DiskOpType::BothDrives:
+          applyBothDrives(disk_path);
+          break;
+        case DiskOpType::SelectDisk:
+          applySelectDisk(disk_drive, disk_index);
+          break;
+        default:
+          break;
       }
     }
   }
@@ -533,21 +630,45 @@ void EmulatorController::applyUserResetAndRefresh() {
   emit statusMessage(tr("リセットしました"), 2000);
 }
 
-void EmulatorController::mountDisk0(const QString& path) {
-  if (!impl_ || path.isEmpty()) {
-    return;
-  }
-  std::lock_guard<std::mutex> lock(impl_->pending_mutex);
-  impl_->pending_mount_path = path;
-  impl_->mount_requested = true;
-}
-
-void EmulatorController::ejectDisk0() {
+void EmulatorController::queueDiskOp(DiskOpType op, int drive, int index,
+                                   const QString& path) {
   if (!impl_) {
     return;
   }
   std::lock_guard<std::mutex> lock(impl_->pending_mutex);
-  impl_->eject_requested = true;
+  impl_->pending_disk_op = op;
+  impl_->pending_disk_drive = drive;
+  impl_->pending_disk_index = index;
+  impl_->pending_disk_path = path;
+}
+
+void EmulatorController::changeDiskImage(int drive, const QString& path) {
+  if (!impl_ || drive < 0 || drive > 1) {
+    return;
+  }
+  queueDiskOp(DiskOpType::ChangeImage, drive, 0, path);
+}
+
+void EmulatorController::changeBothDrives(const QString& path) {
+  if (!impl_) {
+    return;
+  }
+  queueDiskOp(DiskOpType::BothDrives, 0, 0, path);
+}
+
+void EmulatorController::selectDisk(int drive, int index) {
+  if (!impl_ || drive < 0 || drive > 1 || index < 0 || index >= 64) {
+    return;
+  }
+  queueDiskOp(DiskOpType::SelectDisk, drive, index, QString());
+}
+
+void EmulatorController::mountDisk0(const QString& path) {
+  changeDiskImage(0, path);
+}
+
+void EmulatorController::ejectDisk0() {
+  changeDiskImage(0, QString());
 }
 
 void EmulatorController::resetMachine() {

@@ -15,6 +15,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QShortcut>
 #include <QShowEvent>
 #include <QStatusBar>
 #include <QThread>
@@ -112,6 +113,111 @@ void MainWindow::applyViewScale(int scale) {
          kM88EmuHeight * view_scale_ + chrome_h);
 }
 
+QString MainWindow::DriveBaseName(const QString& path) {
+  if (path.isEmpty()) {
+    return QString();
+  }
+  QString name = QFileInfo(path).completeBaseName();
+  return name.isEmpty() ? QFileInfo(path).fileName() : name;
+}
+
+void MainWindow::rebuildDriveMenu(int drive, const QString& path, int numDisks,
+                                  int currentDisk, const QStringList& titles) {
+  if (drive < 0 || drive > 1 || !disk_menu_ || !drive_actions_[drive]) {
+    return;
+  }
+
+  QAction* drive_action = drive_actions_[drive];
+  QMenu* submenu = drive_submenus_[drive];
+  if (submenu) {
+    submenu->clear();
+    delete disk_select_groups_[drive];
+    disk_select_groups_[drive] = nullptr;
+  }
+
+  if (numDisks <= 0) {
+    drive_action->setMenu(nullptr);
+    drive_action->setText(tr("Drive &%1...").arg(drive + 1));
+    return;
+  }
+
+  if (!submenu) {
+    submenu = new QMenu(this);
+    drive_submenus_[drive] = submenu;
+  }
+
+  disk_select_groups_[drive] = new QActionGroup(this);
+  disk_select_groups_[drive]->setExclusive(true);
+
+  const int ndisks = std::min(numDisks, 60);
+  for (int i = 0; i < ndisks; ++i) {
+    QString label;
+    if (i < 9) {
+      label = tr("&%1 %2").arg(i + 1).arg(titles.value(i, QStringLiteral("(untitled)")));
+    } else {
+      label = tr("%1 %2").arg(i + 1).arg(titles.value(i, QStringLiteral("(untitled)")));
+    }
+    QAction* item = submenu->addAction(label);
+    item->setCheckable(true);
+    item->setChecked(i == currentDisk);
+    disk_select_groups_[drive]->addAction(item);
+    connect(item, &QAction::triggered, this, [this, drive, i]() {
+      if (controller_) {
+        QMetaObject::invokeMethod(controller_, "selectDisk", Qt::QueuedConnection,
+                                  Q_ARG(int, drive), Q_ARG(int, i));
+      }
+    });
+  }
+
+  submenu->addSeparator();
+  QAction* no_disk = submenu->addAction(tr("&N No disk"));
+  no_disk->setCheckable(true);
+  no_disk->setChecked(currentDisk < 0);
+  disk_select_groups_[drive]->addAction(no_disk);
+  connect(no_disk, &QAction::triggered, this, [this, drive]() {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "selectDisk", Qt::QueuedConnection,
+                                Q_ARG(int, drive), Q_ARG(int, 63));
+    }
+  });
+
+  QAction* change_disk = submenu->addAction(tr("&0 Change disk"));
+  connect(change_disk, &QAction::triggered, this, [this, drive]() {
+    openDiskImageDialog(drive);
+  });
+
+  const QString base = DriveBaseName(path);
+  drive_action->setText(base.isEmpty() ? tr("Drive &%1...").arg(drive + 1)
+                                       : tr("Drive &%1 - %2").arg(drive + 1).arg(base));
+  drive_action->setMenu(submenu);
+}
+
+void MainWindow::updateDiskMenu(QString drive0Path, int drive0NumDisks,
+                                int drive0Current, QStringList drive0Titles,
+                                QString drive1Path, int drive1NumDisks,
+                                int drive1Current, QStringList drive1Titles) {
+  rebuildDriveMenu(0, drive0Path, drive0NumDisks, drive0Current, drive0Titles);
+  rebuildDriveMenu(1, drive1Path, drive1NumDisks, drive1Current, drive1Titles);
+}
+
+void MainWindow::openDiskImageDialog(int drive) {
+  const QString path = QFileDialog::getOpenFileName(
+      this, tr("Open disk image"), QString(), tr(kDiskImageFilter));
+  if (controller_) {
+    QMetaObject::invokeMethod(controller_, "changeDiskImage", Qt::QueuedConnection,
+                              Q_ARG(int, drive), Q_ARG(QString, path));
+  }
+}
+
+void MainWindow::openBothDrivesDialog() {
+  const QString path = QFileDialog::getOpenFileName(
+      this, tr("Open disk image"), QString(), tr(kDiskImageFilter));
+  if (controller_) {
+    QMetaObject::invokeMethod(controller_, "changeBothDrives", Qt::QueuedConnection,
+                              Q_ARG(QString, path));
+  }
+}
+
 void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
                                     bool n80v2_supported, bool cd_supported) {
   if (clock_4mhz_) {
@@ -203,12 +309,26 @@ void MainWindow::setupMenuBar() {
   auto* exit_action = control_menu_->addAction(tr("E&xit"));
   exit_action->setShortcut(QKeySequence::Quit);
 
-  auto* disk_menu = menuBar()->addMenu(tr("&Disk"));
-  auto* drive1_action = disk_menu->addAction(tr("Drive &1..."));
-  drive1_action->setShortcut(QKeySequence::Open);
-  AddPlaceholder(disk_menu, tr("Drive &2..."));
-  disk_menu->addSeparator();
-  AddPlaceholder(disk_menu, tr("&Change disk image..."));
+  disk_menu_ = menuBar()->addMenu(tr("&Disk"));
+  drive_actions_[0] = disk_menu_->addAction(tr("Drive &1..."));
+  drive_actions_[1] = disk_menu_->addAction(tr("Drive &2..."));
+  disk_menu_->addSeparator();
+  change_both_action_ = disk_menu_->addAction(tr("&Change disk image..."));
+
+  auto* open_disk_shortcut = new QShortcut(QKeySequence::Open, this);
+  open_disk_shortcut->setContext(Qt::WindowShortcut);
+  connect(open_disk_shortcut, &QShortcut::activated, this,
+          [this]() { openDiskImageDialog(0); });
+
+  connect(drive_actions_[0], &QAction::triggered, this,
+          [this]() { openDiskImageDialog(0); });
+  connect(drive_actions_[1], &QAction::triggered, this, [this]() {
+    if (!drive_actions_[1]->menu()) {
+      openDiskImageDialog(1);
+    }
+  });
+  connect(change_both_action_, &QAction::triggered, this,
+          &MainWindow::openBothDrivesDialog);
 
   auto* tape_menu = menuBar()->addMenu(tr("Ta&pe"));
   AddPlaceholder(tape_menu, tr("&Open..."));
@@ -242,15 +362,6 @@ void MainWindow::setupMenuBar() {
   auto* help_menu = menuBar()->addMenu(tr("&Help"));
   auto* about_action = help_menu->addAction(tr("&About"));
 
-  connect(drive1_action, &QAction::triggered, this, [this]() {
-    const QString path = QFileDialog::getOpenFileName(
-        this, tr("Open Disk Image"), QString(),
-        tr("Disk images (*.d88 *.hdm *.xdf *.dup *.2hd);;All files (*)"));
-    if (!path.isEmpty() && controller_) {
-      QMetaObject::invokeMethod(controller_, "mountDisk0", Qt::QueuedConnection,
-                                Q_ARG(QString, path));
-    }
-  });
   connect(exit_action, &QAction::triggered, this, &QWidget::close);
   connect(reset_action, &QAction::triggered, this, [this]() {
     if (controller_) {
@@ -265,6 +376,15 @@ void MainWindow::setupMenuBar() {
            "<p>Click the display to focus keyboard input. "
            "Mount a disk from Disk → Drive 1.</p>"));
   });
+
+  if (disk_menu_) {
+    connect(disk_menu_, &QMenu::aboutToShow, this, [this]() {
+      if (controller_) {
+        QMetaObject::invokeMethod(controller_, "emitDiskConfiguration",
+                                  Qt::QueuedConnection);
+      }
+    });
+  }
 }
 
 MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
@@ -339,6 +459,8 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   });
   connect(controller_, &EmulatorController::machineConfigChanged, this,
           &MainWindow::updateControlMenu);
+  connect(controller_, &EmulatorController::diskConfigurationChanged, this,
+          &MainWindow::updateDiskMenu);
   if (control_menu_) {
     connect(control_menu_, &QMenu::aboutToShow, this, [this]() {
       if (controller_) {
