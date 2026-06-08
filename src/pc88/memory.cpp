@@ -1293,6 +1293,21 @@ void Memory::ApplyConfig(const Config* cfg)
 {
 	enablewait = (cfg->flags & Config::enablewait) != 0;
 	neweram = cfg->erambanks;
+	if (n80mode) {
+		neweram = Max(1, neweram);
+	}
+	if (erambanks != neweram) {
+		mm->AllocR(mid, 0, 0x8000, ram);
+		mm->AllocW(mid, 0, 0x8000, ram);
+
+		erambanks = 0;
+		delete[] eram;
+		eram = new uint8[0x8000 * neweram];
+		if (eram) {
+			erambanks = neweram;
+			memset(eram, 0, 0x8000 * erambanks);
+		}
+	}
 	if (enablewait)
 	{
 		sw31 = bus->In(0x31);

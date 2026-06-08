@@ -680,6 +680,12 @@ void PC88::ApplyConfig(Config* cfg)
 		joypad->SetButtonMode(JoyPad::DISABLED);
 	}
 
+	const bool isv2 = (bus1.In(0x31) & 0x40) != 0;
+	opn1->SetOPNMode((cfgflags & Config::enableopna) != 0);
+	opn1->Enable(isv2 || !(cfgflag2 & Config::disableopn44));
+	opn2->SetOPNMode((cfgflags & Config::opnaona8) != 0);
+	opn2->Enable((cfgflags & (Config::opnaona8 | Config::opnona8)) != 0);
+
 //	EnablePad((cfg->flags & PC8801::Config::enablepad) != 0);
 //	if (padenable)
 //		cfg->flags &= ~PC8801::Config::enablemouse;
@@ -722,22 +728,3 @@ bool PC88::IsN80V2Supported()
 	return mem1->IsN80V2Ready();
 }
 
-#ifdef M88_LINUX_PORT
-void PC88::ProbeCpuState(M88CpuProbe* out) const
-{
-	if (!out) {
-		return;
-	}
-	out->pc1 = cpu1.GetPC();
-	out->pc2 = cpu2.GetPC();
-	out->in30 = bus1.In(0x30);
-	out->in31 = bus1.In(0x31);
-	out->in40 = bus1.In(0x40);
-	out->mem_port31 = mem1 ? mem1->GetPort31() : 0;
-	out->crtc_status = crtc ? crtc->GetDiagStatus() : 0;
-	out->crtc_mode = crtc ? crtc->GetDiagMode() : 0;
-	out->scrn_port53 = scrn ? scrn->GetPort53() : 0;
-	out->exec1 = cpu1.GetCount();
-	out->exec2 = cpu2.GetCount();
-}
-#endif

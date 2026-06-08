@@ -327,7 +327,7 @@ void WinKeyIF::ApplyConfig(const Config* config)
 		break;
 	}
 #ifdef M88_LINUX_PORT
-	host_keytype_ = Config::AT101;
+	host_keytype_ = static_cast<Config::KeyType>(config->keytype);
 	Pc88KeyFixup::SetHostKeyboard(host_keytype_);
 #endif
 }

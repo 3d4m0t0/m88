@@ -722,6 +722,17 @@ void M88LoadDefaultConfigFile(Config* cfg) {
   M88LoadStartupConfig(cfg, nullptr, used, sizeof(used), &created);
 }
 
+bool M88BasicModeFixesClock4MHz(int basicmode) {
+  switch (basicmode) {
+    case Config::N88V1:
+    case Config::N88V1H:
+    case Config::N80:
+      return true;
+    default:
+      return false;
+  }
+}
+
 const char* M88BasicModeName(int basicmode) {
   switch (basicmode) {
     case Config::N80:

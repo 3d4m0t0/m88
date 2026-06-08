@@ -49,10 +49,6 @@ public:
 	void UpdateScreen(uint8* image, int bpl, Draw::Region& region, bool refresh);
 	void ApplyConfig(const Config* config);
 
-#ifdef M88_LINUX_PORT
-	uint GetPort53() const { return port53; }
-#endif
-	
 	void IOCALL Out30(uint port, uint data);
 	void IOCALL Out31(uint port, uint data);
 	void IOCALL Out32(uint port, uint data);

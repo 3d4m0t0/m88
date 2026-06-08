@@ -13,6 +13,7 @@ uint32 KeyDataFromEvent(const QKeyEvent& ev);
 // Host Alt/Meta (IME); must not map to PC-88 GRPH (VK_MENU).
 bool IsHostImeModifierKey(int qt_key);
 bool IsHostModifierVk(uint vk);
+void SetSuppressMenu(bool enabled);
 
 enum class LetterShiftAdjust { None, AddShift, RemoveShift };
 

@@ -32,7 +32,6 @@ bool CommitText(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config*
   }
   std::vector<uint16_t> hw;
   if (!HalfKanaIme::CommitUtf8ToHalfKana(utf8, &hw)) {
-    std::fprintf(stderr, "M88: IME commit skipped (not kana): %s\n", utf8);
     return false;
   }
   std::vector<HalfKanaIme::KeyStroke> strokes;
@@ -43,7 +42,6 @@ bool CommitText(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config*
   keyif->FlushGuestKeys();
   HalfKanaIme::InjectBeginSession(keyif, cfg);
   HalfKanaIme::InjectEnqueue(strokes);
-  std::fprintf(stderr, "M88: IME commit queued (%zu strokes): %s\n", strokes.size(), utf8);
   return true;
 }
 

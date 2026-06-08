@@ -49,6 +49,10 @@ void EmuView::setScale(int scale) {
   update();
 }
 
+void EmuView::setSuppressMenu(bool enabled) {
+  QtInput::SetSuppressMenu(enabled);
+}
+
 QSize EmuView::sizeHint() const {
   return QSize(640 * scale_, 400 * scale_);
 }

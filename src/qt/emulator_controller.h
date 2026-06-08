@@ -42,19 +42,31 @@ public slots:
   void resetMachine();
   void setClock(int clock);
   void setBasicMode(int mode);
+  void setBurstMode(bool enabled);
+  void setShowStatusBar(bool enabled);
+  void setShowFdcStatus(bool enabled);
+  void sampleTitleStats();
+  PC8801::Config exportConfig();
+  void importConfig(PC8801::Config config);
   void emitMachineConfig();
   void emitDiskConfiguration();
 
 signals:
   void frameReady();
   void machineConfigChanged(int clock, int basicmode, bool n80_supported,
-                            bool n80v2_supported, bool cd_supported);
+                            bool n80v2_supported, bool cd_supported,
+                            bool burst_mode, bool show_statusbar,
+                            bool show_fdc_status, bool ask_before_reset,
+                            bool f12_as_reset, bool suppress_menu);
+  void statusUiChanged(bool bar_enabled, bool show_fdc_lamps, int lamp0, int lamp1,
+                       int lamp2, QString message, int message_ms);
   void diskConfigurationChanged(QString drive0Path, int drive0NumDisks,
                                 int drive0Current, QStringList drive0Titles,
                                 QString drive1Path, int drive1NumDisks,
                                 int drive1Current, QStringList drive1Titles);
   void failed(const QString& message);
   void statusMessage(const QString& message, int timeoutMs = 3000);
+  void titleStatsUpdated(int fps, int mhz_whole, int mhz_frac);
   void started();
   void finished();
 
@@ -64,6 +76,12 @@ private:
   bool initialize();
   void shutdown();
   void emulateFrame();
+  void emulateBurstFrame();
+  void resetBurstPacing();
+  bool burstActive() const;
+  void syncStatusBarFromConfig();
+  void pollStatusUi();
+  void saveConfig();
   void processDeferredActions();
   void applyChangeDiskImage(int drive, const QString& path);
   void applyBothDrives(const QString& path);

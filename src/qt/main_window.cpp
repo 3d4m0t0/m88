@@ -1,9 +1,11 @@
 #include "main_window.h"
 
+#include "config_dialog.h"
 #include "emu_view.h"
 #include "../linux/shared_framebuffer_draw.h"
 
 #include "../linux/display_scale.h"
+#include "../linux/linux_config.h"
 #include "../pc88/config.h"
 
 #include <QAction>
@@ -21,6 +23,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QEventLoop>
+#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -200,6 +203,30 @@ void MainWindow::updateDiskMenu(QString drive0Path, int drive0NumDisks,
   rebuildDriveMenu(1, drive1Path, drive1NumDisks, drive1Current, drive1Titles);
 }
 
+void MainWindow::openConfigureDialog() {
+  if (!controller_) {
+    return;
+  }
+  PC8801::Config cfg;
+  if (!QMetaObject::invokeMethod(controller_, "exportConfig",
+                                 Qt::BlockingQueuedConnection,
+                                 Q_RETURN_ARG(PC8801::Config, cfg))) {
+    return;
+  }
+  ConfigDialog dlg(cfg, this);
+  connect(&dlg, &ConfigDialog::settingsApplied, this, [this](PC8801::Config config) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
+                                Q_ARG(PC8801::Config, config));
+    }
+  });
+  if (dlg.exec() != QDialog::Accepted) {
+    return;
+  }
+  QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
+                            Q_ARG(PC8801::Config, dlg.config()));
+}
+
 void MainWindow::openDiskImageDialog(int drive) {
   const QString path = QFileDialog::getOpenFileName(
       this, tr("Open disk image"), QString(), tr(kDiskImageFilter));
@@ -218,13 +245,122 @@ void MainWindow::openBothDrivesDialog() {
   }
 }
 
+namespace {
+
+QString LampGlyph(int level) {
+  return level > 0 ? QStringLiteral("\u25cf") : QStringLiteral("\u25cb");
+}
+
+bool IsFdcStatusMessage(const QString& message) {
+  return message.startsWith(QStringLiteral("Read")) ||
+         message.startsWith(QStringLiteral("Write")) ||
+         message.startsWith(QStringLiteral("Scan")) ||
+         message.startsWith(QStringLiteral("ReadID")) ||
+         message.startsWith(QStringLiteral("WriteID")) ||
+         message.startsWith(QStringLiteral("ReadDiagnostic"));
+}
+
+}  // namespace
+
+void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0,
+                                int lamp1, int lamp2, QString message, int message_ms) {
+  if (QStatusBar* sb = statusBar()) {
+    if (bar_enabled) {
+      sb->show();
+    } else {
+      sb->hide();
+      return;
+    }
+  }
+  if (fdc_lamp_panel_) {
+    fdc_lamp_panel_->setVisible(show_fdc_lamps);
+  }
+  if (show_fdc_lamps) {
+    if (fdc_lamp_labels_[0]) {
+      fdc_lamp_labels_[0]->setText(LampGlyph(lamp0));
+    }
+    if (fdc_lamp_labels_[1]) {
+      fdc_lamp_labels_[1]->setText(LampGlyph(lamp1));
+    }
+    if (fdc_lamp_labels_[2]) {
+      fdc_lamp_labels_[2]->setText(LampGlyph(lamp2));
+    }
+  }
+  if (!statusBar()) {
+    return;
+  }
+  if (fdc_text_label_) {
+    if (show_fdc_lamps && IsFdcStatusMessage(message)) {
+      fdc_text_label_->setText(message);
+      fdc_text_label_->show();
+    } else {
+      fdc_text_label_->clear();
+      fdc_text_label_->hide();
+    }
+  }
+  if (message.isEmpty() || (show_fdc_lamps && IsFdcStatusMessage(message))) {
+    statusBar()->clearMessage();
+    return;
+  }
+  statusBar()->showMessage(message, message_ms > 0 ? message_ms : 0);
+}
+
+void MainWindow::updateTitleStats(int fps, int mhz_whole, int mhz_frac) {
+  if (!isActiveWindow()) {
+    setWindowTitle(QStringLiteral("M88"));
+    return;
+  }
+  setWindowTitle(tr("M88 - %1 fps.  %2.%3 MHz")
+                     .arg(fps)
+                     .arg(mhz_whole)
+                     .arg(mhz_frac, 2, 10, QChar('0')));
+}
+
+bool MainWindow::confirmReset() {
+  if (!ask_before_reset_) {
+    return true;
+  }
+  return QMessageBox::question(
+             this, tr("Reset"),
+             tr("Reset the emulated machine?"),
+             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+}
+
+bool MainWindow::confirmExit() {
+  if (!ask_before_reset_) {
+    return true;
+  }
+  return QMessageBox::question(
+             this, tr("Exit"),
+             tr("Exit M88?"),
+             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+}
+
 void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
-                                    bool n80v2_supported, bool cd_supported) {
+                                    bool n80v2_supported, bool cd_supported,
+                                    bool burst_mode, bool show_statusbar,
+                                    bool show_fdc_status, bool ask_before_reset,
+                                    bool f12_as_reset, bool suppress_menu) {
+  ask_before_reset_ = ask_before_reset;
+  f12_as_reset_ = f12_as_reset;
+  if (view_) {
+    view_->setSuppressMenu(suppress_menu);
+  }
+  if (reset_action_) {
+    if (f12_as_reset_) {
+      reset_action_->setShortcut(QKeySequence(Qt::Key_F12));
+    } else {
+      reset_action_->setShortcut(QKeySequence());
+    }
+  }
+  const bool clock_fixed_4mhz = M88BasicModeFixesClock4MHz(basicmode);
   if (clock_4mhz_) {
-    clock_4mhz_->setChecked(clock == 40);
+    clock_4mhz_->setChecked(clock_fixed_4mhz || clock == 40);
+    clock_4mhz_->setEnabled(!clock_fixed_4mhz);
   }
   if (clock_8mhz_) {
-    clock_8mhz_->setChecked(clock == 80);
+    clock_8mhz_->setChecked(!clock_fixed_4mhz && clock == 80);
+    clock_8mhz_->setEnabled(!clock_fixed_4mhz);
   }
   for (QAction* action : mode_actions_) {
     const int mode = action->data().toInt();
@@ -239,6 +375,17 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
     }
     action->setEnabled(enabled);
   }
+  if (burst_action_) {
+    burst_action_->setChecked(burst_mode);
+  }
+  if (show_status_action_) {
+    show_status_action_->setChecked(show_statusbar);
+  }
+  if (fdc_status_action_) {
+    fdc_status_action_->setEnabled(show_statusbar);
+    fdc_status_action_->setChecked(show_fdc_status);
+  }
+  (void)clock;
 }
 
 void MainWindow::setupMenuBar() {
@@ -300,10 +447,17 @@ void MainWindow::setupMenuBar() {
   });
 
   control_menu_->addSeparator();
-  AddPlaceholder(control_menu_, tr("&Burst mode"), true, false);
+  burst_action_ = control_menu_->addAction(tr("&Burst mode"));
+  burst_action_->setCheckable(true);
+  connect(burst_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setBurstMode", Qt::QueuedConnection,
+                                Q_ARG(bool, checked));
+    }
+  });
 
-  auto* reset_action = control_menu_->addAction(tr("&Reset"));
-  reset_action->setShortcut(Qt::Key_F12);
+  reset_action_ = control_menu_->addAction(tr("&Reset"));
+  reset_action_->setShortcut(QKeySequence(Qt::Key_F12));
 
   control_menu_->addSeparator();
   auto* exit_action = control_menu_->addAction(tr("E&xit"));
@@ -334,9 +488,17 @@ void MainWindow::setupMenuBar() {
   AddPlaceholder(tape_menu, tr("&Open..."));
 
   auto* tools_menu = menuBar()->addMenu(tr("&Tools"));
-  AddPlaceholder(tools_menu, tr("&Configure..."));
+  QAction* configure_action = tools_menu->addAction(tr("&Configure..."));
+  connect(configure_action, &QAction::triggered, this, &MainWindow::openConfigureDialog);
   tools_menu->addSeparator();
-  AddPlaceholder(tools_menu, tr("S&how Status"), true, false);
+  show_status_action_ = tools_menu->addAction(tr("S&how Status"));
+  show_status_action_->setCheckable(true);
+  connect(show_status_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setShowStatusBar", Qt::QueuedConnection,
+                                Q_ARG(bool, checked));
+    }
+  });
   QAction* capture_action = AddPlaceholder(tools_menu, tr("&Capture..."));
   capture_action->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F2));
   AddPlaceholder(tools_menu, tr("&Record Sound"), true, false);
@@ -347,7 +509,15 @@ void MainWindow::setupMenuBar() {
   load_snapshot->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F1));
 
   auto* debug_menu = menuBar()->addMenu(tr("D&ebug"));
-  AddPlaceholder(debug_menu, tr("Show &FDC Status"), true, false);
+  fdc_status_action_ = debug_menu->addAction(tr("Show &FDC Status"));
+  fdc_status_action_->setCheckable(true);
+  fdc_status_action_->setEnabled(false);
+  connect(fdc_status_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setShowFdcStatus", Qt::QueuedConnection,
+                                Q_ARG(bool, checked));
+    }
+  });
   AddPlaceholder(debug_menu, tr("Show &Register"), true, false);
   AddPlaceholder(debug_menu, tr("Show &OPN Register"), true, false);
   AddPlaceholder(debug_menu, tr("Show &Memory"), true, false);
@@ -363,7 +533,10 @@ void MainWindow::setupMenuBar() {
   auto* about_action = help_menu->addAction(tr("&About"));
 
   connect(exit_action, &QAction::triggered, this, &QWidget::close);
-  connect(reset_action, &QAction::triggered, this, [this]() {
+  connect(reset_action_, &QAction::triggered, this, [this]() {
+    if (!confirmReset()) {
+      return;
+    }
     if (controller_) {
       QMetaObject::invokeMethod(controller_, "resetMachine", Qt::QueuedConnection);
     }
@@ -424,6 +597,28 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     sb->setAutoFillBackground(false);
     sb->setPalette(app_pal);
     sb->setFocusPolicy(Qt::NoFocus);
+    sb->hide();
+
+    fdc_text_label_ = new QLabel(sb);
+    fdc_text_label_->setFocusPolicy(Qt::NoFocus);
+    fdc_text_label_->setContentsMargins(0, 0, 8, 0);
+    fdc_text_label_->hide();
+    sb->addPermanentWidget(fdc_text_label_, 0);
+
+    fdc_lamp_panel_ = new QWidget(sb);
+    auto* lamp_layout = new QHBoxLayout(fdc_lamp_panel_);
+    lamp_layout->setContentsMargins(0, 0, 8, 0);
+    lamp_layout->setSpacing(4);
+    static const char* kLampCaptions[] = {"1:", "2:", "S:"};
+    for (int i = 0; i < 3; ++i) {
+      auto* caption = new QLabel(tr(kLampCaptions[i]), fdc_lamp_panel_);
+      fdc_lamp_labels_[i] = new QLabel(LampGlyph(0), fdc_lamp_panel_);
+      lamp_layout->addWidget(caption);
+      lamp_layout->addWidget(fdc_lamp_labels_[i]);
+    }
+    fdc_lamp_panel_->setLayout(lamp_layout);
+    fdc_lamp_panel_->hide();
+    sb->addPermanentWidget(fdc_lamp_panel_, 0);
   }
 
   controller_ = new EmulatorController(draw_, options);
@@ -459,6 +654,19 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   });
   connect(controller_, &EmulatorController::machineConfigChanged, this,
           &MainWindow::updateControlMenu);
+  connect(controller_, &EmulatorController::statusUiChanged, this,
+          &MainWindow::updateStatusUi);
+  connect(controller_, &EmulatorController::titleStatsUpdated, this,
+          &MainWindow::updateTitleStats);
+  title_timer_ = new QTimer(this);
+  title_timer_->setInterval(1000);
+  connect(title_timer_, &QTimer::timeout, this, [this]() {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "sampleTitleStats",
+                                Qt::QueuedConnection);
+    }
+  });
+  title_timer_->start();
   connect(controller_, &EmulatorController::diskConfigurationChanged, this,
           &MainWindow::updateDiskMenu);
   if (control_menu_) {
@@ -490,6 +698,10 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
 MainWindow::~MainWindow() { stopEmulator(); }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+  if (!confirmExit()) {
+    event->ignore();
+    return;
+  }
   stopEmulator();
   QMainWindow::closeEvent(event);
   if (QApplication* app = qApp) {

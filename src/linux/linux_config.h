@@ -47,6 +47,7 @@ void M88LoadStartupConfig(PC8801::Config* cfg, const char* explicit_path,
                           char* used_path, size_t used_path_sz, bool* created_new_ini);
 
 const char* M88BasicModeName(int basicmode);
+bool M88BasicModeFixesClock4MHz(int basicmode);
 
 // Apply Linux-port defaults that should survive partial Windows INI imports.
 void M88FinalizeConfig(PC8801::Config* cfg);

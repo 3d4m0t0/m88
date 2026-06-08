@@ -17,6 +17,7 @@ public:
 
   void attachFramebuffer(SharedFramebufferDraw* draw);
   void setScale(int scale);
+  void setSuppressMenu(bool enabled);
 
 public slots:
   void refreshFrame();

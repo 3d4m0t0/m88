@@ -7,6 +7,8 @@
 
 namespace {
 
+bool g_suppress_menu = false;
+
 // US-101 style shifted character -> base key VK (Shift is sent separately).
 uint VkFromShiftedText(QChar ch) {
   switch (ch.unicode()) {
@@ -288,6 +290,8 @@ namespace QtInput {
 
 bool IsHostImeModifierKey(int key) { return HostImeModifierKey(key); }
 
+void SetSuppressMenu(bool enabled) { g_suppress_menu = enabled; }
+
 bool IsHostModifierVk(uint vk) {
   switch (vk) {
     case VK_MENU:
@@ -309,6 +313,10 @@ uint ResolveHostVk(const QKeyEvent& ev, bool* shift_held) {
   const int key = ev.key();
   if (shift_held) {
     *shift_held = ev.modifiers().testFlag(Qt::KeyboardModifier::ShiftModifier);
+  }
+
+  if (g_suppress_menu && (key == Qt::Key_Alt || key == Qt::Key_AltGr)) {
+    return VK_MENU;
   }
 
   if (HostImeModifierKey(key)) {
@@ -359,7 +367,7 @@ uint ResolveHostVk(const QKeyEvent& ev, bool* shift_held) {
 
   uint vk = VkFromNativeScan(ev.nativeScanCode(), key);
   if (vk == VK_MENU) {
-    return 0;
+    return g_suppress_menu ? VK_MENU : 0;
   }
   return vk;
 }

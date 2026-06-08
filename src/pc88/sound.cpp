@@ -154,7 +154,11 @@ int Sound::Get(SampleL* dest, int nsamples)
 //
 void Sound::ApplyConfig(const Config* config)
 {
-	mixthreshold = (config->flags & Config::precisemixing) ? 100 : 2000;
+	if (config->flags & Config::mixsoundalways) {
+		mixthreshold = 0;
+	} else {
+		mixthreshold = (config->flags & Config::precisemixing) ? 100 : 2000;
+	}
 }
 
 // ---------------------------------------------------------------------------

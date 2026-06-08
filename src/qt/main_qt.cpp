@@ -8,7 +8,10 @@
 
 #include <QApplication>
 #include <QGuiApplication>
+#include <QMetaType>
 #include <QScreen>
+
+Q_DECLARE_METATYPE(PC8801::Config)
 
 #include <algorithm>
 #include <cstdio>
@@ -53,6 +56,7 @@ int main(int argc, char** argv) {
   }
 
   QApplication app(argc, argv);
+  qRegisterMetaType<PC8801::Config>("PC8801::Config");
 
   M88InitRomPath(options.rom_dir.isEmpty() ? nullptr
                                             : options.rom_dir.toUtf8().constData());

@@ -3,6 +3,14 @@
 #include "types.h"
 #include "critsect.h"
 
+struct StatusUiSnapshot {
+  bool bar_enabled = false;
+  bool show_fdc_lamps = false;
+  int lamp_level[3] = {0, 0, 0};
+  char message[128] = {};
+  int message_duration_ms = 0;
+};
+
 class StatusDisplay {
 public:
   StatusDisplay();
@@ -17,7 +25,7 @@ public:
   void DrawItem(void* dis);
   void FDAccess(uint dr, bool hd, bool active);
   void UpdateDisplay();
-  void WaitSubSys() { litstat[2] = 9; }
+  void WaitSubSys();
 
   bool Show(int priority, int duration, char* msg, ...);
   void Update();
@@ -25,16 +33,25 @@ public:
 
   HWND GetHWnd() { return hwnd; }
 
+  bool PollUiSnapshot(StatusUiSnapshot* out);
+
 private:
+  void MarkDirty();
+  void ExpireMessage();
+
   HWND hwnd;
   HWND hwndparent;
   UINT_PTR timerid;
   CriticalSection cs;
   int height;
   int litstat[3];
-  int litcurrent[3];
   bool showfdstat;
-  bool updatemessage;
+  bool bar_enabled;
+
+  int message_priority;
+  char message[128];
+  uint64_t message_expire_ns;
+  bool ui_dirty;
 };
 
 extern StatusDisplay statusdisplay;

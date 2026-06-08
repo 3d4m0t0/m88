@@ -68,7 +68,6 @@ public:
 	bool IsN80Ready() { return !!n80rom; }
 	bool IsN80V2Ready() { return !!n80v2rom; }
 	bool IsCDBIOSReady() { return !!cdbios; }
-	uint GetPort31() const { return port31; }
 
 	bool Init(MemoryManager* mgr, IOBus* bus, CRTC* crtc, int* waittbl);
 	void IOCALL Reset(uint, uint);

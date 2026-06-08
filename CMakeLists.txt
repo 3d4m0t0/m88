@@ -139,6 +139,8 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_qt.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_window.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_window.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emulator_controller.cpp
@@ -149,7 +151,6 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/shared_framebuffer_draw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_reset_diag.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_key_fixup.cpp
