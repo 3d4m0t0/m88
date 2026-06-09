@@ -8,7 +8,7 @@
 #include "linux_ime.h"
 #include "linux_input.h"
 #include "linux_emulation.h"
-#include "linux_frame_pace.h"
+#include "linux_emu_time_pace.h"
 #include "linux_sound.h"
 #include "linux_startup_log.h"
 #include "loadmon.h"
@@ -329,11 +329,16 @@ int main(int argc, char** argv) {
   }
   M88LogFdd(&config);
   M88LogMachine(&config);
+  M88LogFrameTiming(pc88.GetFramePeriod(), config.speed);
   MountDiskOptional(diskmgr, 0, disk0);
 
-  M88DrawSkip draw_skip;
+  M88Sequencer seq;
+  M88EmuTimePacer emu_time_pacer;
+  seq.ApplyConfig(config);
+  seq.ResetPacing();
+  emu_time_pacer.Reset();
   // WinUI::InitM88: ApplyConfig() then core.Reset() before the message loop.
-  M88PostStartupCpuReset(pc88, &draw_skip, config.refreshtiming);
+  M88PostStartupCpuReset(pc88, &seq, config.refreshtiming);
   pc88.UpdateScreen(true);
   if (draw.NeedsPresent()) {
     draw.Present();
@@ -386,7 +391,9 @@ int main(int argc, char** argv) {
       HalfKanaIme::InjectEndSession(&keyif, &config);
       keyif.FlushGuestKeys();
       keyif.ApplyConfig(&config);
-      M88UserCpuReset(pc88, &draw_skip, config.refreshtiming);
+      seq.ResetPacing();
+      emu_time_pacer.Reset();
+      M88UserCpuReset(pc88, &seq, config.refreshtiming);
       pc88.UpdateScreen(true);
       if (draw.NeedsPresent()) {
         draw.Present();
@@ -394,28 +401,31 @@ int main(int argc, char** argv) {
     }
 
     M88LoadmonFrameBegin();
-    const uint64_t frame_begin_ns = M88MonotonicNowNs();
-    const int texec = pc88.GetFramePeriod();
-    pc88.TimeSync();
-    pc88.Proceed(static_cast<uint>(texec), static_cast<uint>(config.clock),
-                 static_cast<uint>(effclock));
-    // Audio is filled from OPNIF::TimeEvent during Proceed (same as Windows Sequencer).
-    // Do not call sound.Update() here: Fill without opn.Count() causes wrong ADPCM pitch,
-    // metallic noise, and timing drift.
-    // draw_skip: skip Present when unchanged (disk I/O no longer needs every-frame GPU).
-    if (draw_skip.AfterProceed(frame_begin_ns, texec, config.speed,
-                               config.refreshtiming)) {
-      pc88.UpdateScreen(false);
-      if (draw.NeedsPresent()) {
-        draw.Present();
-      }
-      draw_skip.EndFrame(frame_begin_ns);
-    } else {
-      draw_skip.EndFrame(frame_begin_ns);
+    seq.ApplyConfig(config);
+    struct SdlFrameDrawCtx {
+      PC88* pc88;
+      LinuxDraw* draw;
+    } draw_ctx{&pc88, &draw};
+    M88EmuTimePacer::AudioHint audio {};
+    if (sound.GetRingSize() > 0) {
+      audio.ring_avail = sound.GetRingAvail();
+      audio.ring_size = sound.GetRingSize();
+      audio.sample_rate_hz = static_cast<int>(sound.GetOutputSampleRate());
     }
+    seq.RunFrame(
+        &pc88,
+        +[](void* ctx, bool draw_flag) {
+          auto* f = static_cast<SdlFrameDrawCtx*>(ctx);
+          if (!f || !f->pc88 || !draw_flag) {
+            return;
+          }
+          f->pc88->UpdateScreen(false);
+          if (f->draw && f->draw->NeedsPresent()) {
+            f->draw->Present();
+          }
+        },
+        &draw_ctx, false, [&]() { return !running; }, emu_time_pacer, audio);
     LinuxIme::Pump(&keyif);
-
-    M88PaceFrame(frame_begin_ns, M88FramePeriodNs(texec, config.speed), &running);
     M88LoadmonFrameEnd();
   }
 

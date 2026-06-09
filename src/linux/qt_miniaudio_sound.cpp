@@ -1,5 +1,6 @@
 #include "qt_miniaudio_sound.h"
 
+#include "linux_audio_period.h"
 #include "headers.h"
 #include "misc.h"
 #include "pc88/pc88.h"
@@ -97,8 +98,8 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     return true;
   }
 
-  const ma_uint32 frames_per_buffer = static_cast<ma_uint32>(std::max(
-      512, std::min(2048, bufsize > 0 ? bufsize / 16 : 1024)));
+  const ma_uint32 frames_per_buffer =
+      static_cast<ma_uint32>(M88AudioPeriodFrames(rate, bufsize));
 
   auto try_open = [&](ma_uint32 open_rate) -> bool {
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
@@ -130,6 +131,8 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
         return false;
       }
     }
+
+    PrimeBuffer(bufsize > 0 ? bufsize / 2 : 0);
 
     if (ma_device_start(&device_->dev) != MA_SUCCESS) {
       std::fprintf(stderr, "miniaudio start failed\n");

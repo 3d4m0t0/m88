@@ -5,11 +5,12 @@
 #include "../linux/half_kana_ime.h"
 #include "../linux/linux_ime.h"
 #include "../linux/linux_emulation.h"
-#include "../linux/linux_frame_pace.h"
+#include "../linux/linux_emu_thread.h"
+#include "../linux/linux_emu_time_pace.h"
+#include "../linux/linux_sequencer.h"
 #include "../linux/qt_miniaudio_sound.h"
 #include "../linux/linux_paths.h"
 #include "../linux/linux_startup_log.h"
-#include "../linux_compat/loadmon.h"
 #include "qt_host_input.h"
 #include "qt_video_log.h"
 #include "../linux/shared_framebuffer_draw.h"
@@ -33,6 +34,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QEventLoop>
+#include <QTimer>
 #include <QDir>
 #include <QFileInfo>
 #include <QThread>
@@ -111,9 +113,11 @@ struct EmulatorController::Impl {
   std::unique_ptr<PC88> pc88;
   std::unique_ptr<PC8801::QtMiniaudioSound> sound;
   std::unique_ptr<PC8801::WinKeyIF> keyif;
-  M88DrawSkip draw_skip;
+  M88Sequencer seq;
+  M88EmuTimePacer emu_time_pacer;
+  M88EmuThread emu_thread;
   bool hw_reset_done = false;
-  int post_reset_redraw_frames_ = 0;
+  std::atomic<int> post_reset_redraw_frames_{0};
 
   QString drive_path[2];
   QString pending_ime_utf8;
@@ -125,9 +129,6 @@ struct EmulatorController::Impl {
   std::mutex pending_mutex;
   bool ime_commit_requested = false;
 
-  int burst_effclock = 100;
-  uint64_t burst_window_begin_ns = 0;
-  int burst_window_exec_ms = 0;
   int current_snapshot_slot = 0;
 
   QString ini_path;
@@ -149,7 +150,12 @@ EmulatorController::~EmulatorController() {
   impl_ = nullptr;
 }
 
-void EmulatorController::requestStop() { running_ = false; }
+void EmulatorController::requestStop() {
+  running_ = false;
+  if (impl_) {
+    impl_->emu_thread.Stop();
+  }
+}
 
 bool EmulatorController::initialize() {
   if (!draw_ || !impl_) {
@@ -258,6 +264,7 @@ bool EmulatorController::initialize() {
   }
   M88LogFdd(&impl_->config);
   M88LogMachine(&impl_->config);
+  M88LogFrameTiming(impl_->pc88->GetFramePeriod(), impl_->config.speed);
 
   if (!options_.disk0.isEmpty()) {
     OpenDiskImageStartup(*impl_->diskmgr, options_.disk0);
@@ -267,14 +274,17 @@ bool EmulatorController::initialize() {
     }
   }
 
-  M88PostStartupCpuReset(*impl_->pc88, &impl_->draw_skip, impl_->config.refreshtiming);
+  impl_->seq.ApplyConfig(impl_->config);
+  impl_->seq.ResetPacing();
+  impl_->emu_time_pacer.Reset();
+  M88PostStartupCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
   impl_->hw_reset_done = true;
   impl_->pc88->UpdateScreen(true);
   if (draw_) {
     draw_->InvalidateUiStaging();
     draw_->StageUiFrame();
   }
-  impl_->post_reset_redraw_frames_ = 60;
+  impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
   emit frameReady();
 
   emitMachineConfig();
@@ -294,6 +304,8 @@ void EmulatorController::shutdown() {
   if (!impl_) {
     return;
   }
+  impl_->emu_thread.Stop();
+  impl_->emu_thread.Join();
   saveConfig();
   draw_ = nullptr;
   if (impl_->sound) {
@@ -336,17 +348,19 @@ void EmulatorController::processImeCommit(const QString& utf8) {
   if (!LinuxIme::CommitUtf8(bytes.constData(), impl_->keyif.get(), &impl_->config)) {
     return;
   }
-  const uint host_clock = static_cast<uint>(std::max(1, impl_->config.clock));
-  const uint effclock = static_cast<uint>(std::max<int64_t>(
-      1, impl_->config.clock * (impl_->config.speed / 10) / 100));
-  impl_->pc88->TimeSync();
-  int guard = 0;
-  while (HalfKanaIme::InjectBusy() && guard++ < 8192) {
-    HalfKanaIme::InjectPump(impl_->keyif.get());
-    const int period = std::max(1, impl_->pc88->GetFramePeriod());
-    proceedFrame(period, host_clock, effclock);
-  }
-  HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
+  withVmPaused([&]() {
+    const uint host_clock = static_cast<uint>(std::max(1, impl_->config.clock));
+    const uint effclock = static_cast<uint>(std::max<int64_t>(
+        1, impl_->config.clock * (impl_->config.speed / 10) / 100));
+    impl_->pc88->TimeSync();
+    int guard = 0;
+    while (HalfKanaIme::InjectBusy() && guard++ < 8192) {
+      HalfKanaIme::InjectPump(impl_->keyif.get());
+      const int period = std::max(1, impl_->pc88->GetFramePeriod());
+      proceedFrame(period, host_clock, effclock);
+    }
+    HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
+  });
 }
 
 void EmulatorController::emitDiskConfigurationLocked() {
@@ -533,64 +547,32 @@ bool EmulatorController::burstActive() const {
   return impl_ && (impl_->config.flags & PC8801::Config::cpuburst) != 0;
 }
 
-void EmulatorController::resetBurstPacing() {
+void EmulatorController::resetSequencerPacing() {
   if (!impl_) {
     return;
   }
-  impl_->burst_effclock = 100;
-  impl_->burst_window_begin_ns = 0;
-  impl_->burst_window_exec_ms = 0;
+  impl_->seq.ApplyConfig(impl_->config);
+  impl_->seq.ResetPacing();
+  impl_->emu_time_pacer.Reset();
 }
 
-void EmulatorController::emulateBurstFrame() {
-  if (!impl_ || !impl_->pc88) {
+void EmulatorController::withVmPaused(const std::function<void()>& fn) {
+  if (!impl_) {
     return;
   }
-
-  if (impl_->burst_window_begin_ns == 0) {
-    impl_->burst_window_begin_ns = M88MonotonicNowNs();
-    impl_->pc88->TimeSync();
+  impl_->emu_thread.Pause();
+  if (fn) {
+    fn();
   }
+  impl_->emu_thread.Resume();
+}
 
-  const uint eff = static_cast<uint>(std::max(1, impl_->burst_effclock));
-  const int chunk = std::max(1, 500 * impl_->config.speed / 1000);
-  const uint64_t slice_end_ns = M88MonotonicNowNs() + 20'000'000ULL;
-
-  while (running_ && M88MonotonicNowNs() < slice_end_ns) {
-    proceedFrame(chunk, eff, eff);
-    impl_->burst_window_exec_ms += 5;
-    const uint64_t window_ms =
-        (M88MonotonicNowNs() - impl_->burst_window_begin_ns) / 1'000'000ULL;
-    if (window_ms >= 1000) {
-      break;
-    }
-  }
-
-  const uint64_t window_ms =
-      (M88MonotonicNowNs() - impl_->burst_window_begin_ns) / 1'000'000ULL;
-  if (window_ms < 1000) {
-    LinuxIme::Pump(impl_->keyif.get());
-    return;
-  }
-
-  const int ms = static_cast<int>(std::min<uint64_t>(window_ms, 1000));
-  const int adapt =
-      std::min(1000, impl_->burst_window_exec_ms) * impl_->burst_effclock * 100 /
-          std::max(1, ms) +
-      1;
-  impl_->burst_effclock = std::min(10000, adapt);
-  impl_->burst_window_begin_ns = 0;
-  impl_->burst_window_exec_ms = 0;
-
-  impl_->pc88->UpdateScreen(true);
-  if (draw_) {
-    draw_->StageUiFrame();
-  }
-  LinuxIme::Pump(impl_->keyif.get());
-  impl_->title_frame_count.fetch_add(1, std::memory_order_relaxed);
-  emit frameReady();
+void EmulatorController::pollEmulationIdle() {
+  processDeferredActions();
   pollStatusUi();
 }
+
+void EmulatorController::emitFrameReady() { emit frameReady(); }
 
 PC8801::Config EmulatorController::exportConfig() {
   if (!impl_) {
@@ -603,23 +585,25 @@ void EmulatorController::importConfig(PC8801::Config config) {
   if (!impl_ || !impl_->pc88) {
     return;
   }
-  impl_->config = config;
-  if (impl_->keyif) {
-    impl_->keyif->ApplyConfig(&impl_->config);
-  }
-  M88ApplyConfig(impl_->pc88.get(), &impl_->config);
-  if (impl_->sound) {
-    impl_->sound->ApplyConfig(&impl_->config);
-  }
-  resetBurstPacing();
-  impl_->draw_skip.ForceUpdateAfterReset(impl_->config.refreshtiming);
-  if (draw_) {
-    draw_->InvalidateUiStaging();
-  }
-  syncStatusBarFromConfig();
-  saveConfig();
+  withVmPaused([&]() {
+    impl_->config = config;
+    if (impl_->keyif) {
+      impl_->keyif->ApplyConfig(&impl_->config);
+    }
+    M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+    if (impl_->sound) {
+      impl_->sound->ApplyConfig(&impl_->config);
+    }
+    resetSequencerPacing();
+    impl_->seq.ForceDrawAfterReset(impl_->config.refreshtiming);
+    if (draw_) {
+      draw_->InvalidateUiStaging();
+    }
+    syncStatusBarFromConfig();
+    saveConfig();
+    syncHostInputFromConfig();
+  });
   emitMachineConfig();
-  syncHostInputFromConfig();
   pollStatusUi();
 }
 
@@ -630,17 +614,7 @@ void EmulatorController::syncHostInputFromConfig() {
   emit mouseCaptureChanged((impl_->config.flags & PC8801::Config::enablemouse) != 0);
 }
 
-void EmulatorController::setFullscreenState(bool fullscreen, double refresh_hz) {
-  fullscreen_.store(fullscreen, std::memory_order_relaxed);
-  if (refresh_hz > 0.0) {
-    const uint64_t period_ns =
-        static_cast<uint64_t>(1'000'000'000.0 / refresh_hz + 0.5);
-    vsync_period_ns_.store(static_cast<uint32_t>(std::min<uint64_t>(period_ns, UINT32_MAX)),
-                           std::memory_order_relaxed);
-  } else {
-    vsync_period_ns_.store(0, std::memory_order_relaxed);
-  }
-}
+void EmulatorController::setFullscreenState(bool /*fullscreen*/, double /*refresh_hz*/) {}
 
 void EmulatorController::setWindowPosition(int x, int y) {
   if (!impl_) {
@@ -740,7 +714,11 @@ void EmulatorController::saveSnapshot(int slot) {
 
   const QString path = SnapshotFileName(impl_->drive_path[0], slot);
   const QByteArray utf8 = path.toUtf8();
-  if (impl_->pc88->SaveShapshot(utf8.constData(), &impl_->config)) {
+  bool saved = false;
+  withVmPaused([&]() {
+    saved = impl_->pc88->SaveShapshot(utf8.constData(), &impl_->config);
+  });
+  if (saved) {
     impl_->current_snapshot_slot = slot;
     emit snapshotStateChanged(slot);
     emit statusMessage(tr("%1 に保存しました").arg(path), 3000);
@@ -769,24 +747,30 @@ void EmulatorController::loadSnapshot(int slot) {
     diskname = disk_utf8.constData();
   }
 
-  if (!impl_->pc88->LoadShapshot(utf8.constData(), &impl_->config, diskname)) {
+  bool loaded = false;
+  withVmPaused([&]() {
+    loaded = impl_->pc88->LoadShapshot(utf8.constData(), &impl_->config, diskname);
+    if (!loaded) {
+      return;
+    }
+    impl_->current_snapshot_slot = slot;
+    impl_->keyif->ApplyConfig(&impl_->config);
+    if (impl_->sound) {
+      impl_->sound->ApplyConfig(&impl_->config);
+    }
+    syncHostInputFromConfig();
+    resetSequencerPacing();
+    impl_->pc88->UpdateScreen(true);
+    if (draw_) {
+      draw_->InvalidateUiStaging();
+      draw_->StageUiFrame();
+    }
+    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
+  });
+  if (!loaded) {
     emit statusMessage(tr("%1 から復元できません").arg(path), 3000);
     return;
   }
-
-  impl_->current_snapshot_slot = slot;
-  impl_->keyif->ApplyConfig(&impl_->config);
-  if (impl_->sound) {
-    impl_->sound->ApplyConfig(&impl_->config);
-  }
-  syncHostInputFromConfig();
-  resetBurstPacing();
-  impl_->pc88->UpdateScreen(true);
-  if (draw_) {
-    draw_->InvalidateUiStaging();
-    draw_->StageUiFrame();
-  }
-  impl_->post_reset_redraw_frames_ = 60;
   emit frameReady();
   emitMachineConfig();
   emitDiskConfiguration();
@@ -834,76 +818,6 @@ void EmulatorController::pollStatusUi() {
                        QString::fromUtf8(snap.message), snap.message_duration_ms);
 }
 
-void EmulatorController::emulateFrame() {
-  if (!running_ || !impl_ || !impl_->pc88) {
-    return;
-  }
-
-  processDeferredActions();
-  if (!running_) {
-    return;
-  }
-
-  M88LoadmonFrameBegin();
-  if (burstActive()) {
-    emulateBurstFrame();
-    M88LoadmonFrameEnd();
-    return;
-  }
-
-  const uint64_t frame_begin_ns = M88MonotonicNowNs();
-  const int texec = impl_->pc88->GetFramePeriod();
-  const int effclock =
-      std::max(1, impl_->config.clock * (impl_->config.speed / 10) / 100);
-  const uint clk = static_cast<uint>(impl_->config.clock);
-  const uint eff = static_cast<uint>(effclock);
-  const bool fullspeed =
-      (impl_->config.flags & PC8801::Config::fullspeed) != 0;
-  const int refresh_timing = std::max(1, impl_->config.refreshtiming);
-
-  bool should_draw = impl_->post_reset_redraw_frames_ > 0 || refresh_timing <= 1;
-  if (!should_draw) {
-    should_draw = impl_->draw_skip.AfterProceed(frame_begin_ns, texec,
-                                                impl_->config.speed,
-                                                refresh_timing);
-  }
-
-  impl_->pc88->TimeSync();
-  proceedFrame(texec, clk, eff);
-
-  if (should_draw) {
-    impl_->pc88->UpdateScreen(true);
-    if (impl_->post_reset_redraw_frames_ > 0) {
-      --impl_->post_reset_redraw_frames_;
-    }
-    if (draw_) {
-      draw_->StageUiFrame();
-    }
-  }
-  if (refresh_timing > 1) {
-    impl_->draw_skip.EndFrame(frame_begin_ns);
-  }
-
-  LinuxIme::Pump(impl_->keyif.get());
-  impl_->title_frame_count.fetch_add(1, std::memory_order_relaxed);
-  emit frameReady();
-  pollStatusUi();
-
-  if (running_ && !fullspeed) {
-    const uint64_t emu_period = M88FramePeriodNs(texec, impl_->config.speed);
-    uint64_t pace_period = emu_period;
-    if (fullscreen_.load(std::memory_order_relaxed) &&
-        (impl_->config.flag2 & PC8801::Config::synctovsync) != 0) {
-      const uint32_t vsync_ns = vsync_period_ns_.load(std::memory_order_relaxed);
-      if (vsync_ns > 0) {
-        pace_period = std::max(emu_period, static_cast<uint64_t>(vsync_ns));
-      }
-    }
-    M88PaceFrame(frame_begin_ns, pace_period, &running_);
-  }
-  M88LoadmonFrameEnd();
-}
-
 void EmulatorController::run() {
   if (!initialize()) {
     emit finished();
@@ -915,10 +829,52 @@ void EmulatorController::run() {
 
   impl_->hw_reset_done = false;
 
-  while (running_) {
-    QCoreApplication::processEvents(QEventLoop::AllEvents);
-    emulateFrame();
-  }
+  M88EmuThread::Params params;
+  params.vm = impl_->pc88.get();
+  params.seq = &impl_->seq;
+  params.config = &impl_->config;
+  params.draw = draw_;
+  params.keyif = impl_->keyif.get();
+  params.post_reset_frames = &impl_->post_reset_redraw_frames_;
+  params.title_frame_count = &impl_->title_frame_count;
+  params.title_exec_count = &impl_->title_exec_count;
+  params.running = &running_;
+  params.emu_pacer = &impl_->emu_time_pacer;
+  params.audio_hint = [this]() {
+    M88EmuTimePacer::AudioHint hint;
+    if (impl_->sound && impl_->sound->GetRingSize() > 0) {
+      hint.ring_avail = impl_->sound->GetRingAvail();
+      hint.ring_size = impl_->sound->GetRingSize();
+      hint.sample_rate_hz =
+          static_cast<int>(impl_->sound->GetOutputSampleRate());
+    }
+    return hint;
+  };
+  params.on_frame = [this](bool drew_screen) {
+    if (drew_screen) {
+      QMetaObject::invokeMethod(this, "emitFrameReady", Qt::QueuedConnection);
+    }
+    QMetaObject::invokeMethod(this, "pollEmulationIdle", Qt::QueuedConnection);
+  };
+
+  impl_->emu_thread.Start(std::move(params));
+
+  // Run the controller thread event loop so QueuedConnection slots (reset, disk,
+  // sampleTitleStats, etc.) are dispatched while the emu thread runs separately.
+  QEventLoop loop;
+  QTimer stop_poll;
+  stop_poll.setInterval(50);
+  QObject::connect(&stop_poll, &QTimer::timeout, this, [&]() {
+    if (!running_.load(std::memory_order_relaxed)) {
+      impl_->emu_thread.Stop();
+      loop.quit();
+    }
+  });
+  stop_poll.start();
+  loop.exec();
+  stop_poll.stop();
+
+  impl_->emu_thread.Join();
 
   shutdown();
   emit finished();
@@ -964,8 +920,8 @@ void EmulatorController::refreshDisplayAfterDiskChange() {
   if (!impl_ || !impl_->pc88) {
     return;
   }
-  impl_->draw_skip.ForceUpdateAfterReset(impl_->config.refreshtiming);
-  impl_->post_reset_redraw_frames_ = 30;
+  impl_->seq.ForceDrawAfterReset(impl_->config.refreshtiming);
+  impl_->post_reset_redraw_frames_.store(30, std::memory_order_relaxed);
   if (draw_) {
     draw_->InvalidateUiStaging();
   }
@@ -1043,7 +999,7 @@ void EmulatorController::setBurstMode(bool enabled) {
   } else {
     impl_->config.flags &= ~PC8801::Config::cpuburst;
   }
-  resetBurstPacing();
+  resetSequencerPacing();
   emitMachineConfig();
   emit statusMessage(enabled ? tr("Burst mode on") : tr("Burst mode off"), 2000);
 }
@@ -1053,25 +1009,27 @@ void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basi
   if (!impl_ || !impl_->pc88 || !impl_->keyif) {
     return;
   }
-  // WinUI::Reset: keyif/core ApplyConfig then PC88::Reset.
-  HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
-  impl_->keyif->FlushGuestKeys();
-  impl_->keyif->ApplyConfig(&impl_->config);
-  M88ApplyConfig(impl_->pc88.get(), &impl_->config);
-  if (impl_->sound) {
-    impl_->sound->ApplyConfig(&impl_->config);
-  }
-  syncHostInputFromConfig();
-  if (diag_tag && std::strcmp(diag_tag, "mode_switch") == 0) {
-    M88LogMachine(&impl_->config);
-  }
-  M88UserCpuReset(*impl_->pc88, &impl_->draw_skip, impl_->config.refreshtiming);
-  impl_->pc88->UpdateScreen(true);
-  if (draw_) {
-    draw_->InvalidateUiStaging();
-    draw_->StageUiFrame();
-  }
-  impl_->post_reset_redraw_frames_ = 60;
+  withVmPaused([&]() {
+    HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
+    impl_->keyif->FlushGuestKeys();
+    impl_->keyif->ApplyConfig(&impl_->config);
+    M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+    if (impl_->sound) {
+      impl_->sound->ApplyConfig(&impl_->config);
+    }
+    syncHostInputFromConfig();
+    if (diag_tag && std::strcmp(diag_tag, "mode_switch") == 0) {
+      M88LogMachine(&impl_->config);
+    }
+    resetSequencerPacing();
+    M88UserCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
+    impl_->pc88->UpdateScreen(true);
+    if (draw_) {
+      draw_->InvalidateUiStaging();
+      draw_->StageUiFrame();
+    }
+    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
+  });
   emit frameReady();
 }
 
@@ -1140,12 +1098,14 @@ void EmulatorController::setClock(int clock) {
     return;
   }
   impl_->config.clock = clock;
-  // WinUI::IDM_4MHZ/8MHZ call Reset(), but real hardware only changes clock.
-  impl_->keyif->ApplyConfig(&impl_->config);
-  M88ApplyConfig(impl_->pc88.get(), &impl_->config);
-  if (impl_->sound) {
-    impl_->sound->ApplyConfig(&impl_->config);
-  }
+  withVmPaused([&]() {
+    impl_->keyif->ApplyConfig(&impl_->config);
+    M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+    if (impl_->sound) {
+      impl_->sound->ApplyConfig(&impl_->config);
+    }
+    resetSequencerPacing();
+  });
   emitMachineConfig();
   saveConfig();
   std::fprintf(stdout, "M88: CPUClock=%d (%.1f MHz)\n", clock, clock / 10.0);

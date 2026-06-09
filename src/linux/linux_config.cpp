@@ -413,7 +413,7 @@ void M88SetDefaultConfig(Config* cfg) {
   // US / European 101–104 key keyboards use the AT101 PC-8801 key matrix.
   cfg->keytype = Config::AT101;
   cfg->dipsw = 1829;
-  cfg->soundbuffer = 300;
+  cfg->soundbuffer = 400;
   cfg->mousesensibility = 4;
   cfg->cpumode = Config::msauto;
 

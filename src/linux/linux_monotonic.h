@@ -14,12 +14,6 @@ inline uint64_t M88MonotonicNowNs() {
                                    .count());
 }
 
-inline uint64_t M88FramePeriodNs(int texec, int config_speed) {
-  const int64_t ms =
-      std::max<int64_t>(1, (static_cast<int64_t>(texec) * 10) / config_speed);
-  return static_cast<uint64_t>(ms) * 1'000'000ULL;
-}
-
 namespace M88MonotonicDetail {
 
 // Kernel sleep (clock_nanosleep) is often ~1ms granular; spin only the tail.
@@ -70,6 +64,15 @@ inline void SleepRemainingNs(uint64_t begin_ns, uint64_t period_ns, StopFn stop)
     }
     CpuRelax();
   }
+}
+
+template <typename StopFn>
+inline void SleepUntilAbs(uint64_t deadline_ns, StopFn stop) {
+  const uint64_t now_ns = M88MonotonicNowNs();
+  if (now_ns >= deadline_ns) {
+    return;
+  }
+  SleepRemainingNs(now_ns, deadline_ns - now_ns, stop);
 }
 
 }  // namespace M88MonotonicDetail

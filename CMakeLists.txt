@@ -157,6 +157,7 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/screen_capture.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/shared_framebuffer_draw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_emu_thread.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp

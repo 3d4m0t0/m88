@@ -7,6 +7,7 @@ struct Config;
 void M88LogConfigPath(const char* path, bool created);
 void M88LogWorkingDirectory();
 void M88LogMachine(const PC8801::Config* config);
+void M88LogFrameTiming(int texec, int config_speed);
 void M88LogSound(const PC8801::Config* config);
 void M88LogFdd(const PC8801::Config* config);
 void M88LogImeHalfKana();

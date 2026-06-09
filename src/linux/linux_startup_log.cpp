@@ -40,6 +40,16 @@ void M88LogMachine(const PC8801::Config* config) {
                (config->flags & PC8801::Config::subcpucontrol) ? "on" : "off");
 }
 
+void M88LogFrameTiming(int texec, int config_speed) {
+  if (texec <= 0 || config_speed <= 0) {
+    return;
+  }
+  const double ms = static_cast<double>(texec) * 10.0 / static_cast<double>(config_speed);
+  const double hz = ms > 0.0 ? 1000.0 / ms : 0.0;
+  std::fprintf(stderr, "M88: frame period %d ticks (%.2f ms, ~%.1f Hz)\n", texec, ms,
+               hz);
+}
+
 void M88LogSound(const PC8801::Config* config) {
   if (!config) {
     return;

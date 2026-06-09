@@ -1,5 +1,6 @@
 #include "linux_sound.h"
 
+#include "linux_audio_period.h"
 #include "headers.h"
 #include "misc.h"
 #include "pc88/pc88.h"
@@ -94,7 +95,7 @@ bool LinuxSound::ChangeRate(uint rate, uint buflen_ms) {
   want.format = AUDIO_S16SYS;
   want.channels = 2;
   want.samples = static_cast<Uint16>(
-      std::max(512, std::min(2048, bufsize > 0 ? bufsize / 16 : 1024)));
+      M88AudioPeriodFrames(sample_rate_, bufsize));
   want.callback = SdlCallback;
   want.userdata = this;
 
@@ -119,6 +120,7 @@ bool LinuxSound::ChangeRate(uint rate, uint buflen_ms) {
       return false;
     }
   }
+  PrimeBuffer(bufsize > 0 ? bufsize / 2 : 0);
   SDL_PauseAudioDevice(device_, 0);
   return true;
 }

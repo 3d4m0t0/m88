@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <atomic>
+#include <functional>
 #include <mutex>
 
 #include "pc88/config.h"
@@ -52,6 +53,8 @@ public slots:
   void setShowStatusBar(bool enabled);
   void setShowFdcStatus(bool enabled);
   void sampleTitleStats();
+  void pollEmulationIdle();
+  void emitFrameReady();
   PC8801::Config exportConfig();
   void importConfig(PC8801::Config config);
   void emitMachineConfig();
@@ -91,14 +94,13 @@ private:
 
   bool initialize();
   void shutdown();
-  void emulateFrame();
-  void emulateBurstFrame();
-  void resetBurstPacing();
+  void resetSequencerPacing();
   bool burstActive() const;
   void syncStatusBarFromConfig();
   void pollStatusUi();
   void saveConfig();
   void processDeferredActions();
+  void withVmPaused(const std::function<void()>& fn);
   void applyChangeDiskImage(int drive, const QString& path);
   void applyBothDrives(const QString& path);
   void applySelectDisk(int drive, int index);
@@ -117,8 +119,6 @@ private:
   Options options_;
   std::atomic<bool> running_{true};
   std::atomic<bool> reset_requested_{false};
-  std::atomic<bool> fullscreen_{false};
-  std::atomic<uint32_t> vsync_period_ns_{0};
 
   struct Impl;
   Impl* impl_ = nullptr;

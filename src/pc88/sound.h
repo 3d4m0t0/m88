@@ -42,6 +42,7 @@ public:
 	int  IFCALL GetSubsampleTime(ISoundSource* src);
 
 	void FillWhenEmpty(bool f) { soundbuf.FillWhenEmpty(f); }
+	void PrimeBuffer(int samples);
 
 	SoundSource* GetSoundSource() { return &soundbuf; }
 	int GetOutput(Sample* dest, int nsamples);
@@ -52,6 +53,9 @@ public:
 	int		GetChannels() { return 2; }
 	
 	int		GetAvail() { return INT_MAX; }
+	int		GetRingAvail();
+	int		GetRingSize() const { return buffersize; }
+	uint	GetOutputSampleRate() const { return samplingrate; }
 
 
 protected:

@@ -86,10 +86,24 @@ bool Sound::SetRate(uint rate, int bufsize)
 
 		rate50 = mixrate / 50;
 		tdiff = 0;
+		if (pc) {
+			prevtime = static_cast<uint32>(pc->GetTime());
+		}
 		enabled = true;
 	}
 	RebuildLpf();
 	return true;
+}
+
+void Sound::PrimeBuffer(int samples)
+{
+	if (!enabled || samples <= 0) {
+		return;
+	}
+	samples = Min(samples, buffersize / 2);
+	if (samples > 0) {
+		soundbuf.Fill(samples);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +186,11 @@ void Sound::RebuildLpf()
 	if (lpf_enabled_ && samplingrate > 0) {
 		lpf_.MakeFilter(lpf_fc_, samplingrate, lpf_order_);
 	}
+}
+
+int Sound::GetRingAvail()
+{
+	return enabled ? soundbuf.GetAvail() : 0;
 }
 
 int Sound::GetOutput(Sample* dest, int nsamples)
