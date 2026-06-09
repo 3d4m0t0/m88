@@ -288,6 +288,7 @@ bool EmulatorController::initialize() {
   emit frameReady();
 
   emitMachineConfig();
+  emitDisplayConfig();
   emitDiskConfiguration();
   emit started();
   return true;
@@ -604,6 +605,7 @@ void EmulatorController::importConfig(PC8801::Config config) {
     syncHostInputFromConfig();
   });
   emitMachineConfig();
+  emitDisplayConfig();
   pollStatusUi();
 }
 
@@ -644,14 +646,46 @@ QString SnapshotFileName(const QString& drive0_path, int slot) {
   return QDir(QString::fromUtf8(M88GetSnapshotDir())).filePath(name);
 }
 
-QString AutoCaptureBmpName() {
+QString CaptureDiskBaseName(const QString& drive0_path, const QString& drive1_path) {
+  for (const QString& path : {drive0_path, drive1_path}) {
+    if (!path.isEmpty()) {
+      const QString base = QFileInfo(path).completeBaseName();
+      if (!base.isEmpty()) {
+        return base;
+      }
+    }
+  }
+  return QString();
+}
+
+QString WithDiskPrefix(const QString& disk_base, const QString& body) {
+  if (disk_base.isEmpty()) {
+    return body;
+  }
+  return QStringLiteral("%1_%2").arg(disk_base, body);
+}
+
+QString AutoCaptureBmpName(const QString& drive0_path, const QString& drive1_path) {
   const QDateTime now = QDateTime::currentDateTime();
-  return QStringLiteral("%1%2%3%4%5.bmp")
-      .arg(now.date().day(), 2, 10, QChar('0'))
-      .arg(now.time().hour(), 2, 10, QChar('0'))
-      .arg(now.time().minute(), 2, 10, QChar('0'))
-      .arg(now.time().second(), 2, 10, QChar('0'))
-      .arg(now.time().msec() / 10, 2, 10, QChar('0'));
+  const QString stamp = QStringLiteral("%1%2%3%4%5")
+                            .arg(now.date().day(), 2, 10, QChar('0'))
+                            .arg(now.time().hour(), 2, 10, QChar('0'))
+                            .arg(now.time().minute(), 2, 10, QChar('0'))
+                            .arg(now.time().second(), 2, 10, QChar('0'))
+                            .arg(now.time().msec() / 10, 2, 10, QChar('0'));
+  return WithDiskPrefix(CaptureDiskBaseName(drive0_path, drive1_path),
+                        stamp + QStringLiteral(".bmp"));
+}
+
+QString AutoRecordWavName(const QString& drive0_path, const QString& drive1_path) {
+  const QDateTime now = QDateTime::currentDateTime();
+  const QString stamp = QStringLiteral("%1%2%3%4")
+                            .arg(now.date().day(), 2, 10, QChar('0'))
+                            .arg(now.time().hour(), 2, 10, QChar('0'))
+                            .arg(now.time().minute(), 2, 10, QChar('0'))
+                            .arg(now.time().second(), 2, 10, QChar('0'));
+  return WithDiskPrefix(CaptureDiskBaseName(drive0_path, drive1_path),
+                        stamp + QStringLiteral(".wav"));
 }
 
 }  // namespace
@@ -686,7 +720,8 @@ void EmulatorController::captureScreen(const QString& save_path) {
       emit statusMessage(tr("保存先が指定されていません"), 3000);
       return;
     }
-    path = QDir(QString::fromUtf8(M88GetCaptureDir())).filePath(AutoCaptureBmpName());
+    path = QDir(QString::fromUtf8(M88GetCaptureDir()))
+               .filePath(AutoCaptureBmpName(impl_->drive_path[0], impl_->drive_path[1]));
   }
 
   const QByteArray utf8 = path.toUtf8();
@@ -699,6 +734,35 @@ void EmulatorController::captureScreen(const QString& save_path) {
   }
 
   emit statusMessage(tr("画面イメージを %1 に保存しました").arg(path), 3000);
+}
+
+void EmulatorController::toggleRecordSound() {
+  if (!impl_ || !impl_->sound) {
+    emit statusMessage(tr("サウンド出力が無効です"), 3000);
+    return;
+  }
+
+  if (!impl_->sound->IsDumping()) {
+    const QString path = QDir(QString::fromUtf8(M88GetCaptureDir()))
+                             .filePath(AutoRecordWavName(impl_->drive_path[0],
+                                                         impl_->drive_path[1]));
+    const QByteArray utf8 = path.toUtf8();
+    if (!impl_->sound->DumpBegin(utf8.constData())) {
+      emit statusMessage(tr("サウンドを %1 に記録できません").arg(path), 3000);
+      return;
+    }
+    emit recordSoundChanged(true);
+    emit statusMessage(tr("サウンドの記録を開始しました: %1").arg(path), 3000);
+    return;
+  }
+
+  impl_->sound->DumpEnd();
+  emit recordSoundChanged(false);
+  emit statusMessage(tr("サウンドの記録を終了しました"), 3000);
+}
+
+bool EmulatorController::isRecordingSound() const {
+  return impl_ && impl_->sound && impl_->sound->IsDumping();
 }
 
 void EmulatorController::saveSnapshot(int slot) {
@@ -942,7 +1006,6 @@ void EmulatorController::emitMachineConfig() {
       (impl_->config.flags & PC8801::Config::disablef12reset) == 0,
       (impl_->config.flags & PC8801::Config::suppressmenu) != 0);
   syncStatusBarFromConfig();
-  emitDisplayConfig();
   pollStatusUi();
 }
 

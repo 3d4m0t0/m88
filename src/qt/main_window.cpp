@@ -21,6 +21,7 @@
 #include <QFileInfo>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMouseEvent>
 #include <QMessageBox>
 #include <QShortcut>
 #include <QGuiApplication>
@@ -156,7 +157,139 @@ void MainWindow::syncControllerFullscreenState() {
                             Q_ARG(double, screenRefreshHz()));
 }
 
-void MainWindow::applyFullscreenLayout() {
+void MainWindow::scheduleFullscreenChromeHide() {
+  if (!fullscreen_ || !fullscreen_chrome_hide_timer_) {
+    return;
+  }
+  fullscreen_chrome_hide_timer_->start(kFullscreenChromeHideMs);
+}
+
+void MainWindow::ensureMenuBarDocked() {
+  QMenuBar* mb = menuBar();
+  if (!mb) {
+    return;
+  }
+  if (mb->parentWidget() != this) {
+    mb->hide();
+    setMenuBar(mb);
+  }
+  mb->setMouseTracking(true);
+  if (!fullscreen_) {
+    mb->show();
+  }
+}
+
+void MainWindow::noteFullscreenMouseActivity(const QPoint& global_pos) {
+  if (!fullscreen_) {
+    return;
+  }
+
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  last_fullscreen_mouse_move_ms_ = now;
+  last_fullscreen_mouse_global_ = global_pos;
+  have_last_fullscreen_mouse_global_ = true;
+
+  QMenuBar* mb = menuBar();
+  if (!mb) {
+    return;
+  }
+  ensureMenuBarDocked();
+  if (!mb->isVisible()) {
+    mb->show();
+    last_fullscreen_menubar_show_ms_ = now;
+  }
+  scheduleFullscreenChromeHide();
+}
+
+void MainWindow::hideFullscreenChrome() {
+  if (!fullscreen_) {
+    return;
+  }
+  if (isAnyMenuVisible()) {
+    scheduleFullscreenChromeHide();
+    return;
+  }
+
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  if (now - last_fullscreen_mouse_move_ms_ < kFullscreenChromeHideMs) {
+    scheduleFullscreenChromeHide();
+    return;
+  }
+  if (now - last_fullscreen_menubar_show_ms_ < kFullscreenChromeToggleMs) {
+    scheduleFullscreenChromeHide();
+    return;
+  }
+
+  QMenuBar* mb = menuBar();
+  if (!mb || !mb->isVisible()) {
+    if (fullscreen_chrome_hide_timer_) {
+      fullscreen_chrome_hide_timer_->stop();
+    }
+    return;
+  }
+  if (fullscreen_chrome_hide_timer_) {
+    fullscreen_chrome_hide_timer_->stop();
+  }
+  mb->hide();
+}
+
+bool MainWindow::isMouseInsideWindow(const QPoint& global_pos) const {
+  if (!isVisible()) {
+    return false;
+  }
+  return rect().contains(mapFromGlobal(global_pos));
+}
+
+bool MainWindow::isAnyMenuVisible() const {
+  if (!menuBar()) {
+    return false;
+  }
+  QList<const QMenu*> pending;
+  for (QAction* action : menuBar()->actions()) {
+    if (QMenu* menu = action->menu()) {
+      pending.append(menu);
+    }
+  }
+  while (!pending.isEmpty()) {
+    const QMenu* menu = pending.takeFirst();
+    if (menu->isVisible()) {
+      return true;
+    }
+    for (const QAction* action : menu->actions()) {
+      if (const QMenu* sub = action->menu()) {
+        pending.append(sub);
+      }
+    }
+  }
+  return false;
+}
+
+void MainWindow::connectFullscreenMenuHooks() {
+  if (!menuBar()) {
+    return;
+  }
+  QList<QMenu*> pending;
+  for (QAction* action : menuBar()->actions()) {
+    if (QMenu* menu = action->menu()) {
+      pending.append(menu);
+    }
+  }
+  while (!pending.isEmpty()) {
+    QMenu* menu = pending.takeFirst();
+    connect(menu, &QMenu::aboutToHide, this, [this]() {
+      if (fullscreen_) {
+        scheduleFullscreenChromeHide();
+      }
+    });
+    for (QAction* action : menu->actions()) {
+      if (QMenu* sub = action->menu()) {
+        pending.append(sub);
+      }
+    }
+  }
+}
+
+void MainWindow::reapplyFullscreenScale() {
   const QScreen* screen =
       windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
   const QRect geo = screen ? screen->availableGeometry() : QRect(0, 0, 1920, 1080);
@@ -166,21 +299,36 @@ void MainWindow::applyFullscreenLayout() {
     view_->setScale(scale);
     view_->setForce480Layout(force480_);
   }
-  if (menuBar()) {
-    menuBar()->hide();
-  }
+  syncControllerFullscreenState();
+}
+
+void MainWindow::applyFullscreenLayout() {
+  reapplyFullscreenScale();
   if (statusBar()) {
     statusBar()->hide();
   }
+  if (fullscreen_chrome_hide_timer_) {
+    fullscreen_chrome_hide_timer_->stop();
+  }
+  ensureMenuBarDocked();
+  have_last_fullscreen_mouse_global_ = false;
+  last_fullscreen_mouse_move_ms_ = 0;
+  last_fullscreen_menubar_show_ms_ = 0;
+  if (menuBar()) {
+    menuBar()->hide();
+  }
   showFullScreen();
-  syncControllerFullscreenState();
   focusEmuView();
 }
 
 void MainWindow::applyWindowedLayout() {
-  if (menuBar()) {
-    menuBar()->show();
+  if (fullscreen_chrome_hide_timer_) {
+    fullscreen_chrome_hide_timer_->stop();
   }
+  have_last_fullscreen_mouse_global_ = false;
+  last_fullscreen_mouse_move_ms_ = 0;
+  last_fullscreen_menubar_show_ms_ = 0;
+  ensureMenuBarDocked();
   view_scale_ = windowed_view_scale_;
   if (view_) {
     view_->setScale(view_scale_);
@@ -209,10 +357,12 @@ void MainWindow::applyWindowedLayout() {
 }
 
 void MainWindow::updateDisplayConfig(bool force480, bool sync_to_vsync) {
+  const bool changed =
+      (force480_ != force480) || (sync_to_vsync_ != sync_to_vsync);
   force480_ = force480;
   sync_to_vsync_ = sync_to_vsync;
-  if (fullscreen_) {
-    applyFullscreenLayout();
+  if (fullscreen_ && changed) {
+    reapplyFullscreenScale();
   }
 }
 
@@ -482,6 +632,12 @@ bool IsFdcStatusMessage(const QString& message) {
 
 void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0,
                                 int lamp1, int lamp2, QString message, int message_ms) {
+  if (fullscreen_) {
+    if (statusBar()) {
+      statusBar()->hide();
+    }
+    return;
+  }
   if (QStatusBar* sb = statusBar()) {
     if (bar_enabled) {
       sb->show();
@@ -730,7 +886,9 @@ void MainWindow::setupMenuBar() {
   QAction* capture_action = tools_menu->addAction(tr("&Capture..."));
   capture_action->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F2));
   connect(capture_action, &QAction::triggered, this, &MainWindow::captureScreen);
-  AddPlaceholder(tools_menu, tr("&Record Sound"), true, false);
+  record_sound_action_ = tools_menu->addAction(tr("&Record Sound"));
+  record_sound_action_->setCheckable(true);
+  connect(record_sound_action_, &QAction::triggered, this, &MainWindow::toggleRecordSound);
   tools_menu->addSeparator();
   save_snapshot_action_ = tools_menu->addAction(tr("&Save Snapshot"));
   save_snapshot_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F10));
@@ -747,7 +905,16 @@ void MainWindow::setupMenuBar() {
     invokeLoadSnapshot(-1);
   });
 
-  connect(tools_menu_, &QMenu::aboutToShow, this, &MainWindow::rebuildSnapshotMenu);
+  connect(tools_menu_, &QMenu::aboutToShow, this, [this]() {
+    if (record_sound_action_ && controller_) {
+      bool recording = false;
+      QMetaObject::invokeMethod(controller_, "isRecordingSound",
+                                Qt::BlockingQueuedConnection,
+                                Q_RETURN_ARG(bool, recording));
+      record_sound_action_->setChecked(recording);
+    }
+    rebuildSnapshotMenu();
+  });
   rebuildSnapshotMenu();
 
   auto* debug_menu = menuBar()->addMenu(tr("D&ebug"));
@@ -851,6 +1018,13 @@ void MainWindow::onRequiredRomMissing() {
   applyRomMissingUiState();
 }
 
+void MainWindow::toggleRecordSound() {
+  if (!controller_) {
+    return;
+  }
+  QMetaObject::invokeMethod(controller_, "toggleRecordSound", Qt::QueuedConnection);
+}
+
 void MainWindow::captureScreen() {
   if (!controller_) {
     return;
@@ -922,6 +1096,8 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   layout->setContentsMargins(0, 0, 0, 0);
 
   view_ = new EmuView(central);
+  view_->setMouseTracking(true);
+  central->setMouseTracking(true);
   view_->attachFramebuffer(draw_);
   view_->setScale(view_scale_);
   view_->setHostInput(&host_input_);
@@ -930,6 +1106,8 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   setCentralWidget(central);
 
   setupMenuBar();
+  ensureMenuBarDocked();
+  connectFullscreenMenuHooks();
   applyViewScale(view_scale_);
   applySavedWindowPosition();
 
@@ -1005,10 +1183,14 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
       show();
       applySavedWindowPosition();
     }
-    statusBar()->showMessage(msg, 0);
+    if (!fullscreen_ && statusBar()) {
+      statusBar()->showMessage(msg, 0);
+    }
   });
   connect(controller_, &EmulatorController::started, this, [this]() {
-    statusBar()->showMessage(tr("Emulator running"), 3000);
+    if (!fullscreen_ && statusBar()) {
+      statusBar()->showMessage(tr("Emulator running"), 3000);
+    }
   });
   connect(controller_, &EmulatorController::mouseCaptureChanged, view_,
           &EmuView::setMouseCapture);
@@ -1020,6 +1202,11 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
           &MainWindow::updateStatusUi);
   connect(controller_, &EmulatorController::titleStatsUpdated, this,
           &MainWindow::updateTitleStats);
+  fullscreen_chrome_hide_timer_ = new QTimer(this);
+  fullscreen_chrome_hide_timer_->setSingleShot(true);
+  connect(fullscreen_chrome_hide_timer_, &QTimer::timeout, this,
+          &MainWindow::hideFullscreenChrome);
+
   title_timer_ = new QTimer(this);
   title_timer_->setInterval(1000);
   connect(title_timer_, &QTimer::timeout, this, [this]() {
@@ -1033,6 +1220,12 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
           &MainWindow::updateDiskMenu);
   connect(controller_, &EmulatorController::snapshotStateChanged, this,
           &MainWindow::updateSnapshotState);
+  connect(controller_, &EmulatorController::recordSoundChanged, this,
+          [this](bool recording) {
+            if (record_sound_action_) {
+              record_sound_action_->setChecked(recording);
+            }
+          });
   if (control_menu_) {
     connect(control_menu_, &QMenu::aboutToShow, this, [this]() {
       if (controller_) {
@@ -1043,6 +1236,9 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   }
   connect(controller_, &EmulatorController::statusMessage, this,
           [this](const QString& msg, int timeoutMs) {
+            if (fullscreen_ || !statusBar()) {
+              return;
+            }
             statusBar()->showMessage(msg, timeoutMs);
           });
 
@@ -1056,10 +1252,19 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     connect(app, &QCoreApplication::aboutToQuit, this, [this]() { stopEmulator(); });
   }
 
+  if (QApplication* app = qApp) {
+    app->installEventFilter(this);
+  }
+
   emu_thread_.start();
 }
 
-MainWindow::~MainWindow() { stopEmulator(); }
+MainWindow::~MainWindow() {
+  if (QApplication* app = qApp) {
+    app->removeEventFilter(this);
+  }
+  stopEmulator();
+}
 
 void MainWindow::closeEvent(QCloseEvent* event) {
   if (!confirmExit()) {
@@ -1079,10 +1284,23 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
 void MainWindow::showEvent(QShowEvent* event) {
   QMainWindow::showEvent(event);
+  if (!fullscreen_) {
+    ensureMenuBarDocked();
+  }
   focusEmuView();
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+  if (fullscreen_ && event->type() == QEvent::MouseMove) {
+    const QPoint global =
+        static_cast<QMouseEvent*>(event)->globalPosition().toPoint();
+    if (isMouseInsideWindow(global) &&
+        (!have_last_fullscreen_mouse_global_ ||
+         global != last_fullscreen_mouse_global_)) {
+      noteFullscreenMouseActivity(global);
+    }
+  }
+
   if (watched == view_ && event->type() == QEvent::KeyPress) {
     auto* key = static_cast<QKeyEvent*>(event);
     if (!key->isAutoRepeat() && key->modifiers().testFlag(Qt::AltModifier) &&

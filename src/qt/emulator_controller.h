@@ -63,6 +63,8 @@ public slots:
   void setWindowPosition(int x, int y);
   void saveConfigNow();
   void captureScreen(const QString& save_path);
+  void toggleRecordSound();
+  bool isRecordingSound() const;
   void saveSnapshot(int slot = 0);
   void loadSnapshot(int slot = 0);
 
@@ -84,6 +86,7 @@ signals:
   void statusMessage(const QString& message, int timeoutMs = 3000);
   void titleStatsUpdated(int fps, int mhz_whole, int mhz_frac);
   void snapshotStateChanged(int current_slot);
+  void recordSoundChanged(bool recording);
   void mouseCaptureChanged(bool enabled);
   void displayConfigChanged(bool force480, bool sync_to_vsync);
   void started();

@@ -10,6 +10,7 @@
 #include "pc88/sound.h"
 #include "pc88/pc88.h"
 #include "pc88/config.h"
+#include "file.h"
 
 //#define LOGNAME "sound"
 #include "diag.h"
@@ -21,7 +22,7 @@ using namespace PC8801;
 //
 Sound::Sound()
 : Device(0), sslist(0), mixingbuf(0), enabled(false), cfgflg(0), lpf_enabled_(false),
-  lpf_fc_(8000), lpf_order_(4)
+  lpf_fc_(8000), lpf_order_(4), dump_active_(false), dump_bytes_(0)
 {
 }
 
@@ -111,6 +112,8 @@ void Sound::PrimeBuffer(int samples)
 //
 void Sound::Cleanup()
 {
+	DumpEnd();
+
 	// 各音源を切り離す。(音源自体の削除は行わない)
 	for (SSNode* n = sslist; n; )
 	{
@@ -196,15 +199,125 @@ int Sound::GetRingAvail()
 int Sound::GetOutput(Sample* dest, int nsamples)
 {
 	const int got = soundbuf.Get(dest, nsamples);
-	if (!lpf_enabled_ || got <= 0) {
+	if (got <= 0) {
 		return got;
 	}
-	for (int i = 0; i < got; ++i) {
-		Sample* frame = dest + i * 2;
-		frame[0] = static_cast<Sample>(Limit(lpf_.Filter(0, frame[0]), 32767, -32768));
-		frame[1] = static_cast<Sample>(Limit(lpf_.Filter(1, frame[1]), 32767, -32768));
+	if (lpf_enabled_) {
+		for (int i = 0; i < got; ++i) {
+			Sample* frame = dest + i * 2;
+			frame[0] = static_cast<Sample>(Limit(lpf_.Filter(0, frame[0]), 32767, -32768));
+			frame[1] = static_cast<Sample>(Limit(lpf_.Filter(1, frame[1]), 32767, -32768));
+		}
+	}
+	if (dump_active_) {
+		RecordDumpSamples(dest, got);
 	}
 	return got;
+}
+
+namespace {
+
+#pragma pack(push, 1)
+struct WavPcmHeader {
+	char riff_id[4];
+	uint32 riff_size;
+	char wave_id[4];
+	char fmt_id[4];
+	uint32 fmt_size;
+	uint16_t format;
+	uint16_t channels;
+	uint32 sample_rate;
+	uint32 byte_rate;
+	uint16_t block_align;
+	uint16_t bits_per_sample;
+	char data_id[4];
+	uint32 data_size;
+};
+#pragma pack(pop)
+
+constexpr uint32 kWavHeaderSize = sizeof(WavPcmHeader);
+
+WavPcmHeader MakeWavHeader(uint rate, uint32 data_bytes)
+{
+	WavPcmHeader hdr {};
+	hdr.riff_id[0] = 'R'; hdr.riff_id[1] = 'I'; hdr.riff_id[2] = 'F'; hdr.riff_id[3] = 'F';
+	hdr.wave_id[0] = 'W'; hdr.wave_id[1] = 'A'; hdr.wave_id[2] = 'V'; hdr.wave_id[3] = 'E';
+	hdr.fmt_id[0] = 'f'; hdr.fmt_id[1] = 'm'; hdr.fmt_id[2] = 't'; hdr.fmt_id[3] = ' ';
+	hdr.fmt_size = 16;
+	hdr.format = 1;
+	hdr.channels = 2;
+	hdr.sample_rate = rate;
+	hdr.bits_per_sample = 16;
+	hdr.block_align = static_cast<uint16>(hdr.channels * (hdr.bits_per_sample / 8));
+	hdr.byte_rate = rate * hdr.block_align;
+	hdr.data_id[0] = 'd'; hdr.data_id[1] = 'a'; hdr.data_id[2] = 't'; hdr.data_id[3] = 'a';
+	hdr.data_size = data_bytes;
+	hdr.riff_size = 36 + data_bytes;
+	return hdr;
+}
+
+}  // namespace
+
+bool Sound::DumpBegin(const char* path)
+{
+	if (!path || !*path || samplingrate == 0) {
+		return false;
+	}
+
+	CriticalSection::Lock lock(cs_dump_);
+	if (dump_active_) {
+		return false;
+	}
+
+	if (!dump_file_.Open(path, FileIO::create)) {
+		return false;
+	}
+
+	const WavPcmHeader hdr = MakeWavHeader(samplingrate, 0);
+	if (dump_file_.Write(&hdr, static_cast<int32>(kWavHeaderSize)) !=
+	    static_cast<int32>(kWavHeaderSize)) {
+		dump_file_.Close();
+		return false;
+	}
+
+	dump_bytes_ = 0;
+	dump_active_ = true;
+	return true;
+}
+
+void Sound::DumpEnd()
+{
+	CriticalSection::Lock lock(cs_dump_);
+	if (!dump_active_) {
+		return;
+	}
+
+	dump_active_ = false;
+
+	if (dump_file_.IsOpen()) {
+		const WavPcmHeader hdr = MakeWavHeader(samplingrate, dump_bytes_);
+		dump_file_.Seek(0, FileIO::begin);
+		dump_file_.Write(&hdr, static_cast<int32>(kWavHeaderSize));
+		dump_file_.Close();
+	}
+	dump_bytes_ = 0;
+}
+
+void Sound::RecordDumpSamples(const Sample* data, int frames)
+{
+	if (!data || frames <= 0) {
+		return;
+	}
+
+	CriticalSection::Lock lock(cs_dump_);
+	if (!dump_active_ || !dump_file_.IsOpen()) {
+		return;
+	}
+
+	const int32 bytes = static_cast<int32>(frames) * 2 * static_cast<int32>(sizeof(Sample));
+	if (dump_file_.Write(data, bytes) == bytes) {
+		dump_bytes_ += static_cast<uint32>(bytes);
+	}
 }
 
 // ---------------------------------------------------------------------------

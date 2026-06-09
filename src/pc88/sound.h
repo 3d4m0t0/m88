@@ -7,6 +7,7 @@
 #pragma once
 
 #include "device.h"
+#include "file.h"
 #include "sndbuf2.h"
 #include "srcbuf.h"
 #include "lpf.h"
@@ -57,6 +58,9 @@ public:
 	int		GetRingSize() const { return buffersize; }
 	uint	GetOutputSampleRate() const { return samplingrate; }
 
+	bool	IsDumping() const { return dump_active_; }
+	bool	DumpBegin(const char* path);
+	void	DumpEnd();
 
 protected:
 	uint mixrate;
@@ -94,6 +98,13 @@ private:
 	
 	SSNode* sslist;
 	CriticalSection cs_ss;
+
+	void RecordDumpSamples(const Sample* data, int frames);
+
+	bool dump_active_;
+	uint32 dump_bytes_;
+	FileIO dump_file_;
+	CriticalSection cs_dump_;
 };
 
 }

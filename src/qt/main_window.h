@@ -67,6 +67,14 @@ private:
   void saveWindowPositionOnExit();
   void applyFullscreenLayout();
   void applyWindowedLayout();
+  void reapplyFullscreenScale();
+  void ensureMenuBarDocked();
+  void noteFullscreenMouseActivity(const QPoint& global_pos);
+  void scheduleFullscreenChromeHide();
+  void hideFullscreenChrome();
+  void connectFullscreenMenuHooks();
+  bool isMouseInsideWindow(const QPoint& global_pos) const;
+  bool isAnyMenuVisible() const;
   void syncControllerFullscreenState();
   double screenRefreshHz() const;
   void stopEmulator();
@@ -75,6 +83,7 @@ private:
   void openDiskImageDialog(int drive);
   void openBothDrivesDialog();
   void captureScreen();
+  void toggleRecordSound();
   void rebuildSnapshotMenu();
   void invokeSaveSnapshot(int slot);
   void invokeLoadSnapshot(int slot);
@@ -90,6 +99,11 @@ private:
   int view_scale_ = 2;
   int windowed_view_scale_ = 2;
   bool fullscreen_ = false;
+  qint64 last_fullscreen_mouse_move_ms_ = 0;
+  qint64 last_fullscreen_menubar_show_ms_ = 0;
+  QPoint last_fullscreen_mouse_global_;
+  bool have_last_fullscreen_mouse_global_ = false;
+  static constexpr int kFullscreenChromeToggleMs = 250;
   bool force480_ = false;
   bool sync_to_vsync_ = false;
   QRect windowed_geometry_;
@@ -117,6 +131,7 @@ private:
   bool ask_before_reset_ = false;
   bool f12_as_reset_ = true;
   QAction* show_status_action_ = nullptr;
+  QAction* record_sound_action_ = nullptr;
   QMenu* tools_menu_ = nullptr;
   QAction* save_snapshot_action_ = nullptr;
   QAction* load_snapshot_action_ = nullptr;
@@ -127,6 +142,8 @@ private:
   QAction* fdc_status_action_ = nullptr;
   QLabel* fdc_text_label_ = nullptr;
   QTimer* title_timer_ = nullptr;
+  QTimer* fullscreen_chrome_hide_timer_ = nullptr;
+  static constexpr int kFullscreenChromeHideMs = 5000;
   QWidget* fdc_lamp_panel_ = nullptr;
   QLabel* fdc_lamp_labels_[3] = {nullptr, nullptr, nullptr};
   QActionGroup* mode_group_ = nullptr;
