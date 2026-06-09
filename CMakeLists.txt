@@ -142,6 +142,8 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_window.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emulator_controller.cpp

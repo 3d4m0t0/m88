@@ -1,6 +1,7 @@
 #include "main_window.h"
 
 #include "config_dialog.h"
+#include "multi_disk_editor_dialog.h"
 #include "emu_view.h"
 #include "../linux/shared_framebuffer_draw.h"
 
@@ -613,6 +614,11 @@ void MainWindow::openBothDrivesDialog() {
   }
 }
 
+void MainWindow::openMultiDiskEditorDialog() {
+  MultiDiskEditorDialog dlg(this);
+  dlg.exec();
+}
+
 namespace {
 
 QString LampGlyph(int level) {
@@ -851,6 +857,8 @@ void MainWindow::setupMenuBar() {
   drive_actions_[1] = disk_menu_->addAction(tr("Drive &2..."));
   disk_menu_->addSeparator();
   change_both_action_ = disk_menu_->addAction(tr("&Change disk image..."));
+  multi_disk_editor_action_ =
+      disk_menu_->addAction(tr("&Edit multi-disk image..."));
 
   open_disk_shortcut_ = new QShortcut(QKeySequence::Open, this);
   open_disk_shortcut_->setContext(Qt::WindowShortcut);
@@ -866,6 +874,8 @@ void MainWindow::setupMenuBar() {
   });
   connect(change_both_action_, &QAction::triggered, this,
           &MainWindow::openBothDrivesDialog);
+  connect(multi_disk_editor_action_, &QAction::triggered, this,
+          &MainWindow::openMultiDiskEditorDialog);
 
   auto* tape_menu = menuBar()->addMenu(tr("Ta&pe"));
   AddPlaceholder(tape_menu, tr("&Open..."));

@@ -80,6 +80,34 @@ private:
 	char diskname[MAX_PATH];
 };
 
+// Combine one or more .d88 files into a single multi-disk image.
+// Each input file may already contain multiple disks; all are appended in order.
+// Returns the number of disks written via disks_written (optional).
+bool CombineDiskImages(const char* output_path, const char* const* input_paths,
+                       int num_inputs, int* disks_written = nullptr);
+
+struct MultiDiskSlot {
+  enum class Kind { Empty, FromFile, Blank };
+  Kind kind = Kind::Empty;
+  char file_path[MAX_PATH];
+  int file_disk_index = 0;
+  char title[17];
+  uint blank_type = 1;  // 0=2D, 1=2DD, 2=2HD
+};
+
+namespace D88 {
+struct DiskCatalogInfo {
+  int32 pos;
+  int32 size;
+  char title[20];
+};
+}  // namespace D88
+
+bool ReadDiskImageCatalog(const char* path, D88::DiskCatalogInfo* entries,
+                          int max_entries, int* num_disks);
+bool WriteMultiDiskImage(const char* output_path, const MultiDiskSlot* slots,
+                         int slot_count, int* disks_written = nullptr);
+
 // ---------------------------------------------------------------------------
 
 class DiskManager
