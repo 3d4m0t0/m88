@@ -6,6 +6,7 @@
 
 #include "../linux/display_scale.h"
 #include "../linux/linux_config.h"
+#include "../linux/linux_paths.h"
 #include "../pc88/config.h"
 
 #include <QAction>
@@ -13,11 +14,18 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QShortcut>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QWindow>
 #include <QShowEvent>
 #include <QStatusBar>
 #include <QThread>
@@ -30,8 +38,19 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <unistd.h>
 
 namespace {
+
+void SetWorkingDirectory(const QString& dir) {
+  if (dir.isEmpty()) {
+    return;
+  }
+  const QByteArray utf8 = QFileInfo(dir).absoluteFilePath().toUtf8();
+  if (chdir(utf8.constData()) == 0) {
+    QDir::setCurrent(QString::fromLocal8Bit(utf8.constData()));
+  }
+}
 
 QAction* AddPlaceholder(QMenu* menu, const QString& text, bool checkable = false,
                         bool checked = false) {
@@ -105,8 +124,10 @@ void MainWindow::stopEmulator() {
 
 void MainWindow::applyViewScale(int scale) {
   view_scale_ = std::max(1, scale);
+  windowed_view_scale_ = view_scale_;
   if (view_) {
     view_->setScale(view_scale_);
+    view_->setForce480Layout(false);
   }
   int chrome_h = kM88QtChromeH;
   if (menuBar()) {
@@ -114,6 +135,108 @@ void MainWindow::applyViewScale(int scale) {
   }
   resize(kM88EmuWidth * view_scale_ + kM88QtChromeW,
          kM88EmuHeight * view_scale_ + chrome_h);
+}
+
+double MainWindow::screenRefreshHz() const {
+  const QScreen* screen =
+      windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+  if (!screen) {
+    return 60.0;
+  }
+  const double hz = screen->refreshRate();
+  return hz > 0.0 ? hz : 60.0;
+}
+
+void MainWindow::syncControllerFullscreenState() {
+  if (!controller_) {
+    return;
+  }
+  QMetaObject::invokeMethod(controller_, "setFullscreenState", Qt::QueuedConnection,
+                            Q_ARG(bool, fullscreen_),
+                            Q_ARG(double, screenRefreshHz()));
+}
+
+void MainWindow::applyFullscreenLayout() {
+  const QScreen* screen =
+      windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+  const QRect geo = screen ? screen->availableGeometry() : QRect(0, 0, 1920, 1080);
+  const int scale = M88ComputeFullscreenScale(geo.width(), geo.height(), force480_);
+  view_scale_ = scale;
+  if (view_) {
+    view_->setScale(scale);
+    view_->setForce480Layout(force480_);
+  }
+  if (menuBar()) {
+    menuBar()->hide();
+  }
+  if (statusBar()) {
+    statusBar()->hide();
+  }
+  showFullScreen();
+  syncControllerFullscreenState();
+  focusEmuView();
+}
+
+void MainWindow::applyWindowedLayout() {
+  if (menuBar()) {
+    menuBar()->show();
+  }
+  view_scale_ = windowed_view_scale_;
+  if (view_) {
+    view_->setScale(view_scale_);
+    view_->setForce480Layout(false);
+  }
+  showNormal();
+  if (!windowed_geometry_.isNull()) {
+    setGeometry(windowed_geometry_);
+  } else {
+    applyViewScale(view_scale_);
+  }
+  if (controller_) {
+    PC8801::Config cfg;
+    if (QMetaObject::invokeMethod(controller_, "exportConfig",
+                                  Qt::BlockingQueuedConnection,
+                                  Q_RETURN_ARG(PC8801::Config, cfg))) {
+      if (cfg.flags & PC8801::Config::showstatusbar) {
+        if (statusBar()) {
+          statusBar()->show();
+        }
+      }
+    }
+  }
+  syncControllerFullscreenState();
+  focusEmuView();
+}
+
+void MainWindow::updateDisplayConfig(bool force480, bool sync_to_vsync) {
+  force480_ = force480;
+  sync_to_vsync_ = sync_to_vsync;
+  if (fullscreen_) {
+    applyFullscreenLayout();
+  }
+}
+
+void MainWindow::toggleFullscreen() {
+  const quint64 now = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch());
+  if (now - last_display_toggle_ms_ < 300) {
+    return;
+  }
+  last_display_toggle_ms_ = now;
+
+  toggling_display_ = true;
+  if (!fullscreen_) {
+    windowed_geometry_ = geometry();
+    windowed_view_scale_ = view_scale_;
+    fullscreen_ = true;
+    applyFullscreenLayout();
+  } else {
+    fullscreen_ = false;
+    applyWindowedLayout();
+  }
+  toggling_display_ = false;
+  if (fullscreen_action_) {
+    fullscreen_action_->setChecked(fullscreen_);
+  }
 }
 
 QString MainWindow::DriveBaseName(const QString& path) {
@@ -199,8 +322,90 @@ void MainWindow::updateDiskMenu(QString drive0Path, int drive0NumDisks,
                                 int drive0Current, QStringList drive0Titles,
                                 QString drive1Path, int drive1NumDisks,
                                 int drive1Current, QStringList drive1Titles) {
+  snapshot_drive0_path_ = drive0Path;
   rebuildDriveMenu(0, drive0Path, drive0NumDisks, drive0Current, drive0Titles);
   rebuildDriveMenu(1, drive1Path, drive1NumDisks, drive1Current, drive1Titles);
+  rebuildSnapshotMenu();
+}
+
+void MainWindow::updateSnapshotState(int current_slot) {
+  if (current_slot >= 0 && current_slot <= 9) {
+    current_snapshot_slot_ = current_slot;
+  }
+  rebuildSnapshotMenu();
+}
+
+QString MainWindow::SnapshotBaseTitle(const QString& drive0_path) {
+  if (!drive0_path.isEmpty()) {
+    const QString base = QFileInfo(drive0_path).completeBaseName();
+    if (!base.isEmpty()) {
+      return base;
+    }
+  }
+  return QStringLiteral("snapshot");
+}
+
+void MainWindow::invokeSaveSnapshot(int slot) {
+  if (!controller_) {
+    return;
+  }
+  QMetaObject::invokeMethod(controller_, "saveSnapshot", Qt::QueuedConnection,
+                            Q_ARG(int, slot));
+}
+
+void MainWindow::invokeLoadSnapshot(int slot) {
+  if (!controller_) {
+    return;
+  }
+  QMetaObject::invokeMethod(controller_, "loadSnapshot", Qt::QueuedConnection,
+                            Q_ARG(int, slot));
+}
+
+void MainWindow::rebuildSnapshotMenu() {
+  if (!save_snapshot_submenu_ || !load_snapshot_submenu_) {
+    return;
+  }
+
+  save_snapshot_submenu_->clear();
+  load_snapshot_submenu_->clear();
+
+  const QString base = SnapshotBaseTitle(snapshot_drive0_path_);
+  int entries = 0;
+  const QString snap_dir = QString::fromUtf8(M88GetSnapshotDir());
+  for (int i = 0; i < 10; ++i) {
+    const QString path = QDir(snap_dir).filePath(QStringLiteral("%1_%2.s88").arg(base).arg(i));
+    if (QFile::exists(path)) {
+      entries |= (1 << i);
+    }
+  }
+
+  for (int i = 0; i < 10; ++i) {
+    QAction* save_action =
+        save_snapshot_submenu_->addAction(QStringLiteral("&%1").arg(i));
+    save_action->setCheckable(true);
+    save_action->setChecked((entries & (1 << i)) != 0);
+    connect(save_action, &QAction::triggered, this, [this, i]() {
+      invokeSaveSnapshot(i);
+    });
+  }
+
+  if (entries != 0) {
+    load_snapshot_action_->setMenu(load_snapshot_submenu_);
+    for (int i = 0; i < 10; ++i) {
+      if ((entries & (1 << i)) == 0) {
+        continue;
+      }
+      QAction* load_action =
+          load_snapshot_submenu_->addAction(QStringLiteral("&%1").arg(i));
+      load_action->setCheckable(true);
+      load_action->setChecked(i == current_snapshot_slot_);
+      connect(load_action, &QAction::triggered, this, [this, i]() {
+        invokeLoadSnapshot(i);
+      });
+    }
+  } else {
+    load_snapshot_action_->setMenu(nullptr);
+  }
 }
 
 void MainWindow::openConfigureDialog() {
@@ -215,6 +420,9 @@ void MainWindow::openConfigureDialog() {
   }
   ConfigDialog dlg(cfg, this);
   connect(&dlg, &ConfigDialog::settingsApplied, this, [this](PC8801::Config config) {
+    syncRememberPrefsFromConfig(config);
+    updateDisplayConfig((config.flags & PC8801::Config::force480) != 0,
+                        (config.flag2 & PC8801::Config::synctovsync) != 0);
     if (controller_) {
       QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
                                 Q_ARG(PC8801::Config, config));
@@ -223,13 +431,19 @@ void MainWindow::openConfigureDialog() {
   if (dlg.exec() != QDialog::Accepted) {
     return;
   }
+  const PC8801::Config config = dlg.config();
+  syncRememberPrefsFromConfig(config);
   QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
-                            Q_ARG(PC8801::Config, dlg.config()));
+                            Q_ARG(PC8801::Config, config));
 }
 
 void MainWindow::openDiskImageDialog(int drive) {
   const QString path = QFileDialog::getOpenFileName(
-      this, tr("Open disk image"), QString(), tr(kDiskImageFilter));
+      this, tr("Open disk image"), QDir::currentPath(), tr(kDiskImageFilter));
+  if (path.isEmpty()) {
+    return;
+  }
+  SetWorkingDirectory(QFileInfo(path).absolutePath());
   if (controller_) {
     QMetaObject::invokeMethod(controller_, "changeDiskImage", Qt::QueuedConnection,
                               Q_ARG(int, drive), Q_ARG(QString, path));
@@ -238,7 +452,11 @@ void MainWindow::openDiskImageDialog(int drive) {
 
 void MainWindow::openBothDrivesDialog() {
   const QString path = QFileDialog::getOpenFileName(
-      this, tr("Open disk image"), QString(), tr(kDiskImageFilter));
+      this, tr("Open disk image"), QDir::currentPath(), tr(kDiskImageFilter));
+  if (path.isEmpty()) {
+    return;
+  }
+  SetWorkingDirectory(QFileInfo(path).absolutePath());
   if (controller_) {
     QMetaObject::invokeMethod(controller_, "changeBothDrives", Qt::QueuedConnection,
                               Q_ARG(QString, path));
@@ -341,6 +559,10 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
                                     bool burst_mode, bool show_statusbar,
                                     bool show_fdc_status, bool ask_before_reset,
                                     bool f12_as_reset, bool suppress_menu) {
+  if (rom_missing_) {
+    applyRomMissingUiState();
+    return;
+  }
   ask_before_reset_ = ask_before_reset;
   f12_as_reset_ = f12_as_reset;
   if (view_) {
@@ -447,6 +669,11 @@ void MainWindow::setupMenuBar() {
   });
 
   control_menu_->addSeparator();
+  fullscreen_action_ = control_menu_->addAction(tr("Toggle &fullscreen"));
+  fullscreen_action_->setCheckable(true);
+  fullscreen_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Return));
+  connect(fullscreen_action_, &QAction::triggered, this, &MainWindow::toggleFullscreen);
+
   burst_action_ = control_menu_->addAction(tr("&Burst mode"));
   burst_action_->setCheckable(true);
   connect(burst_action_, &QAction::triggered, this, [this](bool checked) {
@@ -460,8 +687,8 @@ void MainWindow::setupMenuBar() {
   reset_action_->setShortcut(QKeySequence(Qt::Key_F12));
 
   control_menu_->addSeparator();
-  auto* exit_action = control_menu_->addAction(tr("E&xit"));
-  exit_action->setShortcut(QKeySequence::Quit);
+  exit_action_ = control_menu_->addAction(tr("E&xit"));
+  exit_action_->setShortcut(QKeySequence::Quit);
 
   disk_menu_ = menuBar()->addMenu(tr("&Disk"));
   drive_actions_[0] = disk_menu_->addAction(tr("Drive &1..."));
@@ -469,9 +696,9 @@ void MainWindow::setupMenuBar() {
   disk_menu_->addSeparator();
   change_both_action_ = disk_menu_->addAction(tr("&Change disk image..."));
 
-  auto* open_disk_shortcut = new QShortcut(QKeySequence::Open, this);
-  open_disk_shortcut->setContext(Qt::WindowShortcut);
-  connect(open_disk_shortcut, &QShortcut::activated, this,
+  open_disk_shortcut_ = new QShortcut(QKeySequence::Open, this);
+  open_disk_shortcut_->setContext(Qt::WindowShortcut);
+  connect(open_disk_shortcut_, &QShortcut::activated, this,
           [this]() { openDiskImageDialog(0); });
 
   connect(drive_actions_[0], &QAction::triggered, this,
@@ -487,7 +714,8 @@ void MainWindow::setupMenuBar() {
   auto* tape_menu = menuBar()->addMenu(tr("Ta&pe"));
   AddPlaceholder(tape_menu, tr("&Open..."));
 
-  auto* tools_menu = menuBar()->addMenu(tr("&Tools"));
+  tools_menu_ = menuBar()->addMenu(tr("&Tools"));
+  auto* tools_menu = tools_menu_;
   QAction* configure_action = tools_menu->addAction(tr("&Configure..."));
   connect(configure_action, &QAction::triggered, this, &MainWindow::openConfigureDialog);
   tools_menu->addSeparator();
@@ -499,14 +727,28 @@ void MainWindow::setupMenuBar() {
                                 Q_ARG(bool, checked));
     }
   });
-  QAction* capture_action = AddPlaceholder(tools_menu, tr("&Capture..."));
+  QAction* capture_action = tools_menu->addAction(tr("&Capture..."));
   capture_action->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F2));
+  connect(capture_action, &QAction::triggered, this, &MainWindow::captureScreen);
   AddPlaceholder(tools_menu, tr("&Record Sound"), true, false);
   tools_menu->addSeparator();
-  QAction* save_snapshot = AddPlaceholder(tools_menu, tr("&Save Snapshot"));
-  save_snapshot->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F10));
-  QAction* load_snapshot = AddPlaceholder(tools_menu, tr("&Load Snapshot"));
-  load_snapshot->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F1));
+  save_snapshot_action_ = tools_menu->addAction(tr("&Save Snapshot"));
+  save_snapshot_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F10));
+  save_snapshot_submenu_ = new QMenu(this);
+  save_snapshot_action_->setMenu(save_snapshot_submenu_);
+  connect(save_snapshot_action_, &QAction::triggered, this, [this]() {
+    invokeSaveSnapshot(-1);
+  });
+
+  load_snapshot_action_ = tools_menu->addAction(tr("&Load Snapshot"));
+  load_snapshot_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F1));
+  load_snapshot_submenu_ = new QMenu(this);
+  connect(load_snapshot_action_, &QAction::triggered, this, [this]() {
+    invokeLoadSnapshot(-1);
+  });
+
+  connect(tools_menu_, &QMenu::aboutToShow, this, &MainWindow::rebuildSnapshotMenu);
+  rebuildSnapshotMenu();
 
   auto* debug_menu = menuBar()->addMenu(tr("D&ebug"));
   fdc_status_action_ = debug_menu->addAction(tr("Show &FDC Status"));
@@ -529,10 +771,10 @@ void MainWindow::setupMenuBar() {
   AddPlaceholder(debug_menu, tr("Dump CPU&1 Log"), true, false);
   AddPlaceholder(debug_menu, tr("Dump CPU&2 Log"), true, false);
 
-  auto* help_menu = menuBar()->addMenu(tr("&Help"));
-  auto* about_action = help_menu->addAction(tr("&About"));
+  help_menu_ = menuBar()->addMenu(tr("&Help"));
+  about_action_ = help_menu_->addAction(tr("&About"));
 
-  connect(exit_action, &QAction::triggered, this, &QWidget::close);
+  connect(exit_action_, &QAction::triggered, this, &QWidget::close);
   connect(reset_action_, &QAction::triggered, this, [this]() {
     if (!confirmReset()) {
       return;
@@ -541,7 +783,7 @@ void MainWindow::setupMenuBar() {
       QMetaObject::invokeMethod(controller_, "resetMachine", Qt::QueuedConnection);
     }
   });
-  connect(about_action, &QAction::triggered, this, [this]() {
+  connect(about_action_, &QAction::triggered, this, [this]() {
     QMessageBox::about(
         this, tr("About M88"),
         tr("<h3>M88</h3>"
@@ -560,11 +802,112 @@ void MainWindow::setupMenuBar() {
   }
 }
 
+void MainWindow::applyRomMissingUiState() {
+  rom_missing_ = true;
+  if (title_timer_) {
+    title_timer_->stop();
+  }
+  if (open_disk_shortcut_) {
+    open_disk_shortcut_->setEnabled(false);
+  }
+
+  for (QAction* top : menuBar()->actions()) {
+    QMenu* menu = top->menu();
+    if (!menu) {
+      continue;
+    }
+
+    if (menu == control_menu_) {
+      top->setEnabled(true);
+      for (QAction* action : menu->actions()) {
+        action->setEnabled(action == exit_action_);
+      }
+      continue;
+    }
+
+    if (menu == help_menu_) {
+      top->setEnabled(true);
+      for (QAction* action : menu->actions()) {
+        action->setEnabled(action == about_action_);
+      }
+      continue;
+    }
+
+    top->setEnabled(false);
+  }
+}
+
+void MainWindow::onRequiredRomMissing() {
+  if (!window_shown_) {
+    window_shown_ = true;
+    show();
+    applySavedWindowPosition();
+  }
+  statusBar()->show();
+  statusBar()->showMessage(
+      tr("Required ROM not found (pc88.rom or n88.rom). Place ROM files in the "
+         "roms directory and restart."),
+      0);
+  applyRomMissingUiState();
+}
+
+void MainWindow::captureScreen() {
+  if (!controller_) {
+    return;
+  }
+
+  PC8801::Config config {};
+  QMetaObject::invokeMethod(controller_, "exportConfig", Qt::BlockingQueuedConnection,
+                            Q_RETURN_ARG(PC8801::Config, config));
+
+  QString path;
+  if ((config.flag2 & PC8801::Config::genscrnshotname) == 0) {
+    path = QFileDialog::getSaveFileName(
+        this, tr("Save captured image"),
+        QString::fromUtf8(M88GetCaptureDir()),
+        tr("Bitmap image [4bpp] (*.bmp);;All files (*)"));
+    if (path.isEmpty()) {
+      return;
+    }
+    if (!path.endsWith(QStringLiteral(".bmp"), Qt::CaseInsensitive)) {
+      path += QStringLiteral(".bmp");
+    }
+  }
+
+  QMetaObject::invokeMethod(controller_, "captureScreen", Qt::QueuedConnection,
+                            Q_ARG(QString, path));
+}
+
+void MainWindow::syncRememberPrefsFromConfig(const PC8801::Config& config) {
+  save_position_ = (config.flag2 & PC8801::Config::saveposition) != 0;
+  winpos_x_ = config.winposx;
+  winpos_y_ = config.winposy;
+}
+
+void MainWindow::applySavedWindowPosition() {
+  if (!save_position_ || fullscreen_) {
+    return;
+  }
+  move(winpos_x_, winpos_y_);
+}
+
+void MainWindow::saveWindowPositionOnExit() {
+  if (fullscreen_ || !controller_ || !save_position_) {
+    return;
+  }
+  const QPoint pos = frameGeometry().topLeft();
+  QMetaObject::invokeMethod(controller_, "setWindowPosition", Qt::BlockingQueuedConnection,
+                            Q_ARG(int, pos.x()), Q_ARG(int, pos.y()));
+}
+
 MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
-                       QWidget* parent)
+                       const MainWindowStartup& startup, QWidget* parent)
     : QMainWindow(parent) {
   setWindowTitle(QStringLiteral("M88"));
   view_scale_ = std::max(1, scale);
+  save_position_ = startup.save_position;
+  winpos_x_ = startup.winpos_x;
+  winpos_y_ = startup.winpos_y;
 
   // Draw::Init is called from PC88::Init on the emulator thread (do not Init here).
   draw_ = new SharedFramebufferDraw();
@@ -581,11 +924,14 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   view_ = new EmuView(central);
   view_->attachFramebuffer(draw_);
   view_->setScale(view_scale_);
+  view_->setHostInput(&host_input_);
+  view_->installEventFilter(this);
   layout->addWidget(view_, 1);
   setCentralWidget(central);
 
   setupMenuBar();
   applyViewScale(view_scale_);
+  applySavedWindowPosition();
 
   // Menu bar / status bar follow the desktop theme; only the emu view stays black.
   const QPalette app_pal = QApplication::palette();
@@ -621,7 +967,9 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     sb->addPermanentWidget(fdc_lamp_panel_, 0);
   }
 
-  controller_ = new EmulatorController(draw_, options);
+  EmulatorController::Options emu_options = options;
+  emu_options.host_input = &host_input_;
+  controller_ = new EmulatorController(draw_, emu_options);
   controller_->moveToThread(&emu_thread_);
 
   connect(&emu_thread_, &QThread::started, controller_, &EmulatorController::run);
@@ -630,9 +978,13 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   connect(controller_, &EmulatorController::frameReady, view_, &EmuView::refreshFrame,
           Qt::QueuedConnection);
   connect(controller_, &EmulatorController::frameReady, this, [this]() {
+    if (rom_missing_) {
+      return;
+    }
     if (!window_shown_) {
       window_shown_ = true;
       show();
+      applySavedWindowPosition();
       focusEmuView();
     }
   }, Qt::QueuedConnection);
@@ -642,18 +994,28 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
           Qt::QueuedConnection);
   connect(view_, &EmuView::imeCommit, controller_, &EmulatorController::commitImeText,
           Qt::QueuedConnection);
+  connect(controller_, &EmulatorController::requiredRomMissing, this,
+          &MainWindow::onRequiredRomMissing);
   connect(controller_, &EmulatorController::failed, this, [this](const QString& msg) {
+    if (rom_missing_) {
+      return;
+    }
     if (!window_shown_) {
       window_shown_ = true;
       show();
+      applySavedWindowPosition();
     }
     statusBar()->showMessage(msg, 0);
   });
   connect(controller_, &EmulatorController::started, this, [this]() {
     statusBar()->showMessage(tr("Emulator running"), 3000);
   });
+  connect(controller_, &EmulatorController::mouseCaptureChanged, view_,
+          &EmuView::setMouseCapture);
   connect(controller_, &EmulatorController::machineConfigChanged, this,
           &MainWindow::updateControlMenu);
+  connect(controller_, &EmulatorController::displayConfigChanged, this,
+          &MainWindow::updateDisplayConfig);
   connect(controller_, &EmulatorController::statusUiChanged, this,
           &MainWindow::updateStatusUi);
   connect(controller_, &EmulatorController::titleStatsUpdated, this,
@@ -669,6 +1031,8 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   title_timer_->start();
   connect(controller_, &EmulatorController::diskConfigurationChanged, this,
           &MainWindow::updateDiskMenu);
+  connect(controller_, &EmulatorController::snapshotStateChanged, this,
+          &MainWindow::updateSnapshotState);
   if (control_menu_) {
     connect(control_menu_, &QMenu::aboutToShow, this, [this]() {
       if (controller_) {
@@ -702,6 +1066,10 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     event->ignore();
     return;
   }
+  saveWindowPositionOnExit();
+  if (controller_) {
+    QMetaObject::invokeMethod(controller_, "saveConfigNow", Qt::BlockingQueuedConnection);
+  }
   stopEmulator();
   QMainWindow::closeEvent(event);
   if (QApplication* app = qApp) {
@@ -714,8 +1082,37 @@ void MainWindow::showEvent(QShowEvent* event) {
   focusEmuView();
 }
 
+bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == view_ && event->type() == QEvent::KeyPress) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    if (!key->isAutoRepeat() && key->modifiers().testFlag(Qt::AltModifier) &&
+        (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)) {
+      toggleFullscreen();
+      return true;
+    }
+  }
+  return QMainWindow::eventFilter(watched, event);
+}
+
 void MainWindow::changeEvent(QEvent* event) {
   QMainWindow::changeEvent(event);
+  if (event->type() == QEvent::WindowStateChange && !toggling_display_) {
+    const bool fs = isFullScreen();
+    if (fullscreen_action_) {
+      fullscreen_action_->setChecked(fs);
+    }
+    if (fs != fullscreen_) {
+      if (fs) {
+        windowed_geometry_ = geometry();
+        windowed_view_scale_ = view_scale_;
+        fullscreen_ = true;
+        applyFullscreenLayout();
+      } else {
+        fullscreen_ = false;
+        applyWindowedLayout();
+      }
+    }
+  }
   if (event->type() == QEvent::ActivationChange && isActiveWindow()) {
     focusEmuView();
   }

@@ -18,6 +18,10 @@
 #define LOGNAME "opnif"
 #include "diag.h"
 
+#ifdef M88_LINUX_PORT
+#include "path.h"
+#endif
+
 using namespace PC8801;
 
 //OPNIF* OPNIF::romeo_user = 0;
@@ -65,8 +69,18 @@ bool OPNIF::Init(IOBus* b, int intrport, int io, Scheduler* s)
 	opn.SetIntr(bus, intrport);
 	clock = baseclock;
 
-	if (!opn.Init(clock, 8000, 0))
+#ifdef M88_LINUX_PORT
+	char rhythm_path[MAX_PATH];
+	std::snprintf(rhythm_path, sizeof(rhythm_path), "%s/", m88dir);
+	rhythm_path[sizeof(rhythm_path) - 1] = '\0';
+	if (!opn.Init(clock, 8000, false, rhythm_path)) {
 		return false;
+	}
+#else
+	if (!opn.Init(clock, 8000, 0)) {
+		return false;
+	}
+#endif
 	prevtime = scheduler->GetTime();
 	TimeEvent(1);
 	

@@ -3,6 +3,8 @@
 #include <QActionGroup>
 #include <QLabel>
 #include <QMainWindow>
+#include <QShortcut>
+#include <QRect>
 #include <QTimer>
 #include <QMenu>
 #include <QPointer>
@@ -12,19 +14,28 @@
 #include <vector>
 
 #include "emulator_controller.h"
+#include "qt_host_input.h"
 
 class EmuView;
 class SharedFramebufferDraw;
+
+struct MainWindowStartup {
+  bool save_position = false;
+  int winpos_x = 64;
+  int winpos_y = 64;
+};
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
 
 public:
   explicit MainWindow(const EmulatorController::Options& options, int scale = 2,
+                      const MainWindowStartup& startup = {},
                       QWidget* parent = nullptr);
   ~MainWindow() override;
 
 protected:
+  bool eventFilter(QObject* watched, QEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void showEvent(QShowEvent* event) override;
   void changeEvent(QEvent* event) override;
@@ -43,24 +54,56 @@ private slots:
                       QStringList drive0Titles, QString drive1Path,
                       int drive1NumDisks, int drive1Current,
                       QStringList drive1Titles);
+  void updateSnapshotState(int current_slot);
+  void updateDisplayConfig(bool force480, bool sync_to_vsync);
+  void onRequiredRomMissing();
+  void toggleFullscreen();
 
 private:
   void setupMenuBar();
   void applyViewScale(int scale);
+  void syncRememberPrefsFromConfig(const PC8801::Config& config);
+  void applySavedWindowPosition();
+  void saveWindowPositionOnExit();
+  void applyFullscreenLayout();
+  void applyWindowedLayout();
+  void syncControllerFullscreenState();
+  double screenRefreshHz() const;
   void stopEmulator();
   void focusEmuView();
   void openConfigureDialog();
   void openDiskImageDialog(int drive);
   void openBothDrivesDialog();
+  void captureScreen();
+  void rebuildSnapshotMenu();
+  void invokeSaveSnapshot(int slot);
+  void invokeLoadSnapshot(int slot);
+  void applyRomMissingUiState();
   void rebuildDriveMenu(int drive, const QString& path, int numDisks,
                         int currentDisk, const QStringList& titles);
   static QString DriveBaseName(const QString& path);
+  static QString SnapshotBaseTitle(const QString& drive0_path);
 
   static constexpr const char* kDiskImageFilter =
       "8801 disk image (*.d88);;All files (*)";
 
   int view_scale_ = 2;
+  int windowed_view_scale_ = 2;
+  bool fullscreen_ = false;
+  bool force480_ = false;
+  bool sync_to_vsync_ = false;
+  QRect windowed_geometry_;
+  quint64 last_display_toggle_ms_ = 0;
+  bool toggling_display_ = false;
+  bool save_position_ = false;
+  int winpos_x_ = 64;
+  int winpos_y_ = 64;
+  QAction* fullscreen_action_ = nullptr;
+  QAction* exit_action_ = nullptr;
+  QAction* about_action_ = nullptr;
+  QShortcut* open_disk_shortcut_ = nullptr;
   QMenu* control_menu_ = nullptr;
+  QMenu* help_menu_ = nullptr;
   QMenu* disk_menu_ = nullptr;
   QAction* drive_actions_[2] = {nullptr, nullptr};
   QMenu* drive_submenus_[2] = {nullptr, nullptr};
@@ -74,6 +117,13 @@ private:
   bool ask_before_reset_ = false;
   bool f12_as_reset_ = true;
   QAction* show_status_action_ = nullptr;
+  QMenu* tools_menu_ = nullptr;
+  QAction* save_snapshot_action_ = nullptr;
+  QAction* load_snapshot_action_ = nullptr;
+  QMenu* save_snapshot_submenu_ = nullptr;
+  QMenu* load_snapshot_submenu_ = nullptr;
+  QString snapshot_drive0_path_;
+  int current_snapshot_slot_ = 0;
   QAction* fdc_status_action_ = nullptr;
   QLabel* fdc_text_label_ = nullptr;
   QTimer* title_timer_ = nullptr;
@@ -83,8 +133,10 @@ private:
   std::vector<QAction*> mode_actions_;
   SharedFramebufferDraw* draw_ = nullptr;
   EmuView* view_ = nullptr;
+  QtHostInput::Host host_input_;
   QPointer<EmulatorController> controller_;
   QThread emu_thread_;
   bool emu_stopped_ = false;
   bool window_shown_ = false;
+  bool rom_missing_ = false;
 };

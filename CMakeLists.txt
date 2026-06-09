@@ -55,6 +55,7 @@ add_library(m88_core STATIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/rom_log.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/status.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_startup_log.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_paths.cpp
   ${M88_COMMON_SOURCES}
   ${M88_PC88_SOURCES}
   ${M88_DEVICE_SOURCES}
@@ -147,7 +148,13 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emulator_controller.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_input.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_input.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_host_input.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_host_input.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_video_log.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_platform.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_platform.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/screen_capture.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/screen_capture.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/shared_framebuffer_draw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp

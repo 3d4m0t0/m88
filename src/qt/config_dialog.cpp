@@ -1,4 +1,5 @@
 #include "config_dialog.h"
+#include "qt_platform.h"
 
 #include "../common/misc.h"
 
@@ -347,6 +348,12 @@ void ConfigDialog::buildUi() {
     CompactVBox(v);
     func_savedir_ = new QCheckBox(tr("Remember directory on exit (&D)"), page);
     func_savepos_ = new QCheckBox(tr("Remember window position (&W)"), page);
+    if (M88QtIsWaylandSession()) {
+      func_savepos_->setEnabled(false);
+      func_savepos_->setChecked(false);
+      func_savepos_->setToolTip(
+          tr("Not available on Wayland (the compositor controls window placement)."));
+    }
     func_askreset_ = new QCheckBox(tr("Confirm reset/exit (&E)"), page);
     func_suppressmenu_ = new QCheckBox(tr("Suppress menu via keyboard (&K)"), page);
     func_arrowten_ = new QCheckBox(tr("Map arrow keys to ten-key (&H)"), page);
@@ -790,7 +797,8 @@ void ConfigDialog::loadFromConfig() {
   screen_vsync_->setChecked((config_.flag2 & Config::synctovsync) != 0);
 
   func_savedir_->setChecked((config_.flags & Config::savedirectory) != 0);
-  func_savepos_->setChecked((config_.flag2 & Config::saveposition) != 0);
+  func_savepos_->setChecked(func_savepos_->isEnabled() &&
+                           (config_.flag2 & Config::saveposition) != 0);
   func_askreset_->setChecked((config_.flags & Config::askbeforereset) != 0);
   func_suppressmenu_->setChecked((config_.flags & Config::suppressmenu) != 0);
   func_arrowten_->setChecked((config_.flags & Config::usearrowfor10) != 0);
@@ -918,7 +926,9 @@ void ConfigDialog::applyToConfig() {
   if (func_enablemouse_->isChecked()) config_.flags |= Config::enablemouse;
   if (func_mousejoy_->isChecked()) config_.flags |= Config::mousejoymode;
   config_.flag2 &= ~(Config::saveposition | Config::genscrnshotname | Config::compresssnapshot);
-  if (func_savepos_->isChecked()) config_.flag2 |= Config::saveposition;
+  if (func_savepos_->isEnabled() && func_savepos_->isChecked()) {
+    config_.flag2 |= Config::saveposition;
+  }
   if (func_scrname_->isChecked()) config_.flag2 |= Config::genscrnshotname;
   if (func_compsnap_->isChecked()) config_.flag2 |= Config::compresssnapshot;
   config_.mousesensibility = static_cast<uint>(func_mousesense_->value());

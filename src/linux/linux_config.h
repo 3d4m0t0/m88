@@ -42,6 +42,16 @@ void M88LoadDefaultConfigFile(PC8801::Config* cfg);
 // Load INI if present; otherwise write defaults (see M88LoadStartupConfig).
 bool M88SaveConfigFile(const PC8801::Config* cfg, const char* path);
 
+// Load a specific INI path (defaults + parse + finalize). Returns false if missing.
+bool M88LoadConfigAtPath(PC8801::Config* cfg, const char* path);
+
+// Resolve relative config paths to an absolute path (for stable save/load after chdir).
+void M88CanonicalConfigPath(const char* path, char* out, size_t out_sz);
+
+// Windows LoadConfigDirectory: chdir to INI Directory= when savedirectory is set.
+void M88ApplyStartupDirectory(const PC8801::Config* cfg, const char* ini_path,
+                              bool skip_if_disk_on_cli);
+
 // explicit_path: --config value or nullptr. Sets used_path and created_new_ini.
 void M88LoadStartupConfig(PC8801::Config* cfg, const char* explicit_path,
                           char* used_path, size_t used_path_sz, bool* created_new_ini);

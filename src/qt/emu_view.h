@@ -9,6 +9,10 @@
 
 class SharedFramebufferDraw;
 
+namespace QtHostInput {
+class Host;
+}
+
 class EmuView : public QWidget {
   Q_OBJECT
 
@@ -17,7 +21,10 @@ public:
 
   void attachFramebuffer(SharedFramebufferDraw* draw);
   void setScale(int scale);
+  void setForce480Layout(bool enabled);
   void setSuppressMenu(bool enabled);
+  void setHostInput(QtHostInput::Host* host_input);
+  void setMouseCapture(bool enabled);
 
 public slots:
   void refreshFrame();
@@ -28,6 +35,8 @@ protected:
   void keyPressEvent(QKeyEvent* event) override;
   void keyReleaseEvent(QKeyEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
   QSize sizeHint() const override;
   void inputMethodEvent(QInputMethodEvent* event) override;
   QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
@@ -47,10 +56,16 @@ private:
   QImage indices_;
   Draw::Palette palette_[256]{};
   int scale_ = 2;
+  bool force480_layout_ = false;
   QString ime_preedit_;
   QHash<int, int> letter_shift_refs_;
   QHash<int, QtInput::LetterShiftAdjust> letter_shift_adj_;
 
   bool ime_block_keys_ = false;
   uint64_t last_frame_serial_ = 0;
+  uint64_t last_palette_serial_ = 0;
+  QtHostInput::Host* host_input_ = nullptr;
+  bool mouse_capture_ = false;
+
+  void updateMouseButtons(Qt::MouseButtons buttons);
 };

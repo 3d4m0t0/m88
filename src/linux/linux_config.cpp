@@ -1,5 +1,6 @@
 #include "headers.h"
 #include "linux_config.h"
+#include "linux_paths.h"
 #include "path.h"
 
 #include "display_scale.h"
@@ -23,7 +24,6 @@ bool g_screen_scale_auto = true;
 int g_screen_scale = 2;
 
 char g_keyboard_log_source[64] = "(default)";
-
 namespace {
 
 // Must match VOLUME_BIAS and LOADVOLUMEENTRY defaults in src/win32/88config.cpp,
@@ -311,7 +311,57 @@ bool ParseKeyValueLine(const char* line, Config* cfg) {
     g_ini_keys.volumerim = true;
     return true;
   }
+  if (std::strcmp(key, "WinPosX") == 0 && ParseIniInt(value, &n)) {
+    cfg->winposx = n;
+    return true;
+  }
+  if (std::strcmp(key, "WinPosY") == 0 && ParseIniInt(value, &n)) {
+    cfg->winposy = n;
+    return true;
+  }
   return false;
+}
+
+bool ReadIniKeyString(const char* path, const char* key, char* out, size_t out_sz,
+                      bool anywhere) {
+  if (!path || !*path || !key || !*key || !out || out_sz == 0) {
+    return false;
+  }
+  FILE* fp = std::fopen(path, "r");
+  if (!fp) {
+    return false;
+  }
+
+  const size_t keylen = std::strlen(key);
+  bool in_section = false;
+  bool found = false;
+  char line[1024];
+  while (std::fgets(line, sizeof(line), fp)) {
+    char* p = TrimInPlace(line);
+    if (!*p || *p == ';' || *p == '#') {
+      continue;
+    }
+    if (*p == '[') {
+      in_section = (std::strstr(p, kIniSection) != nullptr);
+      continue;
+    }
+    if (!anywhere && !in_section) {
+      continue;
+    }
+    if (std::strncmp(p, key, keylen) != 0 || p[keylen] != '=') {
+      continue;
+    }
+    char* value = TrimInPlace(p + keylen + 1);
+    if (*value == ';') {
+      continue;
+    }
+    std::strncpy(out, value, out_sz - 1);
+    out[out_sz - 1] = '\0';
+    found = true;
+    break;
+  }
+  std::fclose(fp);
+  return found && out[0] != '\0';
 }
 
 bool ConfigFileExists(const char* path) {
@@ -565,13 +615,12 @@ int M88ResolveScreenScale(int avail_w, int avail_h, int chrome_w, int chrome_h,
 
 void M88PrintScreenScale(int scale, bool cli_explicit) {
   if (cli_explicit) {
-    std::printf("ScreenScale: %d (command line)\n", scale);
+    std::fprintf(stderr, "M88: ScreenScale: %d (command line)\n", scale);
   } else if (!g_screen_scale_auto) {
-    std::printf("ScreenScale: %d (ini)\n", scale);
+    std::fprintf(stderr, "M88: ScreenScale: %d (ini)\n", scale);
   } else {
-    std::printf("ScreenScale: %d (auto)\n", scale);
+    std::fprintf(stderr, "M88: ScreenScale: %d (auto)\n", scale);
   }
-  std::fflush(stdout);
 }
 
 void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
@@ -581,18 +630,32 @@ void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
     Pc88KeyFixup::SetHostKeyboard(Config::AT101);
   }
 
+  const char* keyfix_path = M88GetKeyfixIniPath();
   const char* env_keyfix = std::getenv("M88_KEYFIX");
-  if ((!env_keyfix || !*env_keyfix) && g_keyfix_enabled &&
-      !Pc88KeyFixup::DefaultIniExists(m88_ini_path)) {
-    char write_path[512];
-    Pc88KeyFixup::ResolveDefaultIniPath(m88_ini_path, write_path, sizeof(write_path));
-    if (Pc88KeyFixup::CreateDefaultIni(write_path, m88_ini_path)) {
-      Pc88KeyFixup::LogMessage("M88: keyfix: created default %s\n", write_path);
+  if (env_keyfix && *env_keyfix) {
+    ApplyKeyFixEnabled();
+    if (!g_keyfix_enabled) {
+      Pc88KeyFixup::LogMessage("M88: keyfix: disabled (m88.ini KeyFix=0)\n");
+      return;
+    }
+    if (!Pc88KeyFixup::LoadFromFile(env_keyfix)) {
+      Pc88KeyFixup::LogMessage("M88: keyfix: failed to load M88_KEYFIX=%s\n", env_keyfix);
+    }
+    return;
+  }
+
+  struct stat keyfix_st {};
+  const bool keyfix_exists =
+      keyfix_path && *keyfix_path && stat(keyfix_path, &keyfix_st) == 0 &&
+      S_ISREG(keyfix_st.st_mode);
+  if (g_keyfix_enabled && !keyfix_exists) {
+    if (Pc88KeyFixup::CreateDefaultIni(keyfix_path, m88_ini_path)) {
+      Pc88KeyFixup::LogMessage("M88: keyfix: created default %s\n", keyfix_path);
       if (cfg && m88_ini_path && *m88_ini_path) {
         M88SaveConfigFile(cfg, m88_ini_path);
       }
     } else {
-      Pc88KeyFixup::LogMessage("M88: keyfix: failed to create %s\n", write_path);
+      Pc88KeyFixup::LogMessage("M88: keyfix: failed to create %s\n", keyfix_path);
     }
   }
 
@@ -601,7 +664,9 @@ void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
     Pc88KeyFixup::LogMessage("M88: keyfix: disabled (m88.ini KeyFix=0)\n");
     return;
   }
-  Pc88KeyFixup::LoadStartup(m88_ini_path && *m88_ini_path ? m88_ini_path : nullptr);
+  if (!Pc88KeyFixup::LoadFromFile(keyfix_path)) {
+    Pc88KeyFixup::LoadStartup(m88_ini_path && *m88_ini_path ? m88_ini_path : nullptr);
+  }
 }
 
 const char* M88KeyboardTypeName(int keytype) {
@@ -754,6 +819,27 @@ const char* M88BasicModeName(int basicmode) {
   }
 }
 
+void M88ApplyStartupDirectory(const Config* cfg, const char* ini_path,
+                              bool skip_if_disk_on_cli) {
+  if (!cfg || !ini_path || !*ini_path || skip_if_disk_on_cli) {
+    return;
+  }
+  if ((cfg->flags & Config::savedirectory) == 0) {
+    return;
+  }
+
+  char dir[1024];
+  if (!ReadIniKeyString(ini_path, "Directory", dir, sizeof(dir), true)) {
+    return;
+  }
+  if (dir[0] == ';' || dir[0] == '\0') {
+    return;
+  }
+  if (chdir(dir) != 0) {
+    std::fprintf(stderr, "M88: failed to change directory to %s\n", dir);
+  }
+}
+
 bool M88SaveConfigFile(const Config* cfg, const char* path) {
   if (!cfg || !path || !*path) {
     return false;
@@ -765,6 +851,11 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   }
 
   std::fprintf(fp, "[%s]\n", kIniSection);
+  char cwd[1024];
+  cwd[0] = '\0';
+  if (getcwd(cwd, sizeof(cwd))) {
+    std::fprintf(fp, "Directory=%s\n", cwd);
+  }
   std::fprintf(fp, "Flags=%d\n", cfg->flags);
   std::fprintf(fp, "Flag2=%d\n", cfg->flag2);
   std::fprintf(fp, "CPUClock=%d\n", cfg->clock);
@@ -794,103 +885,66 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   } else {
     std::fprintf(fp, "ScreenScale=%d\n", M88ScreenScaleIniValue());
   }
+  std::fprintf(fp, "WinPosX=%d\n", cfg->winposx);
+  std::fprintf(fp, "WinPosY=%d\n", cfg->winposy);
   std::fclose(fp);
   return true;
 }
 
-static bool LoadIniFromPath(Config* cfg, const char* path) {
+bool M88LoadConfigAtPath(Config* cfg, const char* path) {
   if (!cfg || !path || !*path || !ConfigFileExists(path)) {
     return false;
   }
+  M88SetDefaultConfig(cfg);
   M88LoadConfigFile(cfg, path);
   M88FinalizeConfig(cfg);
   MergeMissingIniDefaults(cfg, path);
   return true;
 }
 
+static bool LoadIniFromPath(Config* cfg, const char* path) {
+  return M88LoadConfigAtPath(cfg, path);
+}
+
+void M88CanonicalConfigPath(const char* path, char* out, size_t out_sz) {
+  if (!out || out_sz == 0) {
+    return;
+  }
+  out[0] = '\0';
+  if (!path || !*path) {
+    return;
+  }
+
+  char resolved[1024];
+  if (realpath(path, resolved)) {
+    std::strncpy(out, resolved, out_sz - 1);
+    out[out_sz - 1] = '\0';
+    return;
+  }
+
+  if (path[0] == '/') {
+    std::strncpy(out, path, out_sz - 1);
+    out[out_sz - 1] = '\0';
+    return;
+  }
+
+  char cwd[1024];
+  if (getcwd(cwd, sizeof(cwd))) {
+    std::snprintf(out, out_sz, "%s/%s", cwd, path);
+    out[out_sz - 1] = '\0';
+    return;
+  }
+
+  std::strncpy(out, path, out_sz - 1);
+  out[out_sz - 1] = '\0';
+}
+
 void M88LoadStartupConfig(Config* cfg, const char* explicit_path, char* used_path,
                           size_t used_path_sz, bool* created_new_ini) {
-  if (created_new_ini) {
-    *created_new_ini = false;
-  }
-  if (used_path && used_path_sz > 0) {
-    used_path[0] = '\0';
-  }
-
-  M88SetDefaultConfig(cfg);
-
-  auto note_path = [&](const char* path) {
-    if (used_path && used_path_sz > 0 && path) {
-      std::strncpy(used_path, path, used_path_sz - 1);
-      used_path[used_path_sz - 1] = '\0';
-    }
-  };
-
-  auto try_load = [&](const char* path) -> bool {
-    if (!LoadIniFromPath(cfg, path)) {
-      return false;
-    }
-    note_path(path);
-    return true;
-  };
-
-  if (explicit_path && *explicit_path) {
-    if (try_load(explicit_path)) {
-      return;
-    }
-    M88FinalizeConfig(cfg);
-    if (M88SaveConfigFile(cfg, explicit_path)) {
-      note_path(explicit_path);
-      if (created_new_ini) {
-        *created_new_ini = true;
-      }
-    } else {
-      std::fprintf(stderr, "M88: failed to create config: %s\n", explicit_path);
-    }
-    return;
-  }
-
-  static const char* kLocalNames[] = {"m88.ini", "M88.ini", "M88.INI"};
-  for (const char* name : kLocalNames) {
-    if (try_load(name)) {
-      return;
-    }
-  }
-
-  char rom_ini[MAX_PATH];
-  M88RomPath(rom_ini, sizeof(rom_ini), "m88.ini");
-  if (try_load(rom_ini)) {
-    return;
-  }
-
-  const char* home = std::getenv("HOME");
-  if (home && *home) {
-    char desktop_path[512];
-    std::snprintf(desktop_path, sizeof(desktop_path), "%s/Desktop/M88.ini", home);
-    if (try_load(desktop_path)) {
-      return;
-    }
-    std::snprintf(desktop_path, sizeof(desktop_path), "%s/Desktop/m88.ini", home);
-    if (try_load(desktop_path)) {
-      return;
-    }
-  }
-
-  M88FinalizeConfig(cfg);
-  if (M88SaveConfigFile(cfg, rom_ini)) {
-    note_path(rom_ini);
-    if (created_new_ini) {
-      *created_new_ini = true;
-    }
-    return;
-  }
-  if (M88SaveConfigFile(cfg, "m88.ini")) {
-    note_path("m88.ini");
-    if (created_new_ini) {
-      *created_new_ini = true;
-    }
-  } else {
-    std::fprintf(stderr, "M88: failed to create default config (m88.ini)\n");
+  M88Paths paths {};
+  if (!M88InitializePaths(&paths, cfg, explicit_path, used_path, used_path_sz,
+                          created_new_ini)) {
+    std::fprintf(stderr, "M88: failed to initialize data paths\n");
   }
 }
 

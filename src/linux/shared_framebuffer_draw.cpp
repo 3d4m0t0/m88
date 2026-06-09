@@ -94,6 +94,7 @@ void SharedFramebufferDraw::SetPalette(uint index, uint nents, const Palette* pa
     palette_[index + i] = pal[i];
   }
   palette_dirty_ = true;
+  ++ui_palette_serial_;
   status_ |= Draw::shouldrefresh;
   frame_ready_ = true;
 }
@@ -152,6 +153,11 @@ bool SharedFramebufferDraw::StageUiFrame() {
 uint64_t SharedFramebufferDraw::UiFrameSerial() const {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   return ui_frame_serial_;
+}
+
+uint64_t SharedFramebufferDraw::UiPaletteSerial() const {
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  return ui_palette_serial_;
 }
 
 bool SharedFramebufferDraw::ImeRepaintPending() const {

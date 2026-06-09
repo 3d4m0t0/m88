@@ -1,5 +1,6 @@
 #include "headers.h"
 #include "linux_config.h"
+#include "linux_paths.h"
 
 #include "display_scale.h"
 #include "linux_draw.h"
@@ -209,6 +210,14 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  PC8801::Config config;
+  char ini_path[512];
+  bool ini_created = false;
+  M88LoadStartupConfig(&config, config_file, ini_path, sizeof(ini_path), &ini_created);
+  M88ApplyEnvOverrides(&config);
+  M88LogConfigPath(ini_path, ini_created);
+  M88LogDataPaths();
+
   M88InitRomPath(rom_dir);
 
   if (!M88HasRequiredRoms()) {
@@ -217,13 +226,8 @@ int main(int argc, char** argv) {
                  m88dir);
     return 1;
   }
-
-  PC8801::Config config;
-  char ini_path[512];
-  bool ini_created = false;
-  M88LoadStartupConfig(&config, config_file, ini_path, sizeof(ini_path), &ini_created);
-  M88ApplyEnvOverrides(&config);
-  M88LogConfigPath(ini_path, ini_created);
+  M88ApplyStartupDirectory(&config, ini_path, disk0 != nullptr);
+  M88LogWorkingDirectory();
 
   std::vector<AutoKeyEvent> auto_keys;
   if (const char* aks = std::getenv("M88_AUTOKEY")) {
@@ -316,7 +320,6 @@ int main(int argc, char** argv) {
   sound.ApplyConfig(&config);
   keyif.ApplyConfig(&config);
   keyif.Activate(true);
-  M88LogMachine(&config);
   draw.LogVideoBackendOnce();
   M88LogSound(&config);
   M88LogKeyboard(&config);
@@ -325,6 +328,7 @@ int main(int argc, char** argv) {
     M88LogImeHalfKana();
   }
   M88LogFdd(&config);
+  M88LogMachine(&config);
   MountDiskOptional(diskmgr, 0, disk0);
 
   M88DrawSkip draw_skip;

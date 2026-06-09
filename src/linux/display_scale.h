@@ -4,6 +4,7 @@
 
 constexpr int kM88EmuWidth = 640;
 constexpr int kM88EmuHeight = 400;
+constexpr int kM88Force480Height = 480;
 
 // Qt MainWindow: resize(640*s + chrome_w, 400*s + chrome_h).
 constexpr int kM88QtChromeW = 16;
@@ -25,4 +26,14 @@ inline int M88AutoScreenScale(int avail_w, int avail_h, int chrome_w = 0,
                               int chrome_h = 0) {
   const int fit = M88ComputeIntegerScale(avail_w, avail_h, chrome_w, chrome_h);
   return std::max(1, fit / 2);
+}
+
+// Fullscreen integer scale (force480 uses 640x480 viewport like WinDrawDDS).
+inline int M88ComputeFullscreenScale(int avail_w, int avail_h, bool force480) {
+  const int emu_h = force480 ? kM88Force480Height : kM88EmuHeight;
+  const int inner_w = std::max(1, avail_w);
+  const int inner_h = std::max(1, avail_h);
+  const int sx = inner_w / kM88EmuWidth;
+  const int sy = inner_h / emu_h;
+  return std::max(1, std::min(sx, sy));
 }

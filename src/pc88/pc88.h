@@ -9,6 +9,7 @@
 #include "schedule.h"
 #include "device.h"
 #include "draw.h"
+#include "if/ifui.h"
 
 // ---------------------------------------------------------------------------
 //	使用する Z80 エンジンの種類を決める
@@ -60,6 +61,7 @@ namespace PC8801
 	class DiskIO;
 	class Beep;
 	class JoyPad;
+	class Mouse;
 	class WinKeyIF;
 }
 
@@ -86,6 +88,8 @@ public:
 	bool Init(Draw* draw, DiskManager* diskmgr, TapeManager* tape);
 #ifdef M88_LINUX_PORT
 	bool ConnectKeyboard(PC8801::WinKeyIF* keyb);
+	bool ConnectPadInput(IPadInput* ui);
+	bool ConnectMouseUI(IUnk* ui);
 #endif
 	void DeInit();
 	
@@ -113,9 +117,12 @@ public:
 	Z80*			GetCPU2() { return &cpu2; }
 	PC8801::PD8257*	GetDMAC() { return dmac; }
 	PC8801::Beep*	GetBEEP() { return beep; }
+	PC8801::JoyPad*	GetJoyPad() { return joypad; }
+	PC8801::Mouse*	GetMouse() { return mouse; }
 
-	bool SaveShapshot(const char* filename);
-	bool LoadShapshot(const char* filename);
+	bool SaveShapshot(const char* filename, const PC8801::Config* config);
+	bool LoadShapshot(const char* filename, PC8801::Config* config,
+	                  const char* diskname = nullptr);
 
 	int  GetFramePeriod();
 
@@ -193,7 +200,17 @@ protected:
 	DiskManager* diskmgr;
 	TapeManager* tapemgr;
 	PC8801::JoyPad* joypad;
-	
+	PC8801::Mouse* mouse;
+
+#ifdef M88_LINUX_PORT
+	IPadInput* pad_input_ = nullptr;
+	IUnk* mouse_ui_ = nullptr;
+	bool pad_connected_ = false;
+	bool mouse_connected_ = false;
+	void SetPadEnabled(bool enable, PC8801::Config* cfg);
+	void SetMouseEnabled(bool enable, PC8801::Config* cfg);
+#endif
+
 	MemoryManager mm1, mm2;
 	IOBus bus1, bus2;
 	DeviceList devlist;

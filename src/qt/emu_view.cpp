@@ -2,6 +2,7 @@
 
 #include "../linux/shared_framebuffer_draw.h"
 #include "draw.h"
+#include "qt_host_input.h"
 #include "qt_input.h"
 
 #include "../linux_compat/winkeys.h"
@@ -11,6 +12,7 @@
 #include <QInputMethodEvent>
 #include <QEvent>
 #include <QKeyEvent>
+#include <QCursor>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
@@ -49,8 +51,41 @@ void EmuView::setScale(int scale) {
   update();
 }
 
+void EmuView::setForce480Layout(bool enabled) {
+  if (force480_layout_ == enabled) {
+    return;
+  }
+  force480_layout_ = enabled;
+  update();
+}
+
 void EmuView::setSuppressMenu(bool enabled) {
   QtInput::SetSuppressMenu(enabled);
+}
+
+void EmuView::setHostInput(QtHostInput::Host* host_input) {
+  host_input_ = host_input;
+}
+
+void EmuView::setMouseCapture(bool enabled) {
+  mouse_capture_ = enabled;
+  if (host_input_) {
+    host_input_->applyMouseCapture(enabled, this);
+  }
+}
+
+void EmuView::updateMouseButtons(Qt::MouseButtons buttons) {
+  if (!host_input_) {
+    return;
+  }
+  uint mask = 0;
+  if (buttons.testFlag(Qt::LeftButton)) {
+    mask |= 1;
+  }
+  if (buttons.testFlag(Qt::RightButton)) {
+    mask |= 2;
+  }
+  host_input_->mouse()->PostButtons(mask);
 }
 
 QSize EmuView::sizeHint() const {
@@ -82,8 +117,9 @@ void EmuView::refreshFrame() {
   bool pal_changed = false;
   Draw::Region region {};
   const uint64_t serial = draw_->UiFrameSerial();
+  const uint64_t pal_serial = draw_->UiPaletteSerial();
   const bool ime_only = draw_->ConsumeImeRepaint();
-  if (serial == last_frame_serial_ && !ime_only) {
+  if (serial == last_frame_serial_ && pal_serial == last_palette_serial_ && !ime_only) {
     return;
   }
 
@@ -100,6 +136,7 @@ void EmuView::refreshFrame() {
   }
 
   last_frame_serial_ = serial;
+  last_palette_serial_ = pal_serial;
 
   const int iw = static_cast<int>(w);
   const int ih = static_cast<int>(h);
@@ -129,8 +166,9 @@ void EmuView::paintEvent(QPaintEvent* /*event*/) {
   if (!indices_.isNull()) {
     const int dst_w = indices_.width() * scale_;
     const int dst_h = indices_.height() * scale_;
+    const int box_h = force480_layout_ ? 480 * scale_ : dst_h;
     const int x = (width() - dst_w) / 2;
-    const int y = (height() - dst_h) / 2;
+    const int y = (height() - box_h) / 2 + (box_h - dst_h) / 2;
     painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
     painter.drawImage(QRect(x, y, dst_w, dst_h), indices_);
   }
@@ -149,12 +187,47 @@ void EmuView::paintEvent(QPaintEvent* /*event*/) {
 
 void EmuView::mousePressEvent(QMouseEvent* event) {
   setFocus(Qt::MouseFocusReason);
+  if (mouse_capture_) {
+    updateMouseButtons(event->buttons());
+    event->accept();
+    return;
+  }
   QWidget::mousePressEvent(event);
+}
+
+void EmuView::mouseReleaseEvent(QMouseEvent* event) {
+  if (mouse_capture_) {
+    updateMouseButtons(event->buttons());
+    event->accept();
+    return;
+  }
+  QWidget::mouseReleaseEvent(event);
+}
+
+void EmuView::mouseMoveEvent(QMouseEvent* event) {
+  if (!mouse_capture_ || !host_input_) {
+    QWidget::mouseMoveEvent(event);
+    return;
+  }
+  const QPoint center = rect().center();
+  const QPoint pos = event->pos();
+  const int dx = (center.x() - pos.x()) / 2;
+  const int dy = (center.y() - pos.y()) / 2;
+  if (dx != 0 || dy != 0) {
+    host_input_->mouse()->PostMovement(dx, dy);
+    QCursor::setPos(mapToGlobal(center));
+  }
+  event->accept();
 }
 
 bool EmuView::event(QEvent* event) {
   if (event->type() == QEvent::ShortcutOverride) {
     auto* key = static_cast<QKeyEvent*>(event);
+    if (key->modifiers().testFlag(Qt::AltModifier) &&
+        (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)) {
+      key->accept();
+      return true;
+    }
     if (HostShortcutModifiers(*key)) {
       key->ignore();
       return false;
@@ -164,6 +237,11 @@ bool EmuView::event(QEvent* event) {
 }
 
 void EmuView::keyPressEvent(QKeyEvent* event) {
+  if (event->modifiers().testFlag(Qt::AltModifier) &&
+      (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
+    event->accept();
+    return;
+  }
   if (HostShortcutModifiers(*event)) {
     event->ignore();
     return;

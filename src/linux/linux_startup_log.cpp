@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <unistd.h>
 
 void M88LogConfigPath(const char* path, bool created) {
   if (!path || !path[0]) {
@@ -16,6 +17,13 @@ void M88LogConfigPath(const char* path, bool created) {
     std::fprintf(stderr, "M88: created default config: %s\n", path);
   } else {
     std::fprintf(stderr, "M88: config: %s\n", path);
+  }
+}
+
+void M88LogWorkingDirectory() {
+  char cwd[1024];
+  if (getcwd(cwd, sizeof(cwd))) {
+    std::fprintf(stderr, "M88: working directory: %s\n", cwd);
   }
 }
 

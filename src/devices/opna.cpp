@@ -27,6 +27,10 @@
 
 #ifdef BUILD_OPNA
 #include "file.h"
+#ifdef M88_LINUX_PORT
+#include "path.h"
+#include "rom_log.h"
+#endif
 #endif
 
 namespace FM
@@ -1272,6 +1276,73 @@ bool OPNA::SetRate(uint c, uint r, bool ipflag)
 }
 
 
+#ifdef M88_LINUX_PORT
+namespace {
+
+bool g_wav_log_started = false;
+bool g_wav_log_finished = false;
+
+void BuildRhythmCandidate(char* out, size_t out_sz, const char* dir, const char* leaf) {
+	if (dir && *dir) {
+		std::snprintf(out, out_sz, "%s%s", dir, leaf);
+	} else {
+		M88RomPath(out, out_sz, leaf);
+	}
+	out[out_sz - 1] = '\0';
+}
+
+void LowerAscii(char* s) {
+	for (; *s; ++s) {
+		if (*s >= 'A' && *s <= 'Z') {
+			*s = static_cast<char>(*s - 'A' + 'a');
+		}
+	}
+}
+
+bool TryOpenRhythmFile(FileIO& file, char* opened_path, size_t opened_sz, const char* dir,
+                       const char* leaf) {
+	const char* candidates[4] = {leaf, nullptr, nullptr, nullptr};
+	char lower_leaf[MAX_PATH];
+	char alt_leaf[MAX_PATH];
+
+	std::strncpy(lower_leaf, leaf, sizeof(lower_leaf) - 1);
+	lower_leaf[sizeof(lower_leaf) - 1] = '\0';
+	LowerAscii(lower_leaf);
+	candidates[1] = lower_leaf;
+
+	const char* dot = std::strrchr(leaf, '.');
+	if (dot && dot > leaf) {
+		const size_t stem_len = static_cast<size_t>(dot - leaf);
+		const char* ext = dot;
+		if (std::strcmp(ext, ".WAV") == 0) {
+			std::snprintf(alt_leaf, sizeof(alt_leaf), "%.*s.wav",
+			              static_cast<int>(stem_len), leaf);
+			candidates[2] = alt_leaf;
+		} else if (std::strcmp(ext, ".wav") == 0) {
+			std::snprintf(alt_leaf, sizeof(alt_leaf), "%.*s.WAV",
+			              static_cast<int>(stem_len), leaf);
+			candidates[3] = alt_leaf;
+		}
+	}
+
+	for (const char* candidate : candidates) {
+		if (!candidate || !*candidate) {
+			continue;
+		}
+		char try_path[MAX_PATH];
+		BuildRhythmCandidate(try_path, sizeof(try_path), dir, candidate);
+		if (file.Open(try_path, FileIO::readonly)) {
+			std::strncpy(opened_path, try_path, opened_sz - 1);
+			opened_path[opened_sz - 1] = '\0';
+			return true;
+		}
+	}
+	return false;
+}
+
+}  // namespace
+#endif
+
 // ---------------------------------------------------------------------------
 //	リズム音を読みこむ
 //
@@ -1286,26 +1357,66 @@ bool OPNA::LoadRhythmSample(const char* path)
 	for (i=0; i<6; i++)
 		rhythm[i].pos = ~0;
 
+#ifdef M88_LINUX_PORT
+	const bool wav_log = !g_wav_log_started;
+	if (wav_log) {
+		M88WavLogBegin();
+		g_wav_log_started = true;
+	}
+#endif
+
 	for (i=0; i<6; i++)
 	{
 		FileIO file;
 		uint32 fsize;
 		char buf[MAX_PATH] = "";
-		if (path)
-			strncpy(buf, path, MAX_PATH);
-		strncat(buf, "2608_", MAX_PATH);
-		strncat(buf, rhythmname[i], MAX_PATH);
-		strncat(buf, ".WAV", MAX_PATH);
+		char leaf[MAX_PATH];
+		std::snprintf(leaf, sizeof(leaf), "2608_%s.WAV", rhythmname[i]);
 
-		if (!file.Open(buf, FileIO::readonly))
+		bool opened = false;
+#ifdef M88_LINUX_PORT
+		opened = TryOpenRhythmFile(file, buf, sizeof(buf), path, leaf);
+#else
+		if (path) {
+			strncpy(buf, path, MAX_PATH);
+		}
+		strncat(buf, leaf, MAX_PATH);
+		opened = file.Open(buf, FileIO::readonly);
+#endif
+
+		if (!opened)
 		{
-			if (i != 5)
+			if (i != 5) {
+#ifdef M88_LINUX_PORT
+				if (wav_log) {
+					BuildRhythmCandidate(buf, sizeof(buf), path, leaf);
+					M88WavLogSkipped(buf, "not found");
+				}
+#endif
 				break;
-			if (path)
+			}
+			std::strncpy(leaf, "2608_RYM.WAV", sizeof(leaf));
+			leaf[sizeof(leaf) - 1] = '\0';
+#ifdef M88_LINUX_PORT
+			opened = TryOpenRhythmFile(file, buf, sizeof(buf), path, leaf);
+#else
+			if (path) {
 				strncpy(buf, path, MAX_PATH);
-			strncpy(buf, "2608_RYM.WAV", MAX_PATH);
-			if (!file.Open(buf, FileIO::readonly))
+			} else {
+				buf[0] = '\0';
+			}
+			strncat(buf, leaf, MAX_PATH);
+			opened = file.Open(buf, FileIO::readonly);
+#endif
+			if (!opened) {
+#ifdef M88_LINUX_PORT
+				if (wav_log) {
+					BuildRhythmCandidate(buf, sizeof(buf), path, leaf);
+					M88WavLogSkipped(buf, "not found");
+				}
+#endif
 				break;
+			}
 		}
 		
 		uint32 fmt_chunk_size = 0;
@@ -1355,25 +1466,48 @@ bool OPNA::LoadRhythmSample(const char* path)
 			}
 		}
 		if (!found_data) {
+#ifdef M88_LINUX_PORT
+			if (wav_log) {
+				M88WavLogSkipped(buf, "invalid WAV data");
+			}
+#endif
 			break;
 		}
 
 		fsize = data_bytes / 2;
 		if (fsize >= 0x100000 || tag != 1 || nch != 1) {
+#ifdef M88_LINUX_PORT
+			if (wav_log) {
+				M88WavLogSkipped(buf, "invalid WAV data");
+			}
+#endif
 			break;
 		}
 		fsize = Max(fsize, (1<<31)/1024);
 		
 		delete rhythm[i].sample;
 		rhythm[i].sample = new int16[fsize];
-		if (!rhythm[i].sample)
+		if (!rhythm[i].sample) {
+#ifdef M88_LINUX_PORT
+			if (wav_log) {
+				M88WavLogSkipped(buf, "out of memory");
+			}
+#endif
 			break;
+		}
 		
 		file.Read(rhythm[i].sample, fsize * 2);
 		
 		rhythm[i].rate = rate;
 		rhythm[i].step = rhythm[i].rate * 1024 / rate;
 		rhythm[i].pos = rhythm[i].size = fsize * 1024;
+#ifdef M88_LINUX_PORT
+		if (wav_log) {
+			char detail[64];
+			std::snprintf(detail, sizeof(detail), "%u Hz mono", rate);
+			M88WavLogLoaded(buf, detail);
+		}
+#endif
 	}
 	if (i != 6)
 	{
@@ -1382,8 +1516,20 @@ bool OPNA::LoadRhythmSample(const char* path)
 			delete[] rhythm[i].sample;
 			rhythm[i].sample = 0;
 		}
+#ifdef M88_LINUX_PORT
+		if (wav_log && !g_wav_log_finished) {
+			M88WavLogEnd(false);
+			g_wav_log_finished = true;
+		}
+#endif
 		return false;
 	}
+#ifdef M88_LINUX_PORT
+	if (wav_log && !g_wav_log_finished) {
+		M88WavLogEnd(true);
+		g_wav_log_finished = true;
+	}
+#endif
 	return true;
 }
 

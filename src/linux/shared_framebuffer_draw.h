@@ -40,6 +40,7 @@ class SharedFramebufferDraw : public Draw {
   bool ImeRepaintPending() const;
   bool ConsumeImeRepaint();
   uint64_t UiFrameSerial() const;
+  uint64_t UiPaletteSerial() const;
 
  private:
   void InitDefaultPalette();
@@ -66,4 +67,5 @@ class SharedFramebufferDraw : public Draw {
   int ui_read_index_ = 0;
   bool ui_ime_dirty_ = false;
   uint64_t ui_frame_serial_ = 0;
+  uint64_t ui_palette_serial_ = 0;
 };

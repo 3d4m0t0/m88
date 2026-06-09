@@ -106,9 +106,9 @@ bool Screen::Init(IOBus* _bus, Memory* mem, CRTC* _crtc)
 	displaygraphics = false;
 	for (int c=0; c<8; c++)
 	{
-		pal[c].green = c & 4 ? 255 : 0;
-		pal[c].red   = c & 2 ? 255 : 0;
-		pal[c].blue  = c & 1 ? 255 : 0;
+		pal[c].green = c & 4 ? 7 : 0;
+		pal[c].red   = c & 2 ? 7 : 0;
+		pal[c].blue  = c & 1 ? 7 : 0;
 	}
 	return true;
 }
@@ -1290,8 +1290,7 @@ void IOCALL Screen::Out32(uint, uint data)
 	if (i & 0x20)
 	{
 		port32 = data;
-		if (!color)
-			palettechanged = true;
+		palettechanged = true;
 	}
 }
 

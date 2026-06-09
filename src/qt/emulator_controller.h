@@ -10,6 +10,10 @@
 
 class SharedFramebufferDraw;
 
+namespace QtHostInput {
+class Host;
+}
+
 class EmulatorController : public QObject {
   Q_OBJECT
 
@@ -17,9 +21,11 @@ public:
   struct Options {
     QString rom_dir;
     QString config_file;
+    QString resolved_ini_path;
     QString disk0;
     int keyboard_type = -1;
     bool arrow_tenkey = false;
+    QtHostInput::Host* host_input = nullptr;
   };
 
   explicit EmulatorController(SharedFramebufferDraw* draw, Options options,
@@ -50,6 +56,12 @@ public slots:
   void importConfig(PC8801::Config config);
   void emitMachineConfig();
   void emitDiskConfiguration();
+  void setFullscreenState(bool fullscreen, double refresh_hz);
+  void setWindowPosition(int x, int y);
+  void saveConfigNow();
+  void captureScreen(const QString& save_path);
+  void saveSnapshot(int slot = 0);
+  void loadSnapshot(int slot = 0);
 
 signals:
   void frameReady();
@@ -65,8 +77,12 @@ signals:
                                 QString drive1Path, int drive1NumDisks,
                                 int drive1Current, QStringList drive1Titles);
   void failed(const QString& message);
+  void requiredRomMissing();
   void statusMessage(const QString& message, int timeoutMs = 3000);
   void titleStatsUpdated(int fps, int mhz_whole, int mhz_frac);
+  void snapshotStateChanged(int current_slot);
+  void mouseCaptureChanged(bool enabled);
+  void displayConfigChanged(bool force480, bool sync_to_vsync);
   void started();
   void finished();
 
@@ -93,12 +109,16 @@ private:
   void processImeCommit(const QString& utf8);
   void proceedFrame(int texec, uint clk, uint effclock);
   void emitDiskConfigurationLocked();
+  void syncHostInputFromConfig();
+  void emitDisplayConfig();
   void queueDiskOp(DiskOpType op, int drive, int index, const QString& path);
 
   SharedFramebufferDraw* draw_ = nullptr;
   Options options_;
   std::atomic<bool> running_{true};
   std::atomic<bool> reset_requested_{false};
+  std::atomic<bool> fullscreen_{false};
+  std::atomic<uint32_t> vsync_period_ns_{0};
 
   struct Impl;
   Impl* impl_ = nullptr;

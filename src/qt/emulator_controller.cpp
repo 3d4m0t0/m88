@@ -7,12 +7,18 @@
 #include "../linux/linux_emulation.h"
 #include "../linux/linux_frame_pace.h"
 #include "../linux/qt_miniaudio_sound.h"
+#include "../linux/linux_paths.h"
 #include "../linux/linux_startup_log.h"
 #include "../linux_compat/loadmon.h"
+#include "qt_host_input.h"
 #include "qt_video_log.h"
 #include "../linux/shared_framebuffer_draw.h"
 #include "../win32/WinKeyIF.h"
 #include "path.h"
+#include "rom_log.h"
+#include "screen_capture.h"
+
+#include "file.h"
 
 #include "status.h"
 
@@ -25,7 +31,9 @@
 #include "pc88/tapemgr.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QEventLoop>
+#include <QDir>
 #include <QFileInfo>
 #include <QThread>
 
@@ -37,6 +45,7 @@
 #include <cstring>
 #include <memory>
 #include <sys/stat.h>
+#include <vector>
 
 namespace {
 
@@ -119,6 +128,7 @@ struct EmulatorController::Impl {
   int burst_effclock = 100;
   uint64_t burst_window_begin_ns = 0;
   int burst_window_exec_ms = 0;
+  int current_snapshot_slot = 0;
 
   QString ini_path;
   std::atomic<int> title_frame_count{0};
@@ -150,19 +160,38 @@ bool EmulatorController::initialize() {
                                              : options_.rom_dir.toUtf8().constData());
 
   if (!M88HasRequiredRoms()) {
-    emit failed(QStringLiteral("ROM not found (pc88.rom or n88.rom)"));
+    M88LogRequiredRomMissing(m88dir);
+    emit requiredRomMissing();
     return false;
   }
 
-  char ini_path[512];
+  char ini_path[512] = {};
   bool ini_created = false;
-  M88LoadStartupConfig(&impl_->config, options_.config_file.isEmpty()
-                                              ? nullptr
-                                              : options_.config_file.toUtf8().constData(),
-                       ini_path, sizeof(ini_path), &ini_created);
-  impl_->ini_path = QString::fromUtf8(ini_path);
+  if (!options_.resolved_ini_path.isEmpty()) {
+    char canonical[512];
+    M88CanonicalConfigPath(options_.resolved_ini_path.toUtf8().constData(), canonical,
+                           sizeof(canonical));
+    impl_->ini_path = QString::fromUtf8(canonical);
+    if (!M88LoadConfigAtPath(&impl_->config,
+                             impl_->ini_path.toUtf8().constData())) {
+      M88LoadStartupConfig(&impl_->config,
+                           options_.config_file.isEmpty()
+                               ? nullptr
+                               : options_.config_file.toUtf8().constData(),
+                           ini_path, sizeof(ini_path), &ini_created);
+      M88CanonicalConfigPath(ini_path, canonical, sizeof(canonical));
+      impl_->ini_path = QString::fromUtf8(canonical);
+    }
+  } else {
+    M88LoadStartupConfig(&impl_->config, options_.config_file.isEmpty()
+                                                ? nullptr
+                                                : options_.config_file.toUtf8().constData(),
+                         ini_path, sizeof(ini_path), &ini_created);
+    char canonical[512];
+    M88CanonicalConfigPath(ini_path, canonical, sizeof(canonical));
+    impl_->ini_path = QString::fromUtf8(canonical);
+  }
   M88ApplyEnvOverrides(&impl_->config);
-  M88LogConfigPath(ini_path, ini_created);
 
   if (options_.keyboard_type >= 0) {
     impl_->config.keytype =
@@ -171,7 +200,7 @@ bool EmulatorController::initialize() {
   } else {
     M88ApplyDetectedKeyboard(&impl_->config);
   }
-  M88LoadKeyFixup(ini_path, &impl_->config);
+  M88LoadKeyFixup(impl_->ini_path.toUtf8().constData(), &impl_->config);
   if (options_.arrow_tenkey) {
     impl_->config.flags |= PC8801::Config::usearrowfor10;
   }
@@ -207,13 +236,19 @@ bool EmulatorController::initialize() {
     std::fprintf(stderr, "Warning: failed to connect sound\n");
   }
 
+  if (options_.host_input) {
+    options_.host_input->InitPad();
+    impl_->pc88->ConnectPadInput(options_.host_input->pad());
+    impl_->pc88->ConnectMouseUI(options_.host_input->mouse());
+  }
+
   M88ApplyConfig(impl_->pc88.get(), &impl_->config);
   impl_->sound->ApplyConfig(&impl_->config);
   impl_->keyif->ApplyConfig(&impl_->config);
   impl_->keyif->Activate(true);
+  syncHostInputFromConfig();
   syncStatusBarFromConfig();
   LinuxIme::InitHost();
-  M88LogMachine(&impl_->config);
   M88LogQtVideoBackend();
   M88LogSound(&impl_->config);
   M88LogKeyboard(&impl_->config);
@@ -222,6 +257,7 @@ bool EmulatorController::initialize() {
     M88LogImeHalfKana();
   }
   M88LogFdd(&impl_->config);
+  M88LogMachine(&impl_->config);
 
   if (!options_.disk0.isEmpty()) {
     OpenDiskImageStartup(*impl_->diskmgr, options_.disk0);
@@ -583,7 +619,187 @@ void EmulatorController::importConfig(PC8801::Config config) {
   syncStatusBarFromConfig();
   saveConfig();
   emitMachineConfig();
+  syncHostInputFromConfig();
   pollStatusUi();
+}
+
+void EmulatorController::syncHostInputFromConfig() {
+  if (!impl_) {
+    return;
+  }
+  emit mouseCaptureChanged((impl_->config.flags & PC8801::Config::enablemouse) != 0);
+}
+
+void EmulatorController::setFullscreenState(bool fullscreen, double refresh_hz) {
+  fullscreen_.store(fullscreen, std::memory_order_relaxed);
+  if (refresh_hz > 0.0) {
+    const uint64_t period_ns =
+        static_cast<uint64_t>(1'000'000'000.0 / refresh_hz + 0.5);
+    vsync_period_ns_.store(static_cast<uint32_t>(std::min<uint64_t>(period_ns, UINT32_MAX)),
+                           std::memory_order_relaxed);
+  } else {
+    vsync_period_ns_.store(0, std::memory_order_relaxed);
+  }
+}
+
+void EmulatorController::setWindowPosition(int x, int y) {
+  if (!impl_) {
+    return;
+  }
+  impl_->config.winposx = x;
+  impl_->config.winposy = y;
+}
+
+void EmulatorController::saveConfigNow() { saveConfig(); }
+
+namespace {
+
+QString SnapshotBaseTitle(const QString& drive0_path) {
+  if (!drive0_path.isEmpty()) {
+    const QString base = QFileInfo(drive0_path).completeBaseName();
+    if (!base.isEmpty()) {
+      return base;
+    }
+  }
+  return QStringLiteral("snapshot");
+}
+
+QString SnapshotFileName(const QString& drive0_path, int slot) {
+  const QString name =
+      QStringLiteral("%1_%2.s88").arg(SnapshotBaseTitle(drive0_path)).arg(slot);
+  return QDir(QString::fromUtf8(M88GetSnapshotDir())).filePath(name);
+}
+
+QString AutoCaptureBmpName() {
+  const QDateTime now = QDateTime::currentDateTime();
+  return QStringLiteral("%1%2%3%4%5.bmp")
+      .arg(now.date().day(), 2, 10, QChar('0'))
+      .arg(now.time().hour(), 2, 10, QChar('0'))
+      .arg(now.time().minute(), 2, 10, QChar('0'))
+      .arg(now.time().second(), 2, 10, QChar('0'))
+      .arg(now.time().msec() / 10, 2, 10, QChar('0'));
+}
+
+}  // namespace
+
+void EmulatorController::captureScreen(const QString& save_path) {
+  if (!draw_) {
+    emit statusMessage(tr("画面を取得できません"), 3000);
+    return;
+  }
+
+  const uint8* data = nullptr;
+  int bpl = 0;
+  uint width = 0;
+  uint height = 0;
+  bool palette_changed = false;
+  Draw::Palette palette[256] = {};
+  if (!draw_->AcquireUiFrame(&data, &bpl, &width, &height, &palette_changed, palette, 256) ||
+      !data || width < 640 || height < 400) {
+    emit statusMessage(tr("画面を取得できません"), 3000);
+    return;
+  }
+
+  std::vector<uint8> bmp;
+  if (M88ScreenCapture::BuildBmp4(data, bpl, palette, &bmp) == 0) {
+    emit statusMessage(tr("画面イメージの作成に失敗しました"), 3000);
+    return;
+  }
+
+  QString path = save_path;
+  if (path.isEmpty()) {
+    if (!impl_ || (impl_->config.flag2 & PC8801::Config::genscrnshotname) == 0) {
+      emit statusMessage(tr("保存先が指定されていません"), 3000);
+      return;
+    }
+    path = QDir(QString::fromUtf8(M88GetCaptureDir())).filePath(AutoCaptureBmpName());
+  }
+
+  const QByteArray utf8 = path.toUtf8();
+  FileIO file;
+  if (!file.Open(utf8.constData(), FileIO::create) ||
+      file.Write(bmp.data(), static_cast<int32>(bmp.size())) !=
+          static_cast<int32>(bmp.size())) {
+    emit statusMessage(tr("画面イメージを %1 に保存できません").arg(path), 3000);
+    return;
+  }
+
+  emit statusMessage(tr("画面イメージを %1 に保存しました").arg(path), 3000);
+}
+
+void EmulatorController::saveSnapshot(int slot) {
+  if (!impl_ || !impl_->pc88) {
+    emit statusMessage(tr("エミュレータの準備ができていません"), 3000);
+    return;
+  }
+  if (slot < 0) {
+    slot = impl_->current_snapshot_slot;
+  } else if (slot > 9) {
+    slot = 0;
+  }
+
+  const QString path = SnapshotFileName(impl_->drive_path[0], slot);
+  const QByteArray utf8 = path.toUtf8();
+  if (impl_->pc88->SaveShapshot(utf8.constData(), &impl_->config)) {
+    impl_->current_snapshot_slot = slot;
+    emit snapshotStateChanged(slot);
+    emit statusMessage(tr("%1 に保存しました").arg(path), 3000);
+  } else {
+    emit statusMessage(tr("%1 に保存できません").arg(path), 3000);
+  }
+}
+
+void EmulatorController::loadSnapshot(int slot) {
+  if (!impl_ || !impl_->pc88 || !impl_->diskmgr || !impl_->keyif) {
+    emit statusMessage(tr("エミュレータの準備ができていません"), 3000);
+    return;
+  }
+  if (slot < 0 || slot > 9) {
+    slot = impl_->current_snapshot_slot;
+  }
+
+  const QString path = SnapshotFileName(impl_->drive_path[0], slot);
+  const QByteArray utf8 = path.toUtf8();
+
+  const char* diskname = nullptr;
+  QByteArray disk_utf8;
+  if (!impl_->drive_path[0].isEmpty() && impl_->diskmgr->GetNumDisks(0) >= 2) {
+    syncDrive1AfterDrive0Change();
+    disk_utf8 = ResolveDiskPath(impl_->drive_path[0]).toUtf8();
+    diskname = disk_utf8.constData();
+  }
+
+  if (!impl_->pc88->LoadShapshot(utf8.constData(), &impl_->config, diskname)) {
+    emit statusMessage(tr("%1 から復元できません").arg(path), 3000);
+    return;
+  }
+
+  impl_->current_snapshot_slot = slot;
+  impl_->keyif->ApplyConfig(&impl_->config);
+  if (impl_->sound) {
+    impl_->sound->ApplyConfig(&impl_->config);
+  }
+  syncHostInputFromConfig();
+  resetBurstPacing();
+  impl_->pc88->UpdateScreen(true);
+  if (draw_) {
+    draw_->InvalidateUiStaging();
+    draw_->StageUiFrame();
+  }
+  impl_->post_reset_redraw_frames_ = 60;
+  emit frameReady();
+  emitMachineConfig();
+  emitDiskConfiguration();
+  emit snapshotStateChanged(slot);
+  emit statusMessage(tr("%1 から復元しました").arg(path), 3000);
+}
+
+void EmulatorController::emitDisplayConfig() {
+  if (!impl_) {
+    return;
+  }
+  emit displayConfigChanged((impl_->config.flags & PC8801::Config::force480) != 0,
+                            (impl_->config.flag2 & PC8801::Config::synctovsync) != 0);
 }
 
 void EmulatorController::sampleTitleStats() {
@@ -674,8 +890,16 @@ void EmulatorController::emulateFrame() {
   pollStatusUi();
 
   if (running_ && !fullspeed) {
-    M88PaceFrame(frame_begin_ns, M88FramePeriodNs(texec, impl_->config.speed),
-                 &running_);
+    const uint64_t emu_period = M88FramePeriodNs(texec, impl_->config.speed);
+    uint64_t pace_period = emu_period;
+    if (fullscreen_.load(std::memory_order_relaxed) &&
+        (impl_->config.flag2 & PC8801::Config::synctovsync) != 0) {
+      const uint32_t vsync_ns = vsync_period_ns_.load(std::memory_order_relaxed);
+      if (vsync_ns > 0) {
+        pace_period = std::max(emu_period, static_cast<uint64_t>(vsync_ns));
+      }
+    }
+    M88PaceFrame(frame_begin_ns, pace_period, &running_);
   }
   M88LoadmonFrameEnd();
 }
@@ -762,6 +986,7 @@ void EmulatorController::emitMachineConfig() {
       (impl_->config.flags & PC8801::Config::disablef12reset) == 0,
       (impl_->config.flags & PC8801::Config::suppressmenu) != 0);
   syncStatusBarFromConfig();
+  emitDisplayConfig();
   pollStatusUi();
 }
 
@@ -836,6 +1061,7 @@ void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basi
   if (impl_->sound) {
     impl_->sound->ApplyConfig(&impl_->config);
   }
+  syncHostInputFromConfig();
   if (diag_tag && std::strcmp(diag_tag, "mode_switch") == 0) {
     M88LogMachine(&impl_->config);
   }

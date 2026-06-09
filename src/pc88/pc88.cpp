@@ -29,6 +29,9 @@
 #include "pc88/tapemgr.h"
 #include "pc88/beep.h"
 #include "pc88/joypad.h"
+#include "pc88/mouse.h"
+#include "if/ifui.h"
+#include "if/ifguid.h"
 #include "calender.h"
 #include "loadmon.h"
 
@@ -47,7 +50,7 @@ PC88::PC88()
   :	cpu1(DEV_ID('C', 'P', 'U', '1')), cpu2(DEV_ID('C', 'P', 'U', '2')),	
 	base(0), mem1(0), dmac(0), 	knj1(0), knj2(0), scrn(0), intc(0), crtc(0), 
 	fdc (0), subsys(0), siotape(0), opn1(0), opn2(0), caln(0), diskmgr(0),
-	beep(0), siomidi(0), joypad(0)
+	beep(0), siomidi(0), joypad(0), mouse(0)
 {
 	assert((1 << MemoryManager::pagebits) <= 0x400); 
 	clock = 100;
@@ -73,6 +76,7 @@ PC88::~PC88()
 	delete siomidi;
 	delete caln;
 	delete joypad;
+	delete mouse;
 }
 
 
@@ -585,16 +589,11 @@ bool PC88::ConnectDevices()
 	if (!siomidi || !bus1.Connect(siomidi, c_siom)) return false;
 	if (!siomidi->Init(&bus1, 0, psioreq)) return false;
 
-	static const IOBus::Connector c_joy[] = 
-	{
-		{ popnio,	IOBus::portin, JoyPad::getdir },
-		{ popnio2,	IOBus::portin, JoyPad::getbutton },
-		{ vrtc,		IOBus::portout, JoyPad::vsync },
-		{ 0, 0, 0 }
-	};
 	joypad = new PC8801::JoyPad();//DEV_ID('J', 'O', 'Y', ' '));
 	if (!joypad) return false;
-	if (!bus1.Connect(joypad, c_joy)) return false;
+
+	mouse = new PC8801::Mouse(DEV_ID('M', 'O', 'U', 'S'));
+	if (!mouse || !mouse->Init(this)) return false;
 
 	return true;
 }
@@ -671,27 +670,119 @@ void PC88::ApplyConfig(Config* cfg)
 	if ((cfg->flags & Config::subcpucontrol) != 0)
 		cpumode |= stopwhenidle;
 
-	if (cfg->flags & PC8801::Config::enablepad)
-	{
-		joypad->SetButtonMode(cfg->flags & Config::swappadbuttons ? JoyPad::SWAPPED : JoyPad::NORMAL);
-	}
-	else
-	{
-		joypad->SetButtonMode(JoyPad::DISABLED);
-	}
-
 	const bool isv2 = (bus1.In(0x31) & 0x40) != 0;
 	opn1->SetOPNMode((cfgflags & Config::enableopna) != 0);
 	opn1->Enable(isv2 || !(cfgflag2 & Config::disableopn44));
 	opn2->SetOPNMode((cfgflags & Config::opnaona8) != 0);
 	opn2->Enable((cfgflags & (Config::opnaona8 | Config::opnona8)) != 0);
 
-//	EnablePad((cfg->flags & PC8801::Config::enablepad) != 0);
-//	if (padenable)
-//		cfg->flags &= ~PC8801::Config::enablemouse;
-//	EnableMouse((cfg->flags & PC8801::Config::enablemouse) != 0);
+#ifdef M88_LINUX_PORT
+	if (cfg->flags & Config::enablemouse) {
+		SetMouseEnabled(true, cfg);
+		SetPadEnabled(false, cfg);
+	} else if (cfg->flags & Config::enablepad) {
+		SetMouseEnabled(false, cfg);
+		SetPadEnabled(true, cfg);
+	} else {
+		SetMouseEnabled(false, cfg);
+		SetPadEnabled(false, cfg);
+	}
+#endif
 
 }
+
+#ifdef M88_LINUX_PORT
+bool PC88::ConnectPadInput(IPadInput* ui)
+{
+	pad_input_ = ui;
+	return true;
+}
+
+bool PC88::ConnectMouseUI(IUnk* ui)
+{
+	mouse_ui_ = ui;
+	return true;
+}
+
+void PC88::SetPadEnabled(bool enable, Config* cfg)
+{
+	if (!joypad) {
+		return;
+	}
+	if (!enable) {
+		if (pad_connected_) {
+			bus1.Disconnect(joypad);
+			pad_connected_ = false;
+		}
+		joypad->SetButtonMode(JoyPad::DISABLED);
+		return;
+	}
+	if (pad_input_) {
+		joypad->Connect(pad_input_);
+	}
+	joypad->SetButtonMode(cfg && (cfg->flags & Config::swappadbuttons)
+	                          ? JoyPad::SWAPPED
+	                          : JoyPad::NORMAL);
+	if (!pad_connected_) {
+		static const IOBus::Connector c_joy[] = {
+		    {popnio, IOBus::portin, JoyPad::getdir},
+		    {popnio2, IOBus::portin, JoyPad::getbutton},
+		    {vrtc, IOBus::portout, JoyPad::vsync},
+		    {0, 0, 0},
+		};
+		if (bus1.Connect(joypad, c_joy)) {
+			pad_connected_ = true;
+		}
+	}
+}
+
+void PC88::SetMouseEnabled(bool enable, Config* cfg)
+{
+	if (!mouse) {
+		return;
+	}
+	IMouseUI* ui = nullptr;
+	if (mouse_ui_) {
+		mouse_ui_->QueryInterface(ChIID_MouseUI, reinterpret_cast<void**>(&ui));
+	}
+	if (!enable) {
+		if (mouse_connected_) {
+			bus1.Disconnect(mouse);
+			mouse_connected_ = false;
+		}
+		if (ui) {
+			ui->Enable(false);
+		}
+		return;
+	}
+	if (pad_connected_) {
+		bus1.Disconnect(joypad);
+		pad_connected_ = false;
+		joypad->SetButtonMode(JoyPad::DISABLED);
+	}
+	if (!mouse_connected_) {
+		static const IOBus::Connector c_mouse[] = {
+		    {popnio, IOBus::portin, Mouse::getmove},
+		    {popnio2, IOBus::portin, Mouse::getbutton},
+		    {0x40, IOBus::portout, Mouse::strobe},
+		    {vrtc, IOBus::portout, Mouse::vsync},
+		    {0, 0, 0},
+		};
+		if (bus1.Connect(mouse, c_mouse)) {
+			mouse_connected_ = true;
+		}
+	}
+	if (mouse_ui_) {
+		mouse->Connect(mouse_ui_);
+	}
+	if (cfg) {
+		mouse->ApplyConfig(cfg);
+	}
+	if (ui) {
+		ui->Enable(true);
+	}
+}
+#endif
 
 // ---------------------------------------------------------------------------
 //	šĘĎX

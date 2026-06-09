@@ -21,5 +21,5 @@ inline void M88UserCpuReset(PC88& pc88, M88DrawSkip* draw_skip, int refresh_timi
   if (draw_skip) {
     draw_skip->ForceUpdateAfterReset(refresh_timing);
   }
-  std::fprintf(stderr, "M88: CPU reset (user)\n");
+  std::fprintf(stderr, "M88: CPU reset\n");
 }

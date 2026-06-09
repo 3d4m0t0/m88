@@ -2,6 +2,8 @@
 #include "file.h"
 #include "path.h"
 
+#include "../linux/linux_paths.h"
+
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
@@ -9,15 +11,20 @@
 char m88dir[MAX_PATH] = ".";
 
 void M88InitRomPath(const char* rom_dir) {
-  if (!rom_dir || !*rom_dir) {
-    if (!getcwd(m88dir, sizeof(m88dir))) {
-      std::strncpy(m88dir, ".", sizeof(m88dir) - 1);
-      m88dir[sizeof(m88dir) - 1] = '\0';
-    }
+  if (rom_dir && *rom_dir) {
+    std::strncpy(m88dir, rom_dir, sizeof(m88dir) - 1);
+    m88dir[sizeof(m88dir) - 1] = '\0';
     return;
   }
-  std::strncpy(m88dir, rom_dir, sizeof(m88dir) - 1);
-  m88dir[sizeof(m88dir) - 1] = '\0';
+  if (const M88Paths* paths = M88GetPaths(); paths && paths->rom_dir[0]) {
+    std::strncpy(m88dir, paths->rom_dir, sizeof(m88dir) - 1);
+    m88dir[sizeof(m88dir) - 1] = '\0';
+    return;
+  }
+  if (!getcwd(m88dir, sizeof(m88dir))) {
+    std::strncpy(m88dir, ".", sizeof(m88dir) - 1);
+    m88dir[sizeof(m88dir) - 1] = '\0';
+  }
 }
 
 void M88RomPath(char* out, size_t outlen, const char* filename) {
