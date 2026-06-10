@@ -346,6 +346,14 @@ void WinKeyIF::PopImeKeyTable() {
   InvalidateKeyports();
 }
 
+uint8_t WinKeyIF::MatrixVk(uint8_t port, uint8_t col) const {
+  if (!keytable || col > 7) {
+    return 0;
+  }
+  const Key* key = keytable + (port & 0x0fu) * 64 + col * 8;
+  return key->k;
+}
+
 bool WinKeyIF::HostShiftDown() const {
   return HostShiftHeld();
 }

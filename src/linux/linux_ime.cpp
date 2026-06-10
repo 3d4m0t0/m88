@@ -34,13 +34,14 @@ bool CommitText(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config*
   if (!HalfKanaIme::CommitUtf8ToHalfKana(utf8, &hw)) {
     return false;
   }
-  std::vector<HalfKanaIme::KeyStroke> strokes;
-  HalfKanaIme::HalfKanaToKeyStrokes(hw, &strokes);
-  if (strokes.empty()) {
-    return false;
-  }
   keyif->FlushGuestKeys();
   HalfKanaIme::InjectBeginSession(keyif, cfg);
+  std::vector<HalfKanaIme::KeyStroke> strokes;
+  HalfKanaIme::HalfKanaToKeyStrokes(keyif, hw, &strokes);
+  if (strokes.empty()) {
+    HalfKanaIme::InjectEndSession(keyif, cfg);
+    return false;
+  }
   HalfKanaIme::InjectEnqueue(strokes);
   return true;
 }

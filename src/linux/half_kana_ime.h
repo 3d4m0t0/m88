@@ -31,8 +31,12 @@ struct KeyStroke {
 // Returns false if nothing to inject (e.g. ASCII-only).
 bool CommitUtf8ToHalfKana(const char* utf8, std::vector<uint16_t>* out_hw);
 
-// Halfwidth katakana -> PC-88 key strokes (momentary カナ + matrix kana table).
-void HalfKanaToKeyStrokes(const std::vector<uint16_t>& hw, std::vector<KeyStroke>* out);
+// Match WinKeyIF host keytable before HalfKanaToKeyStrokes (VK slots differ 101 vs 106).
+void SyncImeHostKeyType(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg);
+
+// Halfwidth katakana -> PC-88 key strokes (call after InjectBeginSession; uses keytable).
+void HalfKanaToKeyStrokes(PC8801::WinKeyIF* keyif, const std::vector<uint16_t>& hw,
+                          std::vector<KeyStroke>* out);
 
 // Queue strokes; call Pump() from the main thread each frame.
 void InjectBeginSession(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg);

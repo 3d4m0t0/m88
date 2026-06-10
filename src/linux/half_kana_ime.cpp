@@ -27,6 +27,12 @@ uint8_t VkRow05D5() {
 uint8_t VkRow07D4() { return 0xbc; }
 uint8_t VkRow07D5() { return 0xbe; }
 uint8_t VkRow07D6() { return VK_PC88_SLASH; }
+uint8_t VkRow07D3() {
+  return (g_ime_host_keytype == PC8801::Config::AT101) ? 0xbb : 0xde;
+}
+uint8_t VkRow05D6() {
+  return (g_ime_host_keytype == PC8801::Config::AT101) ? 0xde : 0xbb;
+}
 
 // PC-8801 FH matrix kana (N88-BASIC / カナ LOCK). See LookupVkMomentary for 101 IME.
 bool LookupVkLock(uint16_t hw, VkStroke* out) {
@@ -247,7 +253,7 @@ bool LookupVkSmall(uint16_t hw, VkStroke* out) {
 
 // PC-8801 FH keyboard matrix kana layer (momentary カナ / kana on key cap).
 // Source: PC-8801 key matrix chart (address row x data col).
-bool LookupVkMomentary(uint16_t hw, VkStroke* out) {
+bool LookupVkMomentary(uint16_t hw, VkStroke* out, PC8801::WinKeyIF* keyif) {
   if (!out) {
     return false;
   }
@@ -341,8 +347,8 @@ bool LookupVkMomentary(uint16_t hw, VkStroke* out) {
       out->vk = '2';
       return true;  // ﾌ row06
     case 0xFF8D:
-      out->vk = 0xde;
-      return true;  // ﾍ row05 ^
+      out->vk = keyif ? keyif->MatrixVk(0x05, 6) : VkRow05D6();
+      return true;  // ﾍ row05 D6 ^
     case 0xFF8E:
       out->vk = 0xbd;
       return true;  // ﾎ row05 -
@@ -380,8 +386,8 @@ bool LookupVkMomentary(uint16_t hw, VkStroke* out) {
       out->vk = 0xbe;
       return true;  // ﾙ row07 .
     case 0xFF9A:
-      out->vk = 0xbb;
-      return true;  // ﾚ row07 ;
+      out->vk = keyif ? keyif->MatrixVk(0x07, 3) : VkRow07D3();
+      return true;  // ﾚ レ row07 D3
     case 0xFF9B:
       out->vk = 0xe2;
       return true;  // ﾛ row07 _
@@ -444,7 +450,7 @@ bool LookupCombiningVk(uint16_t hw, VkStroke* out) {
   return true;
 }
 
-bool LookupVk(uint16_t hw, VkStroke* out) {
+bool LookupVk(uint16_t hw, VkStroke* out, PC8801::WinKeyIF* keyif) {
   if (IsCombiningHalfMark(hw)) {
     return LookupCombiningVk(hw, out);
   }
@@ -454,7 +460,7 @@ bool LookupVk(uint16_t hw, VkStroke* out) {
   if (hw >= 0xFF66 && hw <= 0xFF6F) {
     return LookupVkSmall(hw, out);
   }
-  return LookupVkMomentary(hw, out);
+  return LookupVkMomentary(hw, out, keyif);
 }
 
 bool HiraganaToHalf(uint32_t cp, std::vector<uint16_t>* out) {
@@ -625,15 +631,15 @@ bool HiraganaToHalf(uint32_t cp, std::vector<uint16_t>* out) {
     case 0x3088:
       return base(0xFF96);
     case 0x3089:
-      return base(0xFF99);
+      return base(0xFF97);
     case 0x308A:
-      return base(0xFF9A);
+      return base(0xFF98);
     case 0x308B:
-      return base(0xFF9B);
+      return base(0xFF99);
     case 0x308C:
-      return base(0xFF9C);
+      return base(0xFF9A);
     case 0x308D:
-      return base(0xFF9D);
+      return base(0xFF9B);
     case 0x308F:
       return base(0xFF9C);
     case 0x3092:
@@ -711,7 +717,17 @@ void KanaMatrixPop(PC8801::WinKeyIF* keyif) {
   keyif->PopImeKeyTable();
 }
 
+void ApplyImeHostKeyType(PC8801::Config::KeyType host) { g_ime_host_keytype = host; }
+
 }  // namespace
+
+void SyncImeHostKeyType(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
+  if (keyif) {
+    ApplyImeHostKeyType(keyif->HostKeyType());
+  } else if (cfg) {
+    ApplyImeHostKeyType(static_cast<PC8801::Config::KeyType>(cfg->keytype));
+  }
+}
 
 bool CommitUtf8ToHalfKana(const char* utf8, std::vector<uint16_t>* out_hw) {
   if (!utf8 || !out_hw) {
@@ -741,7 +757,8 @@ bool CommitUtf8ToHalfKana(const char* utf8, std::vector<uint16_t>* out_hw) {
   return any;
 }
 
-void HalfKanaToKeyStrokes(const std::vector<uint16_t>& hw, std::vector<KeyStroke>* out) {
+void HalfKanaToKeyStrokes(PC8801::WinKeyIF* keyif, const std::vector<uint16_t>& hw,
+                          std::vector<KeyStroke>* out) {
   if (!out) {
     return;
   }
@@ -749,7 +766,7 @@ void HalfKanaToKeyStrokes(const std::vector<uint16_t>& hw, std::vector<KeyStroke
   for (size_t i = 0; i < hw.size(); ++i) {
     const uint16_t ch = hw[i];
     VkStroke vk{};
-    if (!LookupVk(ch, &vk)) {
+    if (!LookupVk(ch, &vk, keyif)) {
       continue;
     }
     const bool mark = IsCombiningHalfMark(ch);
@@ -781,9 +798,7 @@ void InjectBeginSession(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
   g_queue.clear();
   g_frames_until_next = 0;
   g_session_kana = true;
-  if (cfg) {
-    g_ime_host_keytype = static_cast<PC8801::Config::KeyType>(cfg->keytype);
-  }
+  SyncImeHostKeyType(keyif, cfg);
   KanaMatrixPush(keyif, cfg);
   keyif->SetKanaLock(false);
   keyif->ClearHostModifiers();

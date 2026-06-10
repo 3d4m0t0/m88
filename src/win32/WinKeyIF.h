@@ -69,6 +69,9 @@ public:
 	// IME: patch host keytable カナ column to momentary (101 has no kana key).
 	void PushImeKeyTable();
 	void PopImeKeyTable();
+	Config::KeyType HostKeyType() const { return host_keytype_; }
+	// Host VK for matrix port/col on the active keytable (IME / KeyTable101|106).
+	uint8_t MatrixVk(uint8_t port, uint8_t col) const;
 #endif
 
 	const Descriptor* IFCALL GetDesc() const { return &descriptor; }
