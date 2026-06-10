@@ -202,8 +202,11 @@ bool EmulatorController::initialize() {
   if (options_.keyboard_type >= 0) {
     impl_->config.keytype =
         static_cast<PC8801::Config::KeyType>(options_.keyboard_type);
+    if (impl_->config.keytype == PC8801::Config::PC98) {
+      impl_->config.keytype = PC8801::Config::AT106;
+    }
     M88NoteKeyboardCliOverride();
-  } else {
+  } else if (!M88IniHasHostKeyboard()) {
     M88ApplyDetectedKeyboard(&impl_->config);
   }
   M88LoadKeyFixup(impl_->ini_path.toUtf8().constData(), &impl_->config);
@@ -259,7 +262,7 @@ bool EmulatorController::initialize() {
   M88LogSound(&impl_->config);
   M88LogKeyboard(&impl_->config);
   M88LogKeyFix();
-  if (LinuxIme::Enabled() && impl_->config.keytype != PC8801::Config::PC98) {
+  if (LinuxIme::Enabled()) {
     M88LogImeHalfKana();
   }
   M88LogFdd(&impl_->config);

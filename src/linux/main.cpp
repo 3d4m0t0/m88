@@ -245,8 +245,11 @@ int main(int argc, char** argv) {
       return 1;
     }
     config.keytype = static_cast<PC8801::Config::KeyType>(keytype);
+    if (config.keytype == PC8801::Config::PC98) {
+      config.keytype = PC8801::Config::AT106;
+    }
     M88NoteKeyboardCliOverride();
-  } else {
+  } else if (!M88IniHasHostKeyboard()) {
     M88ApplyDetectedKeyboard(&config);
   }
   M88LoadKeyFixup(ini_path, &config);
@@ -324,7 +327,7 @@ int main(int argc, char** argv) {
   M88LogSound(&config);
   M88LogKeyboard(&config);
   M88LogKeyFix();
-  if (LinuxIme::Enabled() && config.keytype != PC8801::Config::PC98) {
+  if (LinuxIme::Enabled()) {
     M88LogImeHalfKana();
   }
   M88LogFdd(&config);

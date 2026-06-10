@@ -1,5 +1,7 @@
 #include "half_kana_ime.h"
 
+#include "../linux/pc88_key_fixup.h"
+#include "../linux_compat/pc88_matrix_vk.h"
 #include "../linux_compat/winkeys.h"
 #include "../win32/WinKeyIF.h"
 #include "pc88/config.h"
@@ -18,6 +20,7 @@ bool LookupVk(uint16_t hw, VkStroke* out) {
   if (!out) {
     return false;
   }
+  const PC8801::Config::KeyType guest = Pc88KeyFixup::GuestKeyboard();
   out->keydata = 0;
   switch (hw) {
     case 0xFF67:
@@ -66,7 +69,7 @@ bool LookupVk(uint16_t hw, VkStroke* out) {
       out->vk = 'L';
       return true;
     case 0xFF7A:
-      out->vk = 0xbb;
+      out->vk = Pc88MatrixVk::Semicolon(guest);
       return true;
     case 0xFF7B:
       out->vk = 'Z';
@@ -90,13 +93,13 @@ bool LookupVk(uint16_t hw, VkStroke* out) {
       out->vk = 'M';
       return true;
     case 0xFF82:
-      out->vk = 0xbc;
+      out->vk = Pc88MatrixVk::Comma(guest);
       return true;
     case 0xFF83:
-      out->vk = 0xbe;
+      out->vk = Pc88MatrixVk::Period(guest);
       return true;
     case 0xFF84:
-      out->vk = 0xbf;
+      out->vk = Pc88MatrixVk::Slash(guest);
       return true;
     case 0xFF85:
       out->vk = 'T';
@@ -114,25 +117,25 @@ bool LookupVk(uint16_t hw, VkStroke* out) {
       out->vk = 'O';
       return true;
     case 0xFF8A:
-      out->vk = 0xc0;
+      out->vk = Pc88MatrixVk::At(guest);
       return true;
     case 0xFF8B:
-      out->vk = 0xdb;
+      out->vk = Pc88MatrixVk::Lbra(guest);
       return true;
     case 0xFF8C:
-      out->vk = 0xdc;
+      out->vk = Pc88MatrixVk::Bsl(guest);
       return true;
     case 0xFF8D:
-      out->vk = 0xdd;
+      out->vk = Pc88MatrixVk::Rbra(guest);
       return true;
     case 0xFF8E:
-      out->vk = 0xde;
+      out->vk = Pc88MatrixVk::Circ(guest);
       return true;
     case 0xFF8F:
       out->vk = 'P';
       return true;
     case 0xFF90:
-      out->vk = 0xba;
+      out->vk = Pc88MatrixVk::Colon(guest);
       return true;
     case 0xFF91:
       out->vk = 0xbd;
@@ -174,7 +177,7 @@ bool LookupVk(uint16_t hw, VkStroke* out) {
       out->vk = 'D';
       return true;
     case 0xFF9E:
-      out->vk = 0xde;
+      out->vk = Pc88MatrixVk::Circ(guest);
       return true;
     case 0xFF9F:
       out->vk = 0xbd;
@@ -411,34 +414,13 @@ const unsigned char* Utf8Next(const unsigned char* p, uint32_t* cp) {
 std::deque<KeyStroke> g_queue;
 bool g_session_kana = false;
 int g_frames_until_next = 0;
-int g_kana_matrix_refs = 0;
-PC8801::Config g_saved_cfg{};
-bool g_saved_cfg_valid = false;
 constexpr int kStrokeGapFrames = 2;
 
-void KanaMatrixPush(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
-  if (!keyif || !cfg || cfg->keytype == PC8801::Config::AT106 ||
-      cfg->keytype == PC8801::Config::PC98) {
-    return;
-  }
-  if (g_kana_matrix_refs++ == 0) {
-    g_saved_cfg = *cfg;
-    g_saved_cfg_valid = true;
-    PC8801::Config kana = *cfg;
-    kana.keytype = PC8801::Config::AT106;
-    keyif->ApplyConfig(&kana);
-  }
+void KanaMatrixPush(PC8801::WinKeyIF* /*keyif*/, const PC8801::Config* /*cfg*/) {
+  // Guest matrix is always AT106; no temporary switch needed.
 }
 
-void KanaMatrixPop(PC8801::WinKeyIF* keyif) {
-  if (!keyif) {
-    return;
-  }
-  if (g_kana_matrix_refs > 0 && --g_kana_matrix_refs == 0 && g_saved_cfg_valid) {
-    keyif->ApplyConfig(&g_saved_cfg);
-    g_saved_cfg_valid = false;
-  }
-}
+void KanaMatrixPop(PC8801::WinKeyIF* /*keyif*/) {}
 
 }  // namespace
 

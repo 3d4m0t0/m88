@@ -15,8 +15,11 @@ void M88ApplyConfig(PC88* pc88, PC8801::Config* cfg);
 // Parse keyboard layout name: 101/104/at101, 106/at106, 98/pc98. Returns -1 on failure.
 int M88ParseKeyboardType(const char* name);
 
-// Detect host keyboard layout (setxkbmap / localectl / locale). Overrides cfg->keytype.
+// Detect host keyboard layout (setxkbmap / localectl / locale). Sets cfg->keytype.
 void M88ApplyDetectedKeyboard(PC8801::Config* cfg);
+
+// True when KeyboardType was loaded from m88.ini (skip auto-detection).
+bool M88IniHasHostKeyboard();
 
 // Call when --keyboard overrides auto-detection (defers the keyboard log line).
 void M88NoteKeyboardCliOverride();

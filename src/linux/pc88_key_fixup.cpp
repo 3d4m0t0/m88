@@ -27,6 +27,8 @@ struct Rule {
 };
 
 PC8801::Config::KeyType g_host = PC8801::Config::AT101;
+PC8801::Config::KeyType g_guest = PC8801::Config::AT106;
+char g_last_keyfix_path[512] = {};
 std::vector<Rule> g_rules;
 bool g_enabled = false;
 bool g_defer_logs = false;
@@ -88,9 +90,43 @@ bool ParseMaskToken(const char* tok, bool* mask) {
   return false;
 }
 
+bool ParseMatrixAliasVk(const char* tok, uint* vk) {
+  if (!tok || !vk) {
+    return false;
+  }
+  struct Alias {
+    const char* name;
+    uint8_t (*fn)(PC8801::Config::KeyType);
+  };
+  static const Alias kAliases[] = {
+      {"88_AT", Pc88MatrixVk::At},
+      {"88_CIRC", Pc88MatrixVk::Circ},
+      {"88_LBRA", Pc88MatrixVk::Lbra},
+      {"88_RBRA", Pc88MatrixVk::Rbra},
+      {"88_BSL", Pc88MatrixVk::Bsl},
+      {"88_COL", Pc88MatrixVk::Colon},
+      {"88_SEM", Pc88MatrixVk::Semicolon},
+      {"88_COMM", Pc88MatrixVk::Comma},
+      {"88_DOT", Pc88MatrixVk::Period},
+      {"88_SLASH", Pc88MatrixVk::Slash},
+      {"88_USCR", Pc88MatrixVk::Underscore},
+  };
+  for (const Alias& alias : kAliases) {
+    if (strcasecmp(tok, alias.name) == 0) {
+      *vk = alias.fn(g_guest);
+      return true;
+    }
+  }
+  return false;
+}
+
 bool ParseVkToken(const char* tok, uint* vk) {
   if (!tok || !*tok || !vk) {
     return false;
+  }
+
+  if (ParseMatrixAliasVk(tok, vk)) {
+    return true;
   }
 
   if (tok[0] == '0' && (tok[1] == 'x' || tok[1] == 'X')) {
@@ -135,17 +171,6 @@ bool ParseVkToken(const char* tok, uint* vk) {
       {"ROW07_9", '9'},
       {"88_R01_MUL", VK_PC88_R01_MUL},
       {"88_R01_ADD", VK_PC88_R01_ADD},
-      {"88_AT", VK_PC88_AT},
-      {"88_CIRC", VK_PC88_CIRC},
-      {"88_LBRA", VK_PC88_LBRA},
-      {"88_RBRA", VK_PC88_RBRA},
-      {"88_BSL", VK_PC88_BSL},
-      {"88_COL", VK_PC88_COLON},
-      {"88_SEM", VK_PC88_SEMICOLON},
-      {"88_COMM", VK_PC88_COMMA},
-      {"88_DOT", VK_PC88_PERIOD},
-      {"88_SLASH", VK_PC88_SLASH},
-      {"88_USCR", VK_PC88_UNDERSCORE},
       {"R01_EQ", VK_PC88_R01_EQ},
       {"R01_8", VK_PC88_R01_8},
       {"R01_9", VK_PC88_R01_9},
@@ -294,6 +319,18 @@ bool IsEnabled() { return g_enabled; }
 
 void SetHostKeyboard(PC8801::Config::KeyType host) { g_host = host; }
 
+void SetGuestKeyboard(PC8801::Config::KeyType guest) {
+  if (g_guest == guest) {
+    return;
+  }
+  g_guest = guest;
+  if (g_last_keyfix_path[0]) {
+    LoadFromFile(g_last_keyfix_path);
+  }
+}
+
+PC8801::Config::KeyType GuestKeyboard() { return g_guest; }
+
 void SetDeferLogs(bool defer) { g_defer_logs = defer; }
 
 void LogMessage(const char* fmt, ...) {
@@ -392,7 +429,7 @@ bool CopyFileIfExists(const char* src, const char* dest) {
 
 // Keep in sync with repo-root m88_keyfix.ini (written when no file is found).
 static const char kDefaultKeyfixIni[] =
-    "; m88_keyfix.ini - US AT101 host -> PC-8801 (AT101 guest) key remaps\n"
+    "; m88_keyfix.ini - US AT101 host -> PC-8801 guest matrix key remaps\n"
     ";\n"
     "; m88.ini:  KeyFix=1   (KeyFix=0 disables)\n"
     "; Load: M88_KEYFIX, then beside m88.ini, then ./m88_keyfix.ini\n"
@@ -406,7 +443,7 @@ static const char kDefaultKeyfixIni[] =
     ";   guest_shift  inject PC-88 Shift for this stroke (row06/07 shifted symbols)\n"
     ";                guest_shift implies mask\n"
     ";\n"
-    "; Guest VK aliases (src/linux_compat/pc88_matrix_vk.h):\n"
+    "; Guest VK aliases (Pc88MatrixVk / SetGuestKeyboard; AT101 vs AT106 differ):\n"
     ";   88_R01_EQ   0x92        row01  =  (tenkey upper row)\n"
     ";   88_R01_8    VK_NUMPAD8  row01  8  (tenkey; not Shift -> parenthesis)\n"
     ";   88_R01_9    VK_NUMPAD9  row01  9  (tenkey)\n"
@@ -414,13 +451,7 @@ static const char kDefaultKeyfixIni[] =
     ";   88_R01_ADD  VK_ADD      row01  +\n"
     ";   6 / 7 / 2       row06  Shift+6=&  Shift+7='  Shift+2=\"\n"
     ";   8 / 9 / 88_ROW07_8 / 88_ROW07_9   row07  Shift+8=(  Shift+9=)\n"
-    ";   88_AT       0xDB        row02  @\n"
-    ";   88_CIRC     0xBB        row05  ^\n"
-    ";   88_LBRA     0xDD        row05  [\n"
-    ";   88_RBRA     0xC0        row05  ]\n"
-    ";   88_BSL      0xDC        row05  backslash\n"
-    ";   88_COL      0xBA        row07  :\n"
-    ";   88_SEM      0xDE        row07  ;\n"
+    ";   88_AT / 88_LBRA / 88_RBRA / 88_CIRC / 88_SEM  (see pc88_matrix_vk.h)\n"
     ";   88_COMM     0xBC        row07  ,\n"
     ";   88_DOT      0xBE        row07  .\n"
     ";   88_SLASH    0xBF        row07  /   Shift -> ?\n"
@@ -456,7 +487,7 @@ static const char kDefaultKeyfixIni[] =
     "; --- Shift + symbol (guest VK carries the character; mask drops host Shift) ---\n"
     "1 2          88_AT mask\n"
     "1 6          88_CIRC mask\n"
-    "1 OEM_MINUS  NONE mask\n"
+    "1 OEM_MINUS  NONE mask              ; US Shift+- -> (no PC-88 key; swallow)\n"
     "1 OEM_1      88_COL mask\n"
     "1 OEM_5      88_BSL mask\n"
     "\n"
@@ -585,6 +616,8 @@ bool LoadFromFile(const char* path) {
   }
 
   std::fclose(fp);
+  std::strncpy(g_last_keyfix_path, path, sizeof(g_last_keyfix_path) - 1);
+  g_last_keyfix_path[sizeof(g_last_keyfix_path) - 1] = '\0';
   LogMessage("M88: keyfix: loaded %zu rules from %s\n", g_rules.size(), path);
   return true;
 }

@@ -89,9 +89,22 @@ void WinKeyIF::SetKanaLock(bool on) {
   SyncKeyboardArray(keyboard, keystate);
 }
 
+void WinKeyIF::ToggleMatrixLock(uint vk) {
+  if (vk != VK_SCROLL && vk != VK_CAPITAL) {
+    return;
+  }
+  if (keystate[vk] || keystate[vk | 0x100]) {
+    return;
+  }
+  keyboard[vk] ^= 0x01u;
+  SyncKeyboardArray(keyboard, keystate);
+  InvalidateKeyports();
+}
+
 void WinKeyIF::ClearHostModifiers() {
   keystate[VK_SHIFT] = keystate[VK_LSHIFT] = keystate[VK_RSHIFT] = 0;
   keystate[VK_CONTROL] = keystate[VK_MENU] = 0;
+  host_shift_refs_ = 0;
   SyncKeyboardArray(keyboard, keystate);
 }
 
@@ -178,7 +191,10 @@ void WinKeyIF::ApplyGuestShiftChordUp(uint vk, uint32 keydata) {
 bool WinKeyIF::ApplyLinuxKeyFixupDown(uint vk, uint32 keydata) {
   const bool shift = HostShiftDown() || ((keydata & M88_KEYDATA_HOST_SHIFT) != 0);
   if (IsShiftVk(vk)) {
-    ++host_shift_refs_;
+    const uint idx = vk & 0xffu;
+    if (!keystate[idx] && !keystate[idx | 0x100]) {
+      ++host_shift_refs_;
+    }
     return false;
   }
 
@@ -311,6 +327,18 @@ void WinKeyIF::ApplyConfig(const Config* config)
 	usearrow = 0 != (config->flags & Config::usearrowfor10);
 	basicmode = config->basicmode;
 
+#ifdef M88_LINUX_PORT
+	// Guest matrix follows host layout (AT101 host -> KeyTable101, AT106 -> KeyTable106).
+	host_keytype_ = static_cast<Config::KeyType>(config->keytype);
+	if (host_keytype_ == Config::PC98) {
+		host_keytype_ = Config::AT106;
+	}
+	const Config::KeyType guest =
+	    host_keytype_ == Config::AT101 ? Config::AT101 : Config::AT106;
+	keytable = guest == Config::AT101 ? KeyTable101[0] : KeyTable106[0];
+	Pc88KeyFixup::SetHostKeyboard(host_keytype_);
+	Pc88KeyFixup::SetGuestKeyboard(guest);
+#else
 	switch (config->keytype)
 	{
 	case Config::PC98:
@@ -326,9 +354,6 @@ void WinKeyIF::ApplyConfig(const Config* config)
 		keytable = KeyTable106[0];
 		break;
 	}
-#ifdef M88_LINUX_PORT
-	host_keytype_ = static_cast<Config::KeyType>(config->keytype);
-	Pc88KeyFixup::SetHostKeyboard(host_keytype_);
 #endif
 }
 
@@ -353,9 +378,13 @@ static void KeyDownBody(PC8801::WinKeyIF* self, uint vkcode, uint32 keydata)
 	LOG2("KeyDown  = %.2x %.3x\n", vkcode, keyindex);
 	self->keystate[keyindex] = 1;
 	const uint vk = vkcode & 0xff;
-	if (vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_SHIFT) {
-		self->keystate[VK_SHIFT] = 1;
+	if (vk == VK_SCROLL || vk == VK_CAPITAL) {
+		ToggleMatrixLock(vk);
 	}
+  // Row 0e: VK_LSHIFT/VK_RSHIFT. Row 08: VK_SHIFT (F1-F5 shift layer, etc.).
+  if (vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_SHIFT) {
+    self->keystate[VK_SHIFT] = 1;
+  }
 	if ((vkcode & 0xff) == VK_RETURN) {
 		self->keystate[VK_RETURN] = 1;
 		self->keystate[VK_RETURN | 0x100] = 1;

@@ -54,6 +54,7 @@ public:
 	void SetKanaLock(bool on);
 	void ClearHostModifiers();
 	void FlushGuestKeys();
+	void ToggleMatrixLock(uint vk);
 #endif
 
 	const Descriptor* IFCALL GetDesc() const { return &descriptor; }

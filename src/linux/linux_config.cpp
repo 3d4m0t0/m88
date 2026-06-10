@@ -69,6 +69,7 @@ struct IniKeyFlags {
   bool volumerim = false;
   bool keyfix = false;
   bool screen_scale = false;
+  bool keyboardtype = false;
 };
 
 IniKeyFlags g_ini_keys;
@@ -156,7 +157,17 @@ bool ParseKeyValueLine(const char* line, Config* cfg) {
   TrimInPlace(value);
 
   int n = 0;
-  // KeyboardType is not read from INI on Linux; use M88ApplyDetectedKeyboard().
+  if (std::strcmp(key, "KeyboardType") == 0 && ParseIniInt(value, &n)) {
+    if (n == Config::AT106 || n == Config::AT101) {
+      cfg->keytype = static_cast<Config::KeyType>(n);
+    } else if (n == Config::PC98) {
+      cfg->keytype = Config::AT106;
+    }
+    g_ini_keys.keyboardtype = true;
+    std::strncpy(g_keyboard_log_source, "(ini)", sizeof(g_keyboard_log_source));
+    g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
+    return true;
+  }
   if ((std::strcmp(key, "KeyFix") == 0 || std::strcmp(key, "HostKeyFix") == 0) &&
       ParseIniInt(value, &n)) {
     g_keyfix_enabled = (n != 0);
@@ -410,7 +421,7 @@ void M88SetDefaultConfig(Config* cfg) {
   cfg->sound = 55467;
   cfg->opnclock = 3993600;
   cfg->erambanks = 4;
-  // US / European 101–104 key keyboards use the AT101 PC-8801 key matrix.
+  // Default host keyboard; guest matrix is always AT106 on Linux.
   cfg->keytype = Config::AT101;
   cfg->dipsw = 1829;
   cfg->soundbuffer = 400;
@@ -515,7 +526,7 @@ bool KeyTypeFromLayoutToken(const char* tok, Config::KeyType* keytype) {
   }
   TrimInPlace(layout);
   if (LayoutTokenIsPc98(layout)) {
-    *keytype = Config::PC98;
+    *keytype = Config::AT106;
     return true;
   }
   if (LayoutTokenIsJapanese(layout)) {
@@ -626,8 +637,13 @@ void M88PrintScreenScale(int scale, bool cli_explicit) {
 void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
   Pc88KeyFixup::SetDeferLogs(true);
   if (cfg) {
-    // m88_keyfix.ini [101] = physical US host layout (independent of guest matrix).
-    Pc88KeyFixup::SetHostKeyboard(Config::AT101);
+    Config::KeyType host = static_cast<Config::KeyType>(cfg->keytype);
+    if (host == Config::PC98) {
+      host = Config::AT106;
+    }
+    const Config::KeyType guest = host == Config::AT101 ? Config::AT101 : Config::AT106;
+    Pc88KeyFixup::SetHostKeyboard(host);
+    Pc88KeyFixup::SetGuestKeyboard(guest);
   }
 
   const char* keyfix_path = M88GetKeyfixIniPath();
@@ -672,15 +688,17 @@ void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
 const char* M88KeyboardTypeName(int keytype) {
   switch (keytype) {
     case Config::AT106:
-      return "AT106 (JP 106-key matrix)";
+      return "AT106 (JP 106-key host)";
     case Config::PC98:
-      return "PC98";
+      return "PC98 (legacy, treated as AT106 host)";
     case Config::AT101:
-      return "AT101 (US/101-key matrix)";
+      return "AT101 (US/101-key host)";
     default:
       return "unknown";
   }
 }
+
+bool M88IniHasHostKeyboard() { return g_ini_keys.keyboardtype; }
 
 void M88NoteKeyboardCliOverride() {
   std::strncpy(g_keyboard_log_source, "(--keyboard)", sizeof(g_keyboard_log_source));
@@ -705,7 +723,7 @@ void M88ApplyDetectedKeyboard(Config* cfg) {
   const char* env = std::getenv("M88_KEYBOARD");
   if (env && *env) {
     const int k = M88ParseKeyboardType(env);
-    if (k >= Config::AT106 && k <= Config::AT101) {
+    if (k == Config::AT106 || k == Config::AT101) {
       cfg->keytype = static_cast<Config::KeyType>(k);
       std::strncpy(g_keyboard_log_source, "(M88_KEYBOARD)", sizeof(g_keyboard_log_source));
       g_keyboard_log_source[sizeof(g_keyboard_log_source) - 1] = '\0';
@@ -879,6 +897,7 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   std::fprintf(fp, "VolumeHH=%d\n", cfg->volhh + kVolumeBias);
   std::fprintf(fp, "VolumeTOM=%d\n", cfg->voltom + kVolumeBias);
   std::fprintf(fp, "VolumeRIM=%d\n", cfg->volrim + kVolumeBias);
+  std::fprintf(fp, "KeyboardType=%d\n", cfg->keytype);
   std::fprintf(fp, "KeyFix=%d\n", g_keyfix_enabled ? 1 : 0);
   if (g_screen_scale_auto) {
     std::fprintf(fp, "ScreenScale=auto\n");

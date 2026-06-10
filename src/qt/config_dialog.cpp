@@ -615,18 +615,15 @@ void ConfigDialog::buildUi() {
     auto* page = new QWidget(tabs_);
     auto* v = new QVBoxLayout(page);
     CompactVBox(v);
-    auto* key_box = new QGroupBox(tr("Keyboard"), page);
+    auto* key_box = new QGroupBox(tr("Host keyboard"), page);
     auto* key_layout = new QVBoxLayout(key_box);
     key_layout->setSpacing(2);
     keytype_group_ = new QButtonGroup(key_box);
     auto* key106 = new QRadioButton(tr("Japanese 106-key (&J)"), key_box);
-    auto* key98 = new QRadioButton(tr("PC-9801 keyboard (&9)"), key_box);
     auto* key101 = new QRadioButton(tr("101/104-key AT (&1)"), key_box);
     keytype_group_->addButton(key106, Config::AT106);
-    keytype_group_->addButton(key98, Config::PC98);
     keytype_group_->addButton(key101, Config::AT101);
     key_layout->addWidget(key106);
-    key_layout->addWidget(key98);
     key_layout->addWidget(key101);
     v->addWidget(key_box);
     env_placesbar_ = new QCheckBox(tr("Show places bar in file dialogs (&P)"), page);
@@ -863,8 +860,12 @@ void ConfigDialog::loadFromConfig() {
     }
   }
 
-  if (auto* btn = keytype_group_->button(config_.keytype)) {
-    btn->setChecked(true);
+  {
+    const int host_key =
+        config_.keytype == Config::PC98 ? Config::AT106 : config_.keytype;
+    if (auto* btn = keytype_group_->button(host_key)) {
+      btn->setChecked(true);
+    }
   }
   env_placesbar_->setChecked((config_.flag2 & Config::showplacesbar) != 0);
 

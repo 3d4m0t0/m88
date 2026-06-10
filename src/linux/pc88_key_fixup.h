@@ -10,6 +10,8 @@ void SetEnabled(bool on);
 bool IsEnabled();
 
 void SetHostKeyboard(PC8801::Config::KeyType host);
+void SetGuestKeyboard(PC8801::Config::KeyType guest);
+PC8801::Config::KeyType GuestKeyboard();
 
 struct KeyMap {
   uint8_t vk = 0;
