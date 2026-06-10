@@ -103,7 +103,6 @@ if(M88_BUILD_LINUX_FRONTEND)
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_sound.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_host_char.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_key_fixup.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_keyboard.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/src/win32/WinKeyIF.cpp

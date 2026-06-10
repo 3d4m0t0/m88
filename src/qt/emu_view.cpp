@@ -7,6 +7,7 @@
 
 #include "../linux_compat/winkeys.h"
 
+#include <QFocusEvent>
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QInputMethodEvent>
@@ -23,8 +24,17 @@
 namespace {
 
 bool HostShortcutModifiers(const QKeyEvent& event) {
-  return event.modifiers().testFlag(Qt::ControlModifier) ||
-         event.modifiers().testFlag(Qt::AltModifier) ||
+  switch (event.key()) {
+    case Qt::Key_Control:
+    case Qt::Key_Shift:
+    case Qt::Key_Alt:
+    case Qt::Key_AltGr:
+    case Qt::Key_Meta:
+    case Qt::Key_Super_L:
+    case Qt::Key_Super_R:
+      return false;
+  }
+  return event.modifiers().testFlag(Qt::AltModifier) ||
          event.modifiers().testFlag(Qt::MetaModifier);
 }
 
@@ -236,6 +246,12 @@ bool EmuView::event(QEvent* event) {
   return QWidget::event(event);
 }
 
+void EmuView::focusOutEvent(QFocusEvent* event) {
+  emit flushGuestKeys();
+  emit clearHostModifiers();
+  QWidget::focusOutEvent(event);
+}
+
 void EmuView::keyPressEvent(QKeyEvent* event) {
   if (event->modifiers().testFlag(Qt::AltModifier) &&
       (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
@@ -251,19 +267,6 @@ void EmuView::keyPressEvent(QKeyEvent* event) {
     return;
   }
   if (!event->isAutoRepeat()) {
-    const QtInput::LetterShiftAdjust adj = QtInput::LetterShiftAdjustFor(*event);
-    if (adj != QtInput::LetterShiftAdjust::None) {
-      if (!letter_shift_adj_.contains(event->key())) {
-        letter_shift_adj_[event->key()] = adj;
-      }
-      if (++letter_shift_refs_[event->key()] == 1) {
-        if (adj == QtInput::LetterShiftAdjust::AddShift) {
-          emit keyDown(VK_LSHIFT, 0);
-        } else {
-          emit keyUp(VK_LSHIFT, 0);
-        }
-      }
-    }
     const uint vk = QtInput::VkFromKeyEvent(*event);
     if (vk) {
       emit keyDown(vk, QtInput::KeyDataFromEvent(*event));
@@ -297,17 +300,6 @@ void EmuView::keyReleaseEvent(QKeyEvent* event) {
     if (vk) {
       emit keyUp(vk, QtInput::KeyDataFromEvent(*event));
     }
-    const auto ref_it = letter_shift_refs_.find(event->key());
-    if (ref_it != letter_shift_refs_.end() && --ref_it.value() <= 0) {
-      const QtInput::LetterShiftAdjust adj = letter_shift_adj_.value(event->key());
-      letter_shift_refs_.erase(ref_it);
-      letter_shift_adj_.remove(event->key());
-      if (adj == QtInput::LetterShiftAdjust::AddShift) {
-        emit keyUp(VK_LSHIFT, 0);
-      } else if (adj == QtInput::LetterShiftAdjust::RemoveShift) {
-        emit keyDown(VK_LSHIFT, 0);
-      }
-    }
   }
   event->accept();
 }
@@ -324,8 +316,6 @@ void EmuView::inputMethodEvent(QInputMethodEvent* event) {
   if (!commit.isEmpty()) {
     ime_preedit_.clear();
     ime_block_keys_ = false;
-    letter_shift_refs_.clear();
-    letter_shift_adj_.clear();
 
     if (draw_) {
       draw_->SetImePreedit("");

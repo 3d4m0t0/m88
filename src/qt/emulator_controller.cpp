@@ -1,6 +1,7 @@
 #include "emulator_controller.h"
 
 #include "../linux/linux_config.h"
+#include "../linux/keyboard_vk.h"
 #include "../linux/pc88_key_fixup.h"
 #include "../linux/half_kana_ime.h"
 #include "../linux/linux_ime.h"
@@ -12,6 +13,7 @@
 #include "../linux/linux_paths.h"
 #include "../linux/linux_startup_log.h"
 #include "qt_host_input.h"
+#include "qt_input.h"
 #include "qt_video_log.h"
 #include "../linux/shared_framebuffer_draw.h"
 #include "../win32/WinKeyIF.h"
@@ -349,10 +351,10 @@ void EmulatorController::processImeCommit(const QString& utf8) {
     return;
   }
   const QByteArray bytes = utf8.toUtf8();
-  if (!LinuxIme::CommitUtf8(bytes.constData(), impl_->keyif.get(), &impl_->config)) {
-    return;
-  }
   withVmPaused([&]() {
+    if (!LinuxIme::CommitUtf8(bytes.constData(), impl_->keyif.get(), &impl_->config)) {
+      return;
+    }
     const uint host_clock = static_cast<uint>(std::max(1, impl_->config.clock));
     const uint effclock = static_cast<uint>(std::max<int64_t>(
         1, impl_->config.clock * (impl_->config.speed / 10) / 100));
@@ -616,6 +618,8 @@ void EmulatorController::syncHostInputFromConfig() {
   if (!impl_) {
     return;
   }
+  QtInput::SetHostAt101(impl_->config.keytype == PC8801::Config::AT101);
+  M88Input::SetHostAt101(impl_->config.keytype == PC8801::Config::AT101);
   emit mouseCaptureChanged((impl_->config.flags & PC8801::Config::enablemouse) != 0);
 }
 

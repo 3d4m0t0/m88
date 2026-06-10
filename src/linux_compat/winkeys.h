@@ -79,3 +79,6 @@
 // WinKeyIF::KeyDown keydata bits (Qt/SDL frontends on Linux)
 #define M88_KEYDATA_EXTENDED (1u << 24)
 #define M88_KEYDATA_HOST_SHIFT (1u << 25)
+#define M88_KEYDATA_FIXUP_MASK (1u << 26)  // keyfix mask: guest key is unshifted
+#define M88_KEYDATA_GUEST_SHIFT (1u << 27)  // PC-88 row08 SHIFT + host LSHIFT (IME sutegana)
+#define M88_KEYDATA_FH_SHIFT (1u << 28)     // PC-88 row08 SHIFT only (IME ゜ on row07 .)

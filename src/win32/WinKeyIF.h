@@ -52,9 +52,23 @@ public:
 
 #ifdef M88_LINUX_PORT
 	void SetKanaLock(bool on);
+	void EnableHalfWidthKana();
+	void InjectKeyDown(uint vk, uint32 keydata);
+	void InjectKeyUp(uint vk, uint32 keydata);
 	void ClearHostModifiers();
+	void ClearGraphIfAt101Host();
+	void MaintainImeInjectState();
+	void ClearImeLayerKeys();
+	void InjectImeKeyDown(uint vk, uint32 keydata);
+	void InjectImeKeyUp(uint vk, uint32 keydata);
+	void InjectImeLockKeyDown(uint vk, uint32 keydata);
+	void InjectImeLockKeyUp(uint vk, uint32 keydata);
+	void PulseHalfWidthKana();
 	void FlushGuestKeys();
 	void ToggleMatrixLock(uint vk);
+	// IME: patch host keytable カナ column to momentary (101 has no kana key).
+	void PushImeKeyTable();
+	void PopImeKeyTable();
 #endif
 
 	const Descriptor* IFCALL GetDesc() const { return &descriptor; }
@@ -85,8 +99,11 @@ private:
 	const Key* keytable;
 	int keyboardtype;
 #ifdef M88_LINUX_PORT
+	CriticalSection key_mutex_;
 	Config::KeyType host_keytype_ = Config::AT101;
 	int host_shift_refs_ = 0;
+	bool user_kana_lock_ = false;
+	const Key* ime_saved_keytable_ = nullptr;
 	void KeyDownImpl(uint vkcode, uint32 keydata);
 	void KeyUpImpl(uint vkcode, uint32 keydata);
 	void InvalidateKeyports();
@@ -97,6 +114,9 @@ private:
 	void RestoreShiftKeystate();
 	bool ApplyLinuxKeyFixupDown(uint vk, uint32 keydata);
 	bool ApplyLinuxKeyFixupUp(uint vk, uint32 keydata);
+	bool HostShiftHeld() const;
+	void ClearImeKanaLockUnlessUser(uint vk);
+	bool ImeInjectionActive() const;
 #endif
 	bool active;
 	bool disable;

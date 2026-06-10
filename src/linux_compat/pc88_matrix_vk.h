@@ -43,7 +43,7 @@
 #define VK_PC88_SLASH 0xBF
 #define VK_PC88_UNDERSCORE 0xE2
 
-// Default INI aliases (AT106); keyfix resolves per SetGuestKeyboard().
+// Linux guest matrix is always AT106; keyfix aliases resolve to these slots.
 #define VK_PC88_AT VK_PC88_AT_106
 #define VK_PC88_CIRC VK_PC88_CIRC_106
 #define VK_PC88_LBRA VK_PC88_LBRA_106

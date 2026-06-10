@@ -641,9 +641,8 @@ void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
     if (host == Config::PC98) {
       host = Config::AT106;
     }
-    const Config::KeyType guest = host == Config::AT101 ? Config::AT101 : Config::AT106;
     Pc88KeyFixup::SetHostKeyboard(host);
-    Pc88KeyFixup::SetGuestKeyboard(guest);
+    Pc88KeyFixup::SetGuestKeyboard(Config::AT106);
   }
 
   const char* keyfix_path = M88GetKeyfixIniPath();
@@ -709,8 +708,13 @@ void M88LogKeyboard(const Config* cfg) {
   if (!cfg) {
     return;
   }
-  std::fprintf(stderr, "M88: keyboard=%s %s\n", M88KeyboardTypeName(cfg->keytype),
-               g_keyboard_log_source);
+  const char* matrix =
+      (cfg->keytype == Config::AT101) ? "AT101 (KeyTable101)" : "AT106 (KeyTable106)";
+  std::fprintf(stderr, "M88: host keyboard=%s %s, key table=%s\n",
+               M88KeyboardTypeName(cfg->keytype), g_keyboard_log_source, matrix);
+  if (g_keyfix_enabled && cfg->keytype == Config::AT101) {
+    std::fprintf(stderr, "M88: keyfix active for US/101 shifted symbols\n");
+  }
 }
 
 void M88LogKeyFix() { Pc88KeyFixup::FlushDeferredLogs(); }

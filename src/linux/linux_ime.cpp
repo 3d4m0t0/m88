@@ -115,7 +115,7 @@ int HandleSdlEvent(unsigned int /*type*/, const void* /*sdl_event*/, LinuxDraw* 
 #endif
 
 void Pump(PC8801::WinKeyIF* keyif) {
-  if (g_enabled && keyif) {
+  if (g_enabled && keyif && !HalfKanaIme::SessionActive()) {
     HalfKanaIme::InjectPump(keyif);
   }
 }

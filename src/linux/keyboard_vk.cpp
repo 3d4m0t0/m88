@@ -6,6 +6,10 @@
 
 namespace M88Input {
 
+bool g_host_at101 = false;
+
+void SetHostAt101(bool enabled) { g_host_at101 = enabled; }
+
 uint EvdevScancodeToVk(uint code) {
   switch (code) {
     case KEY_A:
@@ -147,8 +151,17 @@ uint EvdevScancodeToVk(uint code) {
     case KEY_RIGHTCTRL:
       return VK_CONTROL;
     case KEY_COMPOSE:
+      if (!g_host_at101) {
+        return VK_MENU;  // JIS 106 GRPH on some layouts
+      }
+      return 0;
     case KEY_RIGHTALT:
-      return VK_MENU;  // JP 106-key GRPH (layout-dependent; not Qt::Key_Alt)
+      if (!g_host_at101) {
+        return VK_MENU;
+      }
+      return 0;
+    case KEY_LEFTALT:
+      return 0;  // never PC-88 GRPH
     case KEY_CAPSLOCK:
       return VK_CAPITAL;
     case KEY_SCROLLLOCK:

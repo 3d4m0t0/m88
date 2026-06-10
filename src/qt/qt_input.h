@@ -15,6 +15,9 @@ bool IsHostImeModifierKey(int qt_key);
 bool IsHostModifierVk(uint vk);
 void SetSuppressMenu(bool enabled);
 
+// US/101 host: prefer evdev scancodes for the top digit/punctuation row (layout-independent).
+void SetHostAt101(bool enabled);
+
 enum class LetterShiftAdjust { None, AddShift, RemoveShift };
 
 // Caps Lock ON: AddShift for uppercase without Shift; RemoveShift for lowercase with Shift

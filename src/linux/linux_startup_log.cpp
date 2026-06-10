@@ -67,7 +67,7 @@ void M88LogFdd(const PC8801::Config* config) {
 }
 
 void M88LogImeHalfKana() {
-  std::fprintf(stderr, "M88: IME half-kana uses AT106 matrix during injection\n");
+  std::fprintf(stderr, "M88: IME half-kana: momentary カナ + FH matrix table\n");
 }
 
 void M88LogSdlVideoIndexed8() {

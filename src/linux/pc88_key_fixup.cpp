@@ -278,6 +278,14 @@ bool ParseRuleLine(const char* line, PC8801::Config::KeyType section_host) {
   return true;
 }
 
+// US 101 host: only symbols that KeyTable101 cannot map directly (e.g. = on row01).
+void InstallBuiltinAt101Rules() {
+  if (g_host != PC8801::Config::AT101) {
+    return;
+  }
+  AddRule(PC8801::Config::AT101, VK_OEM_PLUS, false, VK_PC88_R01_EQ, false, false, false);
+}
+
 bool HostTypeFromSection(const char* section, PC8801::Config::KeyType* host) {
   if (!section || !*section || !host) {
     return false;
@@ -443,7 +451,7 @@ static const char kDefaultKeyfixIni[] =
     ";   guest_shift  inject PC-88 Shift for this stroke (row06/07 shifted symbols)\n"
     ";                guest_shift implies mask\n"
     ";\n"
-    "; Guest VK aliases (Pc88MatrixVk / SetGuestKeyboard; AT101 vs AT106 differ):\n"
+    "; Guest matrix is always PC-8801 FH (AT106). Aliases below use AT106 slots.\n"
     ";   88_R01_EQ   0x92        row01  =  (tenkey upper row)\n"
     ";   88_R01_8    VK_NUMPAD8  row01  8  (tenkey; not Shift -> parenthesis)\n"
     ";   88_R01_9    VK_NUMPAD9  row01  9  (tenkey)\n"
@@ -498,7 +506,11 @@ static const char kDefaultKeyfixIni[] =
     "0 OEM_6      88_RBRA\n"
     "0 OEM_5      88_BSL\n"
     "0 OEM_COMMA  88_COMM\n"
-    "0 OEM_PERIOD 88_DOT\n";
+    "0 OEM_PERIOD 88_DOT\n"
+    "\n"
+    "[106]\n"
+    "\n"
+    "; JIS 106 host: VK usually matches PC-8801 matrix; add exceptions here if needed.\n";
 
 bool WriteEmbeddedDefault(const char* dest) {
   if (!dest || !*dest) {
@@ -618,6 +630,7 @@ bool LoadFromFile(const char* path) {
   std::fclose(fp);
   std::strncpy(g_last_keyfix_path, path, sizeof(g_last_keyfix_path) - 1);
   g_last_keyfix_path[sizeof(g_last_keyfix_path) - 1] = '\0';
+  InstallBuiltinAt101Rules();
   LogMessage("M88: keyfix: loaded %zu rules from %s\n", g_rules.size(), path);
   return true;
 }

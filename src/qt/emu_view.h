@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QHash>
 #include <QImage>
 #include <QWidget>
 
@@ -40,6 +39,7 @@ protected:
   QSize sizeHint() const override;
   void inputMethodEvent(QInputMethodEvent* event) override;
   QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
+  void focusOutEvent(QFocusEvent* event) override;
 
 signals:
   void keyDown(quint32 vk, quint32 keydata);
@@ -58,8 +58,6 @@ private:
   int scale_ = 2;
   bool force480_layout_ = false;
   QString ime_preedit_;
-  QHash<int, int> letter_shift_refs_;
-  QHash<int, QtInput::LetterShiftAdjust> letter_shift_adj_;
 
   bool ime_block_keys_ = false;
   uint64_t last_frame_serial_ = 0;
