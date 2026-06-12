@@ -783,11 +783,12 @@ void InjectEndSession(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
   if (!keyif) {
     return;
   }
+  (void)cfg;
   g_queue.clear();
   g_frames_until_next = 0;
-  keyif->SetKanaLock(false);
-  keyif->ClearHostModifiers();
   g_session_kana = false;
+  // Drop inject-layer matrix state before host keys resume (SPACE vs SHIFT on D6).
+  keyif->FinishImeInjectSession();
   KanaMatrixPop(keyif);
 }
 
@@ -828,6 +829,7 @@ void InjectPump(PC8801::WinKeyIF* keyif) {
   }
   const KeyStroke s = g_queue.front();
   g_queue.pop_front();
+  int gap = kStrokeGapFrames;
   switch (s.route) {
     case InjectRoute::Host:
       if (s.down) {
@@ -835,11 +837,10 @@ void InjectPump(PC8801::WinKeyIF* keyif) {
       } else {
         keyif->InjectKeyUp(s.vk, s.keydata);
       }
-      g_frames_until_next = kStrokeGapFrames;
       break;
     case InjectRoute::HalfWidthPulse:
       keyif->PulseHalfWidthKana();
-      g_frames_until_next = kHalfWidthSettleFrames;
+      gap = kHalfWidthSettleFrames;
       break;
     case InjectRoute::ImeLock:
       if (s.down) {
@@ -847,15 +848,14 @@ void InjectPump(PC8801::WinKeyIF* keyif) {
       } else {
         keyif->InjectImeLockKeyUp(s.vk, s.keydata);
       }
-      g_frames_until_next = kStrokeGapFrames;
       break;
     case InjectRoute::Dakuten:
+      gap = kDakutenGapFrames;
       if (s.down) {
         keyif->InjectImeKeyDown(s.vk, s.keydata);
       } else {
         keyif->InjectImeKeyUp(s.vk, s.keydata);
       }
-      g_frames_until_next = kDakutenGapFrames;
       break;
     case InjectRoute::Ime:
     default:
@@ -864,9 +864,9 @@ void InjectPump(PC8801::WinKeyIF* keyif) {
       } else {
         keyif->InjectImeKeyUp(s.vk, s.keydata);
       }
-      g_frames_until_next = kStrokeGapFrames;
       break;
   }
+  g_frames_until_next = gap;
 }
 
 }  // namespace HalfKanaIme

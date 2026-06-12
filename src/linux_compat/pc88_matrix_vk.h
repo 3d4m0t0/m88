@@ -43,12 +43,12 @@
 #define VK_PC88_SLASH 0xBF
 #define VK_PC88_UNDERSCORE 0xE2
 
-// Linux guest matrix is always AT106; keyfix aliases resolve to these slots.
-#define VK_PC88_AT VK_PC88_AT_106
-#define VK_PC88_CIRC VK_PC88_CIRC_106
-#define VK_PC88_LBRA VK_PC88_LBRA_106
-#define VK_PC88_RBRA VK_PC88_RBRA_106
-#define VK_PC88_SEMICOLON VK_PC88_SEM_106
+// Default guest aliases (Pc88MatrixVk:: uses SetGuestKeyboard() at runtime).
+#define VK_PC88_AT VK_PC88_AT_101
+#define VK_PC88_CIRC VK_PC88_CIRC_101
+#define VK_PC88_LBRA VK_PC88_LBRA_101
+#define VK_PC88_RBRA VK_PC88_RBRA_101
+#define VK_PC88_SEMICOLON VK_PC88_SEM_101
 
 namespace Pc88MatrixVk {
 

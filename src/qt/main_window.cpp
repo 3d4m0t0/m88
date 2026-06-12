@@ -21,6 +21,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMenu>
+#include <QLabel>
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QMessageBox>
@@ -961,12 +962,28 @@ void MainWindow::setupMenuBar() {
     }
   });
   connect(about_action_, &QAction::triggered, this, [this]() {
-    QMessageBox::about(
-        this, tr("About M88"),
-        tr("<h3>M88</h3>"
-           "<p>PC-8801 emulator (Linux Qt frontend)</p>"
-           "<p>Click the display to focus keyboard input. "
-           "Mount a disk from Disk → Drive 1.</p>"));
+    QMessageBox box(this);
+    box.setWindowTitle(tr("About M88"));
+    box.setTextFormat(Qt::RichText);
+    box.setText(
+        tr("<h3>M88 for Linux (Qt)</h3>"
+           "<p>rel 2.21<br/>"
+           "PC-8801 series emulator / Copyright (C) 1998, 2003 cisc</p>"
+           "<p>GitHub: アカウント作成後</p>"
+           "<p>オリジナル: "
+           "<a href=\"http://www.retropc.net/cisc/m88/\">"
+           "http://www.retropc.net/cisc/m88/</a></p>"
+           "<p>Forked from "
+           "<a href=\"https://github.com/rururutan/m88\">"
+           "https://github.com/rururutan/m88</a></p>"
+           "<p>謝辞: FM 音源（佐藤達之氏 fm.c）、N80/SR（arearea 氏）</p>"));
+    box.setStandardButtons(QMessageBox::Ok);
+    for (QLabel* label : box.findChildren<QLabel*>()) {
+      label->setTextFormat(Qt::RichText);
+      label->setOpenExternalLinks(true);
+      label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    }
+    box.exec();
   });
 
   if (disk_menu_) {

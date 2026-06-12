@@ -27,7 +27,7 @@ struct Rule {
 };
 
 PC8801::Config::KeyType g_host = PC8801::Config::AT101;
-PC8801::Config::KeyType g_guest = PC8801::Config::AT106;
+PC8801::Config::KeyType g_guest = PC8801::Config::AT101;
 char g_last_keyfix_path[512] = {};
 std::vector<Rule> g_rules;
 bool g_enabled = false;
@@ -451,7 +451,8 @@ static const char kDefaultKeyfixIni[] =
     ";   guest_shift  inject PC-88 Shift for this stroke (row06/07 shifted symbols)\n"
     ";                guest_shift implies mask\n"
     ";\n"
-    "; Guest matrix is always PC-8801 FH (AT106). Aliases below use AT106 slots.\n"
+    "; Guest matrix follows host (101 host -> KeyTable101 / 88_* AT101 slots).\n"
+    "; Aliases (88_AT, 88_CIRC, …) resolve via pc88_matrix_vk.h and SetGuestKeyboard().\n"
     ";   88_R01_EQ   0x92        row01  =  (tenkey upper row)\n"
     ";   88_R01_8    VK_NUMPAD8  row01  8  (tenkey; not Shift -> parenthesis)\n"
     ";   88_R01_9    VK_NUMPAD9  row01  9  (tenkey)\n"

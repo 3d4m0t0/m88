@@ -65,6 +65,9 @@ public:
 	void InjectImeLockKeyUp(uint vk, uint32 keydata);
 	void PulseHalfWidthKana();
 	void FlushGuestKeys();
+	void FinishImeInjectSession();
+	void PreparePostImeHostInput();
+	void EnsureHostKeyTable();
 	void ToggleMatrixLock(uint vk);
 	// IME: patch host keytable カナ column to momentary (101 has no kana key).
 	void PushImeKeyTable();
@@ -117,9 +120,9 @@ private:
 	void RestoreShiftKeystate();
 	bool ApplyLinuxKeyFixupDown(uint vk, uint32 keydata);
 	bool ApplyLinuxKeyFixupUp(uint vk, uint32 keydata);
-	bool HostShiftHeld() const;
 	void ClearImeKanaLockUnlessUser(uint vk);
 	bool ImeInjectionActive() const;
+	void EnsureHostKeyTableUnlocked();
 #endif
 	bool active;
 	bool disable;

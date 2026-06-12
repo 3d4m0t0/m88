@@ -633,28 +633,6 @@ void ConfigDialog::buildUi() {
     tabs_->addTab(page, tr("Environment"));
   }
 
-  // --- ROMEO ---
-  {
-    auto* page = new QWidget(tabs_);
-    auto* outer = new QVBoxLayout(page);
-    CompactVBox(outer);
-    auto* form = new QFormLayout();
-    CompactForm(form);
-    auto* row = new QHBoxLayout();
-    romeo_latency_ = new QSlider(Qt::Horizontal, page);
-    romeo_latency_->setRange(0, 500);
-    romeo_latency_label_ = new QLabel(page);
-    row->addWidget(romeo_latency_, 1);
-    row->addWidget(romeo_latency_label_);
-    form->addRow(tr("Latency:"), row);
-    connect(romeo_latency_, &QSlider::valueChanged, this, [this](int ms) {
-      romeo_latency_label_->setText(tr("%1 ms").arg(ms));
-    });
-    outer->addLayout(form);
-    FinishTabPage(outer);
-    tabs_->addTab(page, tr("ROMEO"));
-  }
-
   for (QGroupBox* box : findChildren<QGroupBox*>()) {
     ShrinkGroupBox(box);
   }
@@ -869,9 +847,6 @@ void ConfigDialog::loadFromConfig() {
   }
   env_placesbar_->setChecked((config_.flag2 & Config::showplacesbar) != 0);
 
-  romeo_latency_->setValue(config_.romeolatency);
-  romeo_latency_label_->setText(tr("%1 ms").arg(config_.romeolatency));
-
   updateCpuTab();
   updateScreenTab();
   updateFunctionTab();
@@ -992,8 +967,6 @@ void ConfigDialog::applyToConfig() {
   config_.keytype = static_cast<Config::KeyType>(keytype_group_->checkedId());
   config_.flag2 &= ~Config::showplacesbar;
   if (env_placesbar_->isChecked()) config_.flag2 |= Config::showplacesbar;
-
-  config_.romeolatency = romeo_latency_->value();
 }
 
 void ConfigDialog::updateCpuTab() {

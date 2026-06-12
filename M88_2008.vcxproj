@@ -1035,7 +1035,6 @@
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Tuning|Win32'">MaxSpeed</Optimization>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Tuning|x64'">MaxSpeed</Optimization>
     </ClCompile>
-    <ClCompile Include="src\win32\romeo\piccolo_gimic.cpp" />
     <ClCompile Include="src\win32\romeo\piccolo_romeo.cpp" />
     <ClCompile Include="src\win32\sequence.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">MaxSpeed</Optimization>
@@ -1468,7 +1467,6 @@
     <ClInclude Include="src\Win32\resource.h" />
     <ClInclude Include="src\win32\romeo\juliet.h" />
     <ClInclude Include="src\win32\romeo\piccolo.h" />
-    <ClInclude Include="src\win32\romeo\piccolo_gimic.h" />
     <ClInclude Include="src\win32\romeo\piccolo_romeo.h" />
     <ClInclude Include="src\win32\romeo\romeo.h" />
     <ClInclude Include="src\win32\sequence.h" />

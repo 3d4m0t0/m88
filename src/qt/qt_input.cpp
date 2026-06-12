@@ -25,6 +25,85 @@ uint VkFromScan(quint32 scan) {
   return vk;
 }
 
+// Qt may emit Key_Colon / Key_At without Qt::ShiftModifier (shift already in the key).
+bool IsShiftedSymbolQtKey(int key) {
+  switch (key) {
+    case Qt::Key_Exclam:
+    case Qt::Key_At:
+    case Qt::Key_NumberSign:
+    case Qt::Key_Dollar:
+    case Qt::Key_Percent:
+    case Qt::Key_AsciiCircum:
+    case Qt::Key_Ampersand:
+    case Qt::Key_Asterisk:
+    case Qt::Key_ParenLeft:
+    case Qt::Key_ParenRight:
+    case Qt::Key_Underscore:
+    case Qt::Key_Plus:
+    case Qt::Key_BraceLeft:
+    case Qt::Key_BraceRight:
+    case Qt::Key_Bar:
+    case Qt::Key_Colon:
+    case Qt::Key_QuoteDbl:
+    case Qt::Key_AsciiTilde:
+    case Qt::Key_Less:
+    case Qt::Key_Greater:
+    case Qt::Key_Question:
+      return true;
+    default:
+      return false;
+  }
+}
+
+uint VkFromShiftedQtKey(int key) {
+  switch (key) {
+    case Qt::Key_Exclam:
+      return '1';
+    case Qt::Key_At:
+      return '2';
+    case Qt::Key_NumberSign:
+      return '3';
+    case Qt::Key_Dollar:
+      return '4';
+    case Qt::Key_Percent:
+      return '5';
+    case Qt::Key_AsciiCircum:
+      return '6';
+    case Qt::Key_Ampersand:
+      return '7';
+    case Qt::Key_Asterisk:
+      return '8';
+    case Qt::Key_ParenLeft:
+      return '9';
+    case Qt::Key_ParenRight:
+      return '0';
+    case Qt::Key_Underscore:
+      return VK_OEM_MINUS;
+    case Qt::Key_Plus:
+      return VK_OEM_PLUS;
+    case Qt::Key_BraceLeft:
+      return VK_OEM_4;
+    case Qt::Key_BraceRight:
+      return VK_OEM_6;
+    case Qt::Key_Bar:
+      return VK_OEM_5;
+    case Qt::Key_Colon:
+      return VK_OEM_1;
+    case Qt::Key_QuoteDbl:
+      return VK_OEM_7;
+    case Qt::Key_AsciiTilde:
+      return VK_OEM_3;
+    case Qt::Key_Less:
+      return VK_OEM_COMMA;
+    case Qt::Key_Greater:
+      return VK_OEM_PERIOD;
+    case Qt::Key_Question:
+      return VK_OEM_2;
+    default:
+      return 0;
+  }
+}
+
 uint VkFromShiftedText(QChar ch) {
   switch (ch.unicode()) {
     case '!':
@@ -81,6 +160,9 @@ uint VkFromShiftedText(QChar ch) {
 }
 
 uint VkFromQtKey(int key) {
+  if (key == Qt::Key_Space) {
+    return VK_SPACE;
+  }
   if (key >= Qt::Key_A && key <= Qt::Key_Z) {
     return static_cast<uint>('A' + (key - Qt::Key_A));
   }
@@ -222,11 +304,18 @@ bool HostTypistShiftHeld(const QKeyEvent& ev) {
   if (ev.key() == Qt::Key_CapsLock) {
     return false;
   }
-  return ev.modifiers().testFlag(Qt::KeyboardModifier::ShiftModifier);
+  if (ev.modifiers().testFlag(Qt::KeyboardModifier::ShiftModifier)) {
+    return true;
+  }
+  return IsShiftedSymbolQtKey(ev.key());
 }
 
 uint ResolveHostVk(const QKeyEvent& ev) {
   const int key = ev.key();
+
+  if (key == Qt::Key_Space) {
+    return VK_SPACE;
+  }
 
   if (g_suppress_menu && !g_host_at101 &&
       (key == Qt::Key_Alt || key == Qt::Key_AltGr)) {
@@ -281,22 +370,20 @@ uint ResolveHostVk(const QKeyEvent& ev) {
         return vk_text;
       }
     }
-  }
-
-  // AT101: match Win32 WM_KEYDOWN virtual-key (layout), scancode only as fallback.
-  if (g_host_at101) {
-    const uint vk_qt = VkFromQtKey(key);
-    if (vk_qt) {
-      return vk_qt;
+    const uint vk_shifted = VkFromShiftedQtKey(key);
+    if (vk_shifted) {
+      return vk_shifted;
     }
-    return VkFromScan(ev.nativeScanCode());
   }
 
-  const uint vk_scan = VkFromScan(ev.nativeScanCode());
-  if (vk_scan) {
-    return vk_scan;
+  // Prefer Qt key (layout VK) before native scancode (6377df2 scan-first broke Space on
+  // AT101 when g_host_at101 was unset: wrong scan mapped to F2, never reached WinKeyIF).
+  // VK_SPACE (0x20) must use an explicit test; 0x20 is a valid VK but easy to mishandle.
+  const uint vk_qt = VkFromQtKey(key);
+  if (vk_qt != 0) {
+    return vk_qt;
   }
-  return VkFromQtKey(key);
+  return VkFromScan(ev.nativeScanCode());
 }
 
 }  // namespace
@@ -325,8 +412,11 @@ bool IsHostModifierVk(uint vk) {
 }
 
 uint VkFromKeyEvent(const QKeyEvent& ev) {
+  if (ev.key() == Qt::Key_Space) {
+    return VK_SPACE;
+  }
   uint vk = ResolveHostVk(ev);
-  if (!vk) {
+  if (vk == 0) {
     return 0;
   }
   if (g_host_at101 && vk == VK_MENU) {

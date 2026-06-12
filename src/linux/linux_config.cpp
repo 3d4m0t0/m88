@@ -421,7 +421,7 @@ void M88SetDefaultConfig(Config* cfg) {
   cfg->sound = 55467;
   cfg->opnclock = 3993600;
   cfg->erambanks = 4;
-  // Default host keyboard; guest matrix is always AT106 on Linux.
+  // Default host AT101; guest matrix follows host (see WinKeyIF::ApplyConfig).
   cfg->keytype = Config::AT101;
   cfg->dipsw = 1829;
   cfg->soundbuffer = 400;
@@ -642,7 +642,7 @@ void M88LoadKeyFixup(const char* m88_ini_path, Config* cfg) {
       host = Config::AT106;
     }
     Pc88KeyFixup::SetHostKeyboard(host);
-    Pc88KeyFixup::SetGuestKeyboard(Config::AT106);
+    Pc88KeyFixup::SetGuestKeyboard(host);
   }
 
   const char* keyfix_path = M88GetKeyfixIniPath();
@@ -708,9 +708,13 @@ void M88LogKeyboard(const Config* cfg) {
   if (!cfg) {
     return;
   }
+  Config::KeyType guest = static_cast<Config::KeyType>(cfg->keytype);
+  if (guest == Config::PC98) {
+    guest = Config::AT106;
+  }
   const char* matrix =
-      (cfg->keytype == Config::AT101) ? "AT101 (KeyTable101)" : "AT106 (KeyTable106)";
-  std::fprintf(stderr, "M88: host keyboard=%s %s, key table=%s\n",
+      (guest == Config::AT101) ? "AT101 (KeyTable101)" : "AT106 (KeyTable106)";
+  std::fprintf(stderr, "M88: host keyboard=%s %s, guest matrix=%s\n",
                M88KeyboardTypeName(cfg->keytype), g_keyboard_log_source, matrix);
   if (g_keyfix_enabled && cfg->keytype == Config::AT101) {
     std::fprintf(stderr, "M88: keyfix active for US/101 shifted symbols\n");

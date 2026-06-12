@@ -4,7 +4,6 @@
 #include <winioctl.h>
 #include "piccolo.h"
 #include "piccolo_romeo.h"
-#include "piccolo_gimic.h"
 #include "romeo.h"
 #include "misc.h"
 #include "status.h"
@@ -24,11 +23,6 @@ Piccolo* Piccolo::GetInstance()
 		return instance;
 	} else {
 		instance = new Piccolo_Romeo();
-		if ( instance->Init() == PICCOLO_SUCCESS ) {
-			return instance;
-		}
-		delete instance;
-		instance = new Piccolo_Gimic();
 		if ( instance->Init() == PICCOLO_SUCCESS ) {
 			return instance;
 		}
@@ -62,7 +56,7 @@ Piccolo::~Piccolo()
 //
 int Piccolo::Init()
 {
-	// thread ì¬
+	// thread ï¿½ì¬
 	shouldterminate = false;
 	if (!hthread)
 	{
@@ -79,7 +73,7 @@ int Piccolo::Init()
 }
 
 // ---------------------------------------------------------------------------
-//	Œãn––
+//	ï¿½ï¿½nï¿½ï¿½
 //
 void Piccolo::Cleanup()
 {
@@ -132,7 +126,7 @@ uint Piccolo::ThreadMain()
 }
 
 // ---------------------------------------------------------------------------
-//	ƒLƒ…[‚É’Ç‰Á
+//	ï¿½Lï¿½ï¿½ï¿½[ï¿½É’Ç‰ï¿½
 //
 bool Piccolo::Push(Piccolo::Event& ev)
 {
@@ -144,7 +138,7 @@ bool Piccolo::Push(Piccolo::Event& ev)
 }
 
 // ---------------------------------------------------------------------------
-//	ƒLƒ…[‚©‚çˆêŒÂ–á‚¤
+//	ï¿½Lï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Â–á‚¤
 //
 Piccolo::Event* Piccolo::Top()
 {
@@ -161,7 +155,7 @@ void Piccolo::Pop()
 
 
 // ---------------------------------------------------------------------------
-//	ƒTƒuƒXƒŒƒbƒhŠJn“_
+//	ï¿½Tï¿½uï¿½Xï¿½ï¿½ï¿½bï¿½hï¿½Jï¿½nï¿½_
 //
 uint CALLBACK Piccolo::ThreadEntry(void* arg)
 {
@@ -203,7 +197,7 @@ void Piccolo::DrvReset()
 {
 	CriticalSection::Lock lock(cs);
 
-	// –{“–‚ÍŠY“–‚·‚éƒGƒ“ƒgƒŠ‚¾‚¯íœ‚·‚×‚«‚¾‚ªc
+	// ï¿½{ï¿½ï¿½ï¿½ÍŠYï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½gï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½íœï¿½ï¿½ï¿½×‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½c
 	evread = 0;
 	evwrite = 0;
 }

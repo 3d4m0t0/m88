@@ -116,8 +116,4 @@ private:
   // Env
   class QButtonGroup* keytype_group_ = nullptr;
   class QCheckBox* env_placesbar_ = nullptr;
-
-  // ROMEO
-  class QSlider* romeo_latency_ = nullptr;
-  class QLabel* romeo_latency_label_ = nullptr;
 };

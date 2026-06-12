@@ -21,6 +21,14 @@ Release/
 *.exe
 *.rom
 
+# Disk / snapshot / capture (user data)
+*.d88
+*.D88
+*.s88
+*.S88
+*.wav
+*.WAV
+
 # Linux / local build trees (rebuild after checkout)
 build/
 build-*/
@@ -30,4 +38,11 @@ build-*/
 .vs/
 Backup/
 UpgradeLog.htm
+UpgradeLog*.htm
 
+# Cursor IDE
+.cursor/
+
+# Runtime data directories (created by m88-qt)
+roms/
+snapshot/

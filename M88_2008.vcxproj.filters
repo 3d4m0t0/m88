@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="pch">
@@ -289,9 +289,6 @@
       <Filter>Win32\romeo</Filter>
     </ClCompile>
     <ClCompile Include="src\win32\romeo\piccolo.cpp">
-      <Filter>Win32\romeo</Filter>
-    </ClCompile>
-    <ClCompile Include="src\win32\romeo\piccolo_gimic.cpp">
       <Filter>Win32\romeo</Filter>
     </ClCompile>
     <ClCompile Include="src\win32\romeo\piccolo_romeo.cpp">
@@ -627,9 +624,6 @@
       <Filter>Win32\romeo</Filter>
     </ClInclude>
     <ClInclude Include="src\win32\romeo\piccolo.h">
-      <Filter>Win32\romeo</Filter>
-    </ClInclude>
-    <ClInclude Include="src\win32\romeo\piccolo_gimic.h">
       <Filter>Win32\romeo</Filter>
     </ClInclude>
     <ClInclude Include="src\win32\romeo\piccolo_romeo.h">

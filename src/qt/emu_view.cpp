@@ -267,8 +267,11 @@ void EmuView::keyPressEvent(QKeyEvent* event) {
     return;
   }
   if (!event->isAutoRepeat()) {
-    const uint vk = QtInput::VkFromKeyEvent(*event);
-    if (vk) {
+    uint vk = QtInput::VkFromKeyEvent(*event);
+    if (event->key() == Qt::Key_Space) {
+      vk = VK_SPACE;
+    }
+    if (vk != 0) {
       emit keyDown(vk, QtInput::KeyDataFromEvent(*event));
     }
   }

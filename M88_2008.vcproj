@@ -6722,14 +6722,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\src\win32\romeo\piccolo_gimic.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\src\win32\romeo\piccolo_gimic.h"
-					>
-				</File>
-				<File
 					RelativePath=".\src\win32\romeo\piccolo_romeo.cpp"
 					>
 				</File>

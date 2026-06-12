@@ -8,8 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(M88_BUILD_CORE_ONLY "Build portable emulation core library" ON)
-option(M88_BUILD_LINUX_FRONTEND "Build Linux SDL2 frontend executable" ON)
 option(M88_BUILD_QT_FRONTEND "Build Qt6 frontend executable (m88-qt)" ON)
+option(M88_BUILD_LINUX_FRONTEND "Build experimental SDL2 frontend (m88); incomplete" OFF)
 option(M88_NATIVE_ARCH "Tune for host CPU (-march=native, GCC/Clang only)" OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -84,54 +84,10 @@ endif()
 message(STATUS "M88 build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Configured m88_core (Linux core library)")
 
-if(M88_BUILD_LINUX_FRONTEND)
-  find_package(PkgConfig QUIET)
-  if(PkgConfig_FOUND)
-    pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
-  endif()
-
-  if(NOT SDL2_FOUND)
-    message(WARNING "SDL2 not found; m88 frontend will not be built (install libSDL2-devel)")
-  else()
-    add_executable(m88
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/main.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_draw.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_input.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk_sdl.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_sound.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_key_fixup.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_keyboard.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/win32/WinKeyIF.cpp
-    )
-
-    target_include_directories(m88 PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux
-      ${M88_CORE_INCLUDE_DIRS}
-    )
-
-    target_link_libraries(m88 PRIVATE m88_core PkgConfig::SDL2)
-
-    target_compile_definitions(m88 PRIVATE M88_LINUX_PORT=1)
-
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-      target_compile_options(m88 PRIVATE -fpermissive)
-      if(M88_NATIVE_ARCH)
-        target_compile_options(m88 PRIVATE -march=native)
-      endif()
-    endif()
-
-    message(STATUS "Configured m88 (Linux SDL2 frontend)")
-  endif()
-endif()
-
 if(M88_BUILD_QT_FRONTEND)
   find_package(Qt6 QUIET COMPONENTS Widgets)
   if(NOT Qt6_FOUND)
-    message(WARNING "Qt6 not found; m88-qt will not be built (install qt6-qtbase-gui-devel)")
+    message(WARNING "Qt6 not found; m88-qt will not be built (install Qt6 Widgets development package)")
   else()
     set(CMAKE_AUTOMOC ON)
 
@@ -190,5 +146,49 @@ if(M88_BUILD_QT_FRONTEND)
       endif()
 
       message(STATUS "Configured m88-qt (Qt6 frontend, miniaudio)")
+  endif()
+endif()
+
+if(M88_BUILD_LINUX_FRONTEND)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(SDL2 IMPORTED_TARGET sdl2)
+  endif()
+
+  if(NOT SDL2_FOUND)
+    message(WARNING "SDL2 not found; m88 (SDL2 frontend) will not be built (install libSDL2 development package)")
+  else()
+    add_executable(m88
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/main.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_draw.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_input.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk_sdl.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_sound.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_key_fixup.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_keyboard.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/win32/WinKeyIF.cpp
+    )
+
+    target_include_directories(m88 PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/linux
+      ${M88_CORE_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(m88 PRIVATE m88_core PkgConfig::SDL2)
+
+    target_compile_definitions(m88 PRIVATE M88_LINUX_PORT=1)
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(m88 PRIVATE -fpermissive)
+      if(M88_NATIVE_ARCH)
+        target_compile_options(m88 PRIVATE -march=native)
+      endif()
+    endif()
+
+    message(STATUS "Configured m88 (experimental SDL2 frontend)")
   endif()
 endif()
