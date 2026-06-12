@@ -44,6 +44,22 @@ bool EmuView::imeComposing() const {
   return ime_block_keys_ || !ime_preedit_.isEmpty();
 }
 
+bool EmuView::passKeyToIme(const QKeyEvent& event) const {
+  (void)event;
+  return !ime_preedit_.isEmpty();
+}
+
+bool EmuView::sendSpaceToGuest(const QKeyEvent& event) const {
+  if (event.key() != Qt::Key_Space || event.isAutoRepeat()) {
+    return false;
+  }
+  if (HostShortcutModifiers(event)) {
+    return false;
+  }
+  // While preedit is active, Space belongs to the host IME (e.g. fullwidth space).
+  return ime_preedit_.isEmpty();
+}
+
 EmuView::EmuView(QWidget* parent) : QWidget(parent) {
   setFocusPolicy(Qt::StrongFocus);
   setAttribute(Qt::WA_InputMethodEnabled, true);
@@ -247,6 +263,7 @@ bool EmuView::event(QEvent* event) {
 }
 
 void EmuView::focusOutEvent(QFocusEvent* event) {
+  space_pending_guest_ = false;
   emit flushGuestKeys();
   emit clearHostModifiers();
   QWidget::focusOutEvent(event);
@@ -262,8 +279,16 @@ void EmuView::keyPressEvent(QKeyEvent* event) {
     event->ignore();
     return;
   }
-  if (!ime_preedit_.isEmpty()) {
-    event->ignore();
+  if (passKeyToIme(*event)) {
+    QWidget::keyPressEvent(event);
+    return;
+  }
+  if (sendSpaceToGuest(*event)) {
+    if (!event->isAutoRepeat()) {
+      emit keyDown(VK_SPACE, QtInput::KeyDataFromEvent(*event));
+      space_pending_guest_ = true;
+    }
+    event->accept();
     return;
   }
   if (!event->isAutoRepeat()) {
@@ -281,6 +306,18 @@ void EmuView::keyPressEvent(QKeyEvent* event) {
 void EmuView::keyReleaseEvent(QKeyEvent* event) {
   if (HostShortcutModifiers(*event)) {
     event->ignore();
+    return;
+  }
+  if (passKeyToIme(*event)) {
+    QWidget::keyReleaseEvent(event);
+    return;
+  }
+  if (event->key() == Qt::Key_Space && space_pending_guest_) {
+    if (!event->isAutoRepeat()) {
+      emit keyUp(VK_SPACE, QtInput::KeyExtended(*event));
+      space_pending_guest_ = false;
+    }
+    event->accept();
     return;
   }
   if (imeComposing()) {

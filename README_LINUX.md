@@ -63,6 +63,8 @@ cmake --build build -j
 
 生成物は `build/m88-qt` です。Release がデフォルトです。
 
+openSUSE などで `CXX=ccache g++` が設定されている環境でも CMake が自動で補正します。以前の失敗で作った `build/` がある場合は削除してから再実行してください（`ccache: invalid option -- 't'` や AutoMoc エラー）。
+
 | CMake オプション | デフォルト | 説明 |
 |---|---|---|
 | `M88_BUILD_QT_FRONTEND` | ON | Qt 6 版 `m88-qt` |

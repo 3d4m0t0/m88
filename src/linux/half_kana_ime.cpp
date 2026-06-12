@@ -430,6 +430,9 @@ bool LookupVkPunct(uint16_t hw, VkStroke* out) {
       out->vk = VkRow05D5();
       out->keydata = M88_KEYDATA_FH_SHIFT;
       return true;  // 」 row05 D5
+    case 0xFF40:
+      out->vk = VK_SPACE;
+      return true;  // 半角スペース
     default:
       return false;
   }
@@ -742,7 +745,12 @@ bool CommitUtf8ToHalfKana(const char* utf8, std::vector<uint16_t>* out_hw) {
     if (!cp) {
       break;
     }
-    if (cp == ' ' || cp == '\n' || cp == '\r' || cp == '\t') {
+    if (cp == ' ' || cp == 0x3000 || cp == 0xFF40) {
+      out_hw->push_back(0xFF40);
+      any = true;
+      continue;
+    }
+    if (cp == '\n' || cp == '\r' || cp == '\t') {
       continue;
     }
     if (cp >= 0xFF61 && cp <= 0xFF9F) {

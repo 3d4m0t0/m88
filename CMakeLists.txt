@@ -1,6 +1,26 @@
 cmake_minimum_required(VERSION 3.20)
 
+# openSUSE suse-devel-config sets CXX/CC to "ccache g++" / "ccache gcc".
+# CMake treats the whole string as the compiler path, which breaks Qt AutoMoc.
+foreach(_M88_COMPILER_VAR CC CXX)
+  if(DEFINED ENV{${_M88_COMPILER_VAR}})
+    string(STRIP "$ENV{${_M88_COMPILER_VAR}}" _M88_COMPILER_VALUE)
+    if(_M88_COMPILER_VALUE MATCHES "^ccache[ ]+(.+)$")
+      set(ENV{${_M88_COMPILER_VAR}} "${CMAKE_MATCH_1}")
+    endif()
+    unset(_M88_COMPILER_VALUE)
+  endif()
+endforeach()
+unset(_M88_COMPILER_VAR)
+
 project(M88 LANGUAGES C CXX)
+
+find_program(M88_CCACHE_PROGRAM ccache)
+if(M88_CCACHE_PROGRAM)
+  set(CMAKE_C_COMPILER_LAUNCHER "${M88_CCACHE_PROGRAM}" CACHE STRING "" FORCE)
+  set(CMAKE_CXX_COMPILER_LAUNCHER "${M88_CCACHE_PROGRAM}" CACHE STRING "" FORCE)
+endif()
+unset(M88_CCACHE_PROGRAM)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)

@@ -51,6 +51,8 @@ signals:
 private:
   QVector<QRgb> colorTableFromPalette() const;
   bool imeComposing() const;
+  bool passKeyToIme(const QKeyEvent& event) const;
+  bool sendSpaceToGuest(const QKeyEvent& event) const;
 
   SharedFramebufferDraw* draw_ = nullptr;
   QImage indices_;
@@ -60,6 +62,7 @@ private:
   QString ime_preedit_;
 
   bool ime_block_keys_ = false;
+  bool space_pending_guest_ = false;
   uint64_t last_frame_serial_ = 0;
   uint64_t last_palette_serial_ = 0;
   QtHostInput::Host* host_input_ = nullptr;
