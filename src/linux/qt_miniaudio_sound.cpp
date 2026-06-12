@@ -23,7 +23,10 @@ constexpr uint kMixRate = 55467;
 
 void QtMiniaudioSoundDataCallback(ma_device* device, void* output, const void* /*input*/,
                                   ma_uint32 frame_count) {
-  if (!device || !device->pUserData || !output) {
+  if (!device || !device->pUserData || !output || frame_count == 0) {
+    if (output && frame_count > 0) {
+      std::memset(output, 0, static_cast<size_t>(frame_count) * 2 * sizeof(int16_t));
+    }
     return;
   }
   auto* self = static_cast<PC8801::QtMiniaudioSound*>(device->pUserData);
@@ -156,6 +159,7 @@ void QtMiniaudioSound::CloseDevice() {
   if (!device_ || !device_->active) {
     return;
   }
+  device_->dev.pUserData = nullptr;
   ma_device_stop(&device_->dev);
   ma_device_uninit(&device_->dev);
   device_->dev = {};

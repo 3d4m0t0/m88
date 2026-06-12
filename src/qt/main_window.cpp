@@ -8,6 +8,7 @@
 #include "../linux/display_scale.h"
 #include "../linux/linux_config.h"
 #include "../linux/linux_paths.h"
+#include "../linux/m88_port_version.h"
 #include "../pc88/config.h"
 
 #include <QAction>
@@ -79,44 +80,47 @@ void MainWindow::stopEmulator() {
     view_->attachFramebuffer(nullptr);
   }
 
-  if (controller_) {
-    disconnect(controller_, nullptr, view_, nullptr);
-    disconnect(controller_, nullptr, this, nullptr);
-    disconnect(&emu_thread_, nullptr, controller_, nullptr);
-    disconnect(controller_, nullptr, &emu_thread_, nullptr);
-    QMetaObject::invokeMethod(controller_, "requestStop", Qt::QueuedConnection);
+  EmulatorController* controller_raw = controller_.data();
+  if (controller_raw) {
+    disconnect(controller_raw, nullptr, view_, nullptr);
+    disconnect(controller_raw, nullptr, this, nullptr);
+    disconnect(&emu_thread_, nullptr, controller_raw, nullptr);
+    disconnect(controller_raw, nullptr, &emu_thread_, nullptr);
+    disconnect(&emu_thread_, &QThread::finished, controller_raw, &QObject::deleteLater);
+    if (QThread* ct = controller_raw->thread(); ct && ct != QThread::currentThread()) {
+      QMetaObject::invokeMethod(controller_raw, "requestStop", Qt::BlockingQueuedConnection);
+    } else {
+      controller_raw->requestStop();
+    }
   }
   if (view_) {
     disconnect(view_, nullptr, controller_, nullptr);
   }
 
   if (emu_thread_.isRunning()) {
-    emu_thread_.quit();
     QEventLoop wait_loop;
     QTimer timeout;
     timeout.setSingleShot(true);
     connect(&emu_thread_, &QThread::finished, &wait_loop, &QEventLoop::quit);
     connect(&timeout, &QTimer::timeout, &wait_loop, &QEventLoop::quit);
-    timeout.start(5000);
+    timeout.start(10000);
     wait_loop.exec(QEventLoop::ExcludeUserInputEvents);
     if (emu_thread_.isRunning()) {
-      std::fprintf(stderr,
-                   "M88: emulator thread did not stop in 5s, terminating\n");
-      emu_thread_.terminate();
-      emu_thread_.wait(1000);
+      std::fprintf(stderr, "M88: emulator thread did not stop in 10s\n");
+    } else {
+      emu_thread_.wait();
     }
-    if (emu_thread_.isRunning()) {
-      std::fprintf(stderr, "M88: emulator thread still hung, forcing exit\n");
-      std::quick_exit(0);
-    }
+  }
+
+  if (controller_raw) {
+    controller_.clear();
+    controller_raw->moveToThread(QThread::currentThread());
+    delete controller_raw;
   }
 
   if (QCoreApplication* app = QCoreApplication::instance()) {
     app->processEvents(QEventLoop::AllEvents);
   }
-
-  // controller_ may already be null (deleteLater on emu_thread_.finished).
-  controller_.clear();
 
   if (draw_) {
     draw_->Cleanup();
@@ -967,7 +971,7 @@ void MainWindow::setupMenuBar() {
     box.setTextFormat(Qt::RichText);
     box.setText(
         tr("<h3>M88 for Linux (Qt)</h3>"
-           "<p>rel 2.21<br/>"
+           "<p>rel %1<br/>"
            "PC-8801 series emulator / Copyright (C) 1998, 2003 cisc</p>"
            "<p>Linux port: "
            "<a href=\"https://github.com/3d4m0t0/m88\">"
@@ -978,7 +982,8 @@ void MainWindow::setupMenuBar() {
            "<p>Forked from "
            "<a href=\"https://github.com/rururutan/m88\">"
            "https://github.com/rururutan/m88</a></p>"
-           "<p>謝辞: FM 音源（佐藤達之氏 fm.c）、N80/SR（arearea 氏）</p>"));
+           "<p>謝辞: FM 音源（佐藤達之氏 fm.c）、N80/SR（arearea 氏）</p>")
+            .arg(QString::fromLatin1(M88_LINUX_QT_VER_STRING)));
     box.setStandardButtons(QMessageBox::Ok);
     for (QLabel* label : box.findChildren<QLabel*>()) {
       label->setTextFormat(Qt::RichText);
