@@ -137,6 +137,7 @@ struct EmulatorController::Impl {
   std::atomic<int> title_frame_count{0};
   std::atomic<long> title_exec_count{0};
 
+  bool shutdown_done = false;
 };
 
 EmulatorController::EmulatorController(SharedFramebufferDraw* draw, Options options,
@@ -307,9 +308,10 @@ void EmulatorController::saveConfig() {
 }
 
 void EmulatorController::shutdown() {
-  if (!impl_) {
+  if (!impl_ || impl_->shutdown_done) {
     return;
   }
+  impl_->shutdown_done = true;
   impl_->emu_thread.Stop();
   impl_->emu_thread.Join();
   saveConfig();

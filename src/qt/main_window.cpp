@@ -103,13 +103,14 @@ void MainWindow::stopEmulator() {
     timeout.setSingleShot(true);
     connect(&emu_thread_, &QThread::finished, &wait_loop, &QEventLoop::quit);
     connect(&timeout, &QTimer::timeout, &wait_loop, &QEventLoop::quit);
-    timeout.start(10000);
+    timeout.start(30000);
     wait_loop.exec(QEventLoop::ExcludeUserInputEvents);
     if (emu_thread_.isRunning()) {
-      std::fprintf(stderr, "M88: emulator thread did not stop in 10s\n");
-    } else {
-      emu_thread_.wait();
+      std::fprintf(stderr,
+                   "M88: emulator thread did not stop in 30s; skipping teardown\n");
+      return;
     }
+    emu_thread_.wait();
   }
 
   if (controller_raw) {
@@ -1306,9 +1307,6 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     return;
   }
   saveWindowPositionOnExit();
-  if (controller_) {
-    QMetaObject::invokeMethod(controller_, "saveConfigNow", Qt::BlockingQueuedConnection);
-  }
   stopEmulator();
   QMainWindow::closeEvent(event);
   if (QApplication* app = qApp) {

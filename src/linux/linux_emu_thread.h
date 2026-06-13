@@ -59,6 +59,9 @@ class M88EmuThread {
   void WaitIfPaused();
   static void TryRaiseRealtimePriority();
 
+  std::mutex join_mutex_;
+  bool joined_ = false;
+
   Params params_{};
   std::thread thread_;
   std::mutex boundary_mutex_;

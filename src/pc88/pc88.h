@@ -95,6 +95,7 @@ public:
 	
 	void Reset();
 	int Proceed(uint us, uint clock, uint eff);
+	void BreakExecution();
 	void ApplyConfig(PC8801::Config*);
 	void SetVolume(PC8801::Config*);
 	

@@ -114,12 +114,14 @@ struct M88Sequencer {
  private:
   template <typename StopFn>
   void Execute(PC88* vm, long clk, long length, long eff, StopFn stop) {
-    if (stop()) {
-      return;
-    }
-    const int ret = vm->Proceed(static_cast<uint>(length), static_cast<uint>(clk),
+    long remaining = length;
+    while (remaining > 0 && !stop()) {
+      const long slice = std::min<long>(remaining, 500);
+      const int ret = vm->Proceed(static_cast<uint>(slice), static_cast<uint>(clk),
                                   static_cast<uint>(std::max<long>(1, eff)));
-    execcount += clk * ret;
+      execcount += clk * ret;
+      remaining -= slice;
+    }
   }
 
   template <typename StopFn>

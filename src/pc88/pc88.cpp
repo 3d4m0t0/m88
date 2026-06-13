@@ -145,6 +145,11 @@ int PC88::Proceed(uint ticks, uint clk, uint ecl)
 	return Scheduler::Proceed(ticks);
 }
 
+void PC88::BreakExecution()
+{
+	Shorten(1'000'000);
+}
+
 // ---------------------------------------------------------------------------
 //	Ŕs
 //

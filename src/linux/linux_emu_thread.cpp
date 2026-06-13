@@ -69,14 +69,28 @@ void M88EmuThread::Start(Params params) {
   active_ = true;
   at_frame_boundary_ = false;
   thread_ = std::thread([this]() { ThreadMain(); });
+  joined_ = false;
 }
 
-void M88EmuThread::Stop() { should_stop_ = true; }
+void M88EmuThread::Stop() {
+  should_stop_ = true;
+  active_ = true;
+  boundary_cv_.notify_all();
+  // Break out of a long Z80::ExecDual slice running on this thread.
+  if (params_.vm) {
+    params_.vm->BreakExecution();
+  }
+}
 
 void M88EmuThread::Join() {
+  std::lock_guard<std::mutex> lock(join_mutex_);
+  if (joined_) {
+    return;
+  }
   if (thread_.joinable()) {
     thread_.join();
   }
+  joined_ = true;
 }
 
 void M88EmuThread::SignalFrameBoundary() {
