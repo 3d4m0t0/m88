@@ -116,7 +116,6 @@ private:
   QAction* fullscreen_action_ = nullptr;
   QAction* exit_action_ = nullptr;
   QAction* about_action_ = nullptr;
-  QShortcut* open_disk_shortcut_ = nullptr;
   QMenu* control_menu_ = nullptr;
   QMenu* help_menu_ = nullptr;
   QMenu* disk_menu_ = nullptr;

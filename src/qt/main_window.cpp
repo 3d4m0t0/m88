@@ -26,7 +26,6 @@
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QMessageBox>
-#include <QShortcut>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWindow>
@@ -65,6 +64,10 @@ QAction* AddPlaceholder(QMenu* menu, const QString& text, bool checkable = false
     action->setChecked(checked);
   }
   return action;
+}
+
+QKeySequence HostShortcut(int key) {
+  return QKeySequence(Qt::META | Qt::SHIFT | key);
 }
 
 }  // namespace
@@ -857,20 +860,16 @@ void MainWindow::setupMenuBar() {
 
   control_menu_->addSeparator();
   exit_action_ = control_menu_->addAction(tr("E&xit"));
-  exit_action_->setShortcut(QKeySequence::Quit);
+  exit_action_->setShortcut(HostShortcut(Qt::Key_Q));
 
   disk_menu_ = menuBar()->addMenu(tr("&Disk"));
   drive_actions_[0] = disk_menu_->addAction(tr("Drive &1..."));
   drive_actions_[1] = disk_menu_->addAction(tr("Drive &2..."));
   disk_menu_->addSeparator();
   change_both_action_ = disk_menu_->addAction(tr("&Change disk image..."));
+  change_both_action_->setShortcut(HostShortcut(Qt::Key_O));
   multi_disk_editor_action_ =
       disk_menu_->addAction(tr("&Edit multi-disk image..."));
-
-  open_disk_shortcut_ = new QShortcut(QKeySequence::Open, this);
-  open_disk_shortcut_->setContext(Qt::WindowShortcut);
-  connect(open_disk_shortcut_, &QShortcut::activated, this,
-          [this]() { openDiskImageDialog(0); });
 
   connect(drive_actions_[0], &QAction::triggered, this,
           [this]() { openDiskImageDialog(0); });
@@ -901,14 +900,14 @@ void MainWindow::setupMenuBar() {
     }
   });
   QAction* capture_action = tools_menu->addAction(tr("&Capture..."));
-  capture_action->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F2));
+  capture_action->setShortcut(HostShortcut(Qt::Key_C));
   connect(capture_action, &QAction::triggered, this, &MainWindow::captureScreen);
   record_sound_action_ = tools_menu->addAction(tr("&Record Sound"));
   record_sound_action_->setCheckable(true);
   connect(record_sound_action_, &QAction::triggered, this, &MainWindow::toggleRecordSound);
   tools_menu->addSeparator();
   save_snapshot_action_ = tools_menu->addAction(tr("&Save Snapshot"));
-  save_snapshot_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F10));
+  save_snapshot_action_->setShortcut(HostShortcut(Qt::Key_S));
   save_snapshot_submenu_ = new QMenu(this);
   save_snapshot_action_->setMenu(save_snapshot_submenu_);
   connect(save_snapshot_action_, &QAction::triggered, this, [this]() {
@@ -916,7 +915,7 @@ void MainWindow::setupMenuBar() {
   });
 
   load_snapshot_action_ = tools_menu->addAction(tr("&Load Snapshot"));
-  load_snapshot_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_F1));
+  load_snapshot_action_->setShortcut(HostShortcut(Qt::Key_L));
   load_snapshot_submenu_ = new QMenu(this);
   connect(load_snapshot_action_, &QAction::triggered, this, [this]() {
     invokeLoadSnapshot(-1);
@@ -1010,8 +1009,8 @@ void MainWindow::applyRomMissingUiState() {
   if (title_timer_) {
     title_timer_->stop();
   }
-  if (open_disk_shortcut_) {
-    open_disk_shortcut_->setEnabled(false);
+  if (change_both_action_) {
+    change_both_action_->setEnabled(false);
   }
 
   for (QAction* top : menuBar()->actions()) {
