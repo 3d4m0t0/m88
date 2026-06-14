@@ -156,6 +156,7 @@ private:
   QPointer<EmulatorController> controller_;
   QThread emu_thread_;
   bool emu_stopped_ = false;
+  bool closing_ = false;
   bool window_shown_ = false;
   bool rom_missing_ = false;
 };

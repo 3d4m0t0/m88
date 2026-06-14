@@ -73,7 +73,6 @@ void MainWindow::stopEmulator() {
   if (emu_stopped_) {
     return;
   }
-  emu_stopped_ = true;
 
   if (view_) {
     view_->releaseKeyboard();
@@ -113,10 +112,12 @@ void MainWindow::stopEmulator() {
     emu_thread_.wait();
   }
 
+  emu_stopped_ = true;
+
   if (controller_raw) {
     controller_.clear();
-    controller_raw->moveToThread(QThread::currentThread());
-    delete controller_raw;
+    controller_raw->deleteLater();
+    controller_raw = nullptr;
   }
 
   if (QCoreApplication* app = QCoreApplication::instance()) {
@@ -1101,12 +1102,16 @@ void MainWindow::applySavedWindowPosition() {
 }
 
 void MainWindow::saveWindowPositionOnExit() {
-  if (fullscreen_ || !controller_ || !save_position_) {
+  if (fullscreen_ || !controller_ || !save_position_ || emu_stopped_) {
     return;
   }
   const QPoint pos = frameGeometry().topLeft();
-  QMetaObject::invokeMethod(controller_, "setWindowPosition", Qt::BlockingQueuedConnection,
-                            Q_ARG(int, pos.x()), Q_ARG(int, pos.y()));
+  if (QThread* ct = controller_->thread(); ct && ct != QThread::currentThread()) {
+    QMetaObject::invokeMethod(controller_, "setWindowPosition", Qt::BlockingQueuedConnection,
+                              Q_ARG(int, pos.x()), Q_ARG(int, pos.y()));
+  } else if (controller_) {
+    controller_->setWindowPosition(pos.x(), pos.y());
+  }
 }
 
 MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
@@ -1302,16 +1307,19 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+  if (closing_) {
+    event->accept();
+    return;
+  }
   if (!confirmExit()) {
     event->ignore();
     return;
   }
+  closing_ = true;
+  event->accept();
   saveWindowPositionOnExit();
   stopEmulator();
   QMainWindow::closeEvent(event);
-  if (QApplication* app = qApp) {
-    app->quit();
-  }
 }
 
 void MainWindow::showEvent(QShowEvent* event) {
