@@ -14,7 +14,7 @@
 #include "diag.h"
 
 // ---------------------------------------------------------------------------
-//	マクロ 1
+//	?}?N?? 1
 //
 #define RegA			(reg.r.b.a)
 #define RegB			(reg.r.b.b)
@@ -45,11 +45,11 @@
 #endif
 
 // ---------------------------------------------------------------------------
-//	コンストラクタ・デストラクタ
+//	?R???X?g???N?^?E?f?X?g???N?^
 //
 Z80C::Z80C(const ID& id) : Device(id)
 {
-	/* テーブル初期化 */
+	/* ?e?[?u???????? */
 	ref_h[USEHL] = &RegH;	ref_l[USEHL] = &RegL;
 	ref_h[USEIX] = &reg.r.b.xh;	ref_l[USEIX] = &reg.r.b.xl;
 	ref_h[USEIY] = &reg.r.b.yh;	ref_l[USEIY] = &reg.r.b.yl;
@@ -62,6 +62,8 @@ Z80C::Z80C(const ID& id) : Device(id)
 	ref_byte[6] = 0; 		ref_byte[7] = &RegA;
 
 	dumplog = 0;
+	instwait = 0;
+	memset(waittable, 0, sizeof(waittable));
 }
 
 Z80C::~Z80C()
@@ -97,10 +99,11 @@ Z80C::~Z80C()
 #define PAGESMASK		((1 << (16-pagebits))-1)
 
 // ---------------------------------------------------------------------------
-//	PC 読み書き
+//	PC ??????
 //	
 void Z80C::SetPC(uint newpc)
 {
+	instwait = waittable[(newpc >> pagebits) & PAGESMASK];
 	MemoryPage& page = rdpages[(newpc >> pagebits) & PAGESMASK];
 
 #ifdef PTR_IDBIT
@@ -182,15 +185,17 @@ inline void Z80C::JumpR()
 }
 
 // ---------------------------------------------------------------------------
-//	インストラクション読み込み
+//	?C???X?g???N?V??????????
 //
 inline uint Z80C::Fetch8()
 {
 	DEBUGCOUNT(0);
 	if (inst < instlim)
+	{
+		CLK(instwait);
 		return *inst++;
-	else
-		return Fetch8B();
+	}
+	return Fetch8B();
 }
 
 inline uint Z80C::Fetch16()
@@ -199,13 +204,13 @@ inline uint Z80C::Fetch16()
 #ifdef ALLOWBOUNDARYACCESS
 	if (inst+1 < instlim)
 	{
+		CLK(instwait * 2);
 		uint r = *(uint16*)inst;
 		inst += 2;
 		return r;
 	}
-	else
 #endif
-		return Fetch16B();
+	return Fetch16B();
 }
 
 uint Z80C::Fetch8B()
@@ -215,10 +220,18 @@ uint Z80C::Fetch8B()
 	{
 		SetPC(GetPC());
 		if (instlim)
+		{
+			CLK(instwait);
 			return *inst++;
+		}
 	}
 	DEBUGCOUNT(2);
-	return Read8(inst++ - instbase);
+	const uint addr = GetPC();
+	SetPC(addr);
+	CLK(instwait);
+	const uint r = Read8Mem(addr);
+	SetPC(addr + 1);
+	return r;
 }
 
 uint Z80C::Fetch16B()
@@ -228,7 +241,7 @@ uint Z80C::Fetch16B()
 }
 
 // ---------------------------------------------------------------------------
-//	WAIT モード設定
+//	WAIT ???[?h???
 //
 void Z80C::Wait(bool wait)
 {
@@ -239,7 +252,7 @@ void Z80C::Wait(bool wait)
 }
 
 // ---------------------------------------------------------------------------
-//  CPU 初期化
+//  CPU ??????
 //
 bool Z80C::Init(MemoryManager* mem, IOBus* _bus, int iack)
 {
@@ -256,7 +269,7 @@ bool Z80C::Init(MemoryManager* mem, IOBus* _bus, int iack)
 }
 
 // ---------------------------------------------------------------------------
-//  １命令実行
+//  ?P??????s
 //
 int Z80C::ExecOne()
 {
@@ -268,7 +281,7 @@ int Z80C::ExecOne()
 }
 
 // ---------------------------------------------------------------------------
-//  命令遂行
+//  ??????s
 //
 int Z80C::Exec(int clocks)
 {
@@ -290,7 +303,7 @@ int Z80C::Exec(int clocks)
 }
 
 // ---------------------------------------------------------------------------
-//  命令遂行
+//  ??????s
 //
 int Z80C::ExecSingle(Z80C* first, Z80C* second, int clocks)
 {
@@ -312,7 +325,7 @@ int Z80C::ExecSingle(Z80C* first, Z80C* second, int clocks)
 }
 
 // ---------------------------------------------------------------------------
-//	2CPU 実行
+//	2CPU ???s
 //
 int Z80C::ExecDual(Z80C* first, Z80C* second, int count)
 {
@@ -339,7 +352,7 @@ int Z80C::ExecDual(Z80C* first, Z80C* second, int count)
 }
 
 // ---------------------------------------------------------------------------
-//	2CPU 実行
+//	2CPU ???s
 //
 int Z80C::ExecDual2(Z80C* first, Z80C* second, int count)
 {
@@ -367,7 +380,7 @@ int Z80C::ExecDual2(Z80C* first, Z80C* second, int count)
 
 
 // ---------------------------------------------------------------------------
-//	片方実行
+//	??????s
 //
 int Z80C::Exec0(int stop, int other)
 {
@@ -403,7 +416,7 @@ int Z80C::Exec0(int stop, int other)
 }
 
 // ---------------------------------------------------------------------------
-//	片方実行
+//	??????s
 //
 int Z80C::Exec1(int stop, int other)
 {
@@ -440,21 +453,21 @@ int Z80C::Exec1(int stop, int other)
 }
 
 // ---------------------------------------------------------------------------
-//	同期チェック
+//	?????`?F?b?N
 //
 bool Z80C::Sync()
 {
-	// もう片方のCPUよりも遅れているか？
+	// ?????????CPU?????x???????H
 	if (GetCount() - delaycount <= 1)
 		return true;
-	// 進んでいた場合 Exec0 を抜ける
+	// ?i???????? Exec0 ??????
 	execcount += clockcount << eshift;
 	clockcount = 0;
 	return false;
 }
 
 // ---------------------------------------------------------------------------
-//	Exec を途中で中断
+//	Exec ??r??????f
 //
 void Z80C::Stop(int count)
 {
@@ -466,7 +479,7 @@ Z80C* Z80C::currentcpu;
 int Z80C::cbase;
 
 // ---------------------------------------------------------------------------
-//	1 命令実行
+//	1 ??????s
 //	
 inline void Z80C::SingleStep()
 {
@@ -474,9 +487,9 @@ inline void Z80C::SingleStep()
 }
 
 // ---------------------------------------------------------------------------
-//	I/O 処理の定義 -----------------------------------------------------------
+//	I/O ???????` -----------------------------------------------------------
 
-inline uint Z80C::Read8(uint addr)
+inline uint Z80C::Read8Mem(uint addr)
 {
 	addr &= 0xffff;
 	MemoryPage& page = rdpages[addr >> pagebits];
@@ -489,16 +502,21 @@ inline uint Z80C::Read8(uint addr)
 		DEBUGCOUNT(12);
 		return ((uint8*)page.ptr)[addr & pagemask];
 	}
-	else
-	{
-		DEBUGCOUNT(8);
-		return (*MemoryManager::RdFunc(intpointer(page.ptr) & ~idbit))(page.inst, addr);
-	}
+	DEBUGCOUNT(8);
+	return (*MemoryManager::RdFunc(intpointer(page.ptr) & ~idbit))(page.inst, addr);
+}
+
+inline uint Z80C::Read8(uint addr)
+{
+	addr &= 0xffff;
+	CLK(waittable[(addr >> pagebits) & PAGESMASK]);
+	return Read8Mem(addr);
 }
 
 inline void Z80C::Write8(uint addr, uint data)
 {
 	addr &= 0xffff;
+	CLK(waittable[(addr >> pagebits) & PAGESMASK]);
 	MemoryPage& page = wrpages[addr >> pagebits];
 #ifdef PTR_IDBIT
 	if (!(intpointer(page.ptr) & idbit))
@@ -518,7 +536,7 @@ inline void Z80C::Write8(uint addr, uint data)
 
 inline uint Z80C::Read16(uint addr)
 {
-#ifdef ALLOWBOUNDARYACCESS		// ワード境界を越えるアクセスを許す場合
+#ifdef ALLOWBOUNDARYACCESS		// ???[?h???E???z????A?N?Z?X????????
 	addr &= 0xffff;
 	MemoryPage& page = rdpages[addr >> pagebits];
 #ifdef PTR_IDBIT
@@ -528,9 +546,13 @@ inline uint Z80C::Read16(uint addr)
 #endif
 	{
 		DEBUGCOUNT(13);
-		uint a = addr & pagemask;
+		const int w = waittable[(addr >> pagebits) & PAGESMASK];
+		const uint a = addr & pagemask;
 		if (a < pagemask)
+		{
+			CLK(w * 2);
 			return *(uint16*)((uint8*)page.ptr + a);
+		}
 	}
 #endif
 	return Read8(addr) + Read8(addr+1) * 256;
@@ -539,7 +561,7 @@ inline uint Z80C::Read16(uint addr)
 inline void Z80C::Write16(uint addr, uint data)
 {
 	DEBUGCOUNT(15);
-#ifdef ALLOWBOUNDARYACCESS		// ワード境界を越えるアクセスを許す場合
+#ifdef ALLOWBOUNDARYACCESS		// ???[?h???E???z????A?N?Z?X????????
 	addr &= 0xffff;
 	MemoryPage& page = wrpages[addr >> pagebits];
 #ifdef PTR_IDBIT
@@ -548,9 +570,11 @@ inline void Z80C::Write16(uint addr, uint data)
 	if (!page.func)
 #endif
 	{
-		uint a = addr & pagemask;
+		const int w = waittable[(addr >> pagebits) & PAGESMASK];
+		const uint a = addr & pagemask;
 		if (a < pagemask)
 		{
+			CLK(w * 2);
 			*(uint16*)((uint8*)page.ptr + a) = data;
 			return;
 		}
@@ -573,7 +597,7 @@ inline void Z80C::Outp(uint port, uint data)
 }
 
 // ---------------------------------------------------------------------------
-//	フラグ定義 ---------------------------------------------------------------
+//	?t???O??` ---------------------------------------------------------------
 
 #define CF		(uint8(1 << 0))
 #define NF		(uint8(1 << 1))
@@ -585,7 +609,7 @@ inline void Z80C::Outp(uint port, uint data)
 #define WF		(uint8(1 << 3))
 
 // ---------------------------------------------------------------------------
-//	マクロ群 -----------------------------------------------------------------
+//	?}?N???Q -----------------------------------------------------------------
 
 #define RegA			(reg.r.b.a)
 #define RegB			(reg.r.b.b)
@@ -619,7 +643,7 @@ inline void Z80C::Outp(uint port, uint data)
 
 
 // ---------------------------------------------------------------------------
-//  リセット
+//  ???Z?b?g
 //
 void IOCALL Z80C::Reset(uint, uint)
 {
@@ -635,17 +659,17 @@ void IOCALL Z80C::Reset(uint, uint)
 	instlim = 0;
 	instbase = 0;
 	
-//	SetFlags(0xff, 0);		/* フラグリセット */
+//	SetFlags(0xff, 0);		/* ?t???O???Z?b?g */
 	reg.intmode = 0;		/* IM0 */
 	SetPC(0);				/* pc, sp = 0 */
 	RegSP = 0;
 	waitstate = 0;
-	intr = false;			// 割り込みクリア
+	intr = false;			// ??????N???A
 	execcount = 0;
 }
 
 // ---------------------------------------------------------------------------
-//  強制割り込み
+//  ??????????
 //
 void IOCALL Z80C::NMI(uint,uint)
 {
@@ -657,7 +681,7 @@ void IOCALL Z80C::NMI(uint,uint)
 }
 
 // ---------------------------------------------------------------------------
-//	割り込む
+//	??????
 //
 void Z80C::TestIntr()
 {
@@ -697,7 +721,7 @@ void Z80C::TestIntr()
 
 
 // ---------------------------------------------------------------------------
-//  分岐関数 -----------------------------------------------------------------
+//  ?????? -----------------------------------------------------------------
 
 inline void Z80C::Call()
 {
@@ -708,7 +732,7 @@ inline void Z80C::Call()
 }
 
 // ---------------------------------------------------------------------------
-//	アクセス補助関数 ---------------------------------------------------------
+//	?A?N?Z?X????? ---------------------------------------------------------
 
 void Z80C::SetM(uint n)
 {
@@ -748,7 +772,7 @@ inline void Z80C::SetAF(uint n)
 }
 
 // ---------------------------------------------------------------------------
-//	スタック関数 -------------------------------------------------------------
+//	?X?^?b?N??? -------------------------------------------------------------
 
 inline void Z80C::Push(uint n)
 {
@@ -764,7 +788,7 @@ inline uint Z80C::Pop()
 }
 
 // ---------------------------------------------------------------------------
-//	算術演算関数 -------------------------------------------------------------
+//	?Z?p???Z??? -------------------------------------------------------------
 
 void Z80C::ADDA(uint8 n)
 {
@@ -919,7 +943,7 @@ void Z80C::SBCHL(uint y)
 }
 
 // ---------------------------------------------------------------------------
-//	ローテート・シフト命令 ---------------------------------------------------
+//	???[?e?[?g?E?V?t?g???? ---------------------------------------------------
 
 uint8 Z80C::RLC(uint8 d)
 {
@@ -995,7 +1019,7 @@ uint8 Z80C::SRL(uint8 d)
 
 
 // ---------------------------------------------------------------------------
-//   フラグテーブル
+//   ?t???O?e?[?u??
 //
 static const uint8 ZSPTable[256] = 
 {
@@ -1035,7 +1059,7 @@ static const uint8 ZSPTable[256] =
 
 
 // ---------------------------------------------------------------------------
-//  １命令実行
+//  ?P??????s
 //
 void Z80C::SingleStep(uint m)
 {
@@ -1046,7 +1070,7 @@ void Z80C::SingleStep(uint m)
 		uint8 b;
 		uint w;
 		
-	// ローテートシフト系
+	// ???[?e?[?g?V?t?g?n
 		
 	case 0x07:	// RLCA
 		b = (0 != (RegA & 0x80));
@@ -1641,7 +1665,7 @@ void Z80C::SingleStep(uint m)
 		switch(w)
 		{
 
-		// 入出力 ED 系
+		// ???o?? ED ?n
 			
 			// IN r,(c)
 			case 0x40: 
@@ -1809,7 +1833,7 @@ void Z80C::SingleStep(uint m)
 				OutTestIntr(); 
 				break;
 
-		// ブロック転送系
+		// ?u???b?N?]???n
 
 			case 0xa0: // LDI
 				Write8(RegDE++, Read8(RegHL++));
@@ -1851,7 +1875,7 @@ void Z80C::SingleStep(uint m)
 				}
 				break;
 
-			// ブロックサーチ系
+			// ?u???b?N?T?[?`?n
 
 			case 0xa1: // CPI
 				CPI();
@@ -1918,7 +1942,7 @@ void Z80C::SingleStep(uint m)
 				CLK(14);
 				break;
 
-		// 桁移動命令
+		// ?????????
 
 			case 0x6f: // RLD
 				{
@@ -1952,7 +1976,7 @@ void Z80C::SingleStep(uint m)
 				}
 				break;
 
-		// ED系 16 ビットロード
+		// ED?n 16 ?r?b?g???[?h
 			
 			// LD (nn),dd 
 			case 0x43: /*BC*/ Write16(Fetch16(), RegBC); CLK(20); break;
@@ -1966,7 +1990,7 @@ void Z80C::SingleStep(uint m)
 			case 0x6b: /*HL*/ RegHL = Read16(Fetch16()); CLK(20); break;
 			case 0x7b: /*SP*/ RegSP = Read16(Fetch16()); CLK(20); break;
 
-		// ED系 16 ビット演算
+		// ED?n 16 ?r?b?g???Z
 
 			// ADC HL,dd
 			case 0x4a: /*BC*/ ADCHL(RegBC); CLK(15); break;
@@ -1985,7 +2009,7 @@ void Z80C::SingleStep(uint m)
 }
 
 // ---------------------------------------------------------------------------
-//	CB 系
+//	CB ?n
 //
 void Z80C::CodeCB()
 {
@@ -2004,7 +2028,7 @@ void Z80C::CodeCB()
 	
 	if (rg != 6)
 	{
-		uint8* p = ref_byte[rg];		/* 操作対象へのポインタ */
+		uint8* p = ref_byte[rg];		/* ????????|?C???^ */
 		switch ((fn >> 6) & 3)
 		{
 		case 0:
@@ -2049,7 +2073,7 @@ void Z80C::CodeCB()
 }
 
 // ---------------------------------------------------------------------------
-//	ブロック比較 -------------------------------------------------------------
+//	?u???b?N??r -------------------------------------------------------------
 //
 void Z80C::CPI()
 {
@@ -2079,7 +2103,7 @@ void Z80C::CPD()
 }
 
 // ---------------------------------------------------------------------------
-//  フラグ関数 ---------------------------------------------------------------
+//  ?t???O??? ---------------------------------------------------------------
 
 uint8 Z80C::GetCF()
 {
@@ -2319,7 +2343,7 @@ bool Z80C::EnableDump(bool dump)
 }
 
 // ---------------------------------------------------------------------------
-//	状態保存
+//	?????
 //
 uint IFCALL Z80C::GetStatusSize()
 {
@@ -2355,6 +2379,7 @@ bool IFCALL Z80C::LoadStatus(const uint8* s)
 	waitstate = st->wait;
 	xf = st->xf;
 	execcount = st->execcount;
+	SetPC(GetPC());
 	return true;
 }
 
