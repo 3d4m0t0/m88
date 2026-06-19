@@ -501,6 +501,8 @@ bool HiraganaToHalf(uint32_t cp, std::vector<uint16_t>* out) {
       return base(0xFF69);
     case 0x3046:
       return base(0xFF73);
+    case 0x3094:  // ゔ / ヴ → ｳ + ゛
+      return voiced(0xFF73);
     case 0x3047:
       return base(0xFF6A);
     case 0x3048:
