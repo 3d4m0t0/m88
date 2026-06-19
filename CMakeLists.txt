@@ -111,6 +111,7 @@ if(M88_BUILD_QT_FRONTEND)
     message(WARNING "Qt6 not found; m88-qt will not be built (install Qt6 Widgets development package)")
   else()
     set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
 
       add_executable(m88-qt
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_qt.cpp
@@ -118,6 +119,9 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_window.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.qrc
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.cpp

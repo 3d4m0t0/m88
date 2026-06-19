@@ -5,6 +5,7 @@
 #include "../common/misc.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -35,12 +36,14 @@ using PC8801::Config;
 
 namespace {
 
+#define CFG_TR(source) QCoreApplication::translate("ConfigDialog", source)
+
 void PopulateSoundBackendCombo(QComboBox* combo) {
   if (!combo) {
     return;
   }
   combo->clear();
-  combo->addItem(QObject::tr("Auto"), QString());
+  combo->addItem(CFG_TR("Auto"), QString());
   combo->addItem(QStringLiteral("PulseAudio"), QStringLiteral("pulse"));
   combo->addItem(QStringLiteral("ALSA"), QStringLiteral("alsa"));
   combo->addItem(QStringLiteral("JACK"), QStringLiteral("jack"));
@@ -54,14 +57,14 @@ void PopulateSoundDeviceCombo(QComboBox* combo, const char* backend_name,
   const QString keep =
       select_device.isNull() ? combo->currentData().toString() : select_device;
   combo->clear();
-  combo->addItem(QObject::tr("Default"), QString());
+  combo->addItem(CFG_TR("Default"), QString());
   for (const auto& dev : M88MiniaudioDevices::ListPlayback(backend_name)) {
     const QString name = QString::fromUtf8(dev.name.c_str());
     combo->addItem(name, name);
   }
   int idx = combo->findData(keep);
   if (idx < 0 && !keep.isEmpty()) {
-    combo->addItem(QObject::tr("%1 (not found)").arg(keep), keep);
+    combo->addItem(CFG_TR("%1 (not found)").arg(keep), keep);
     idx = combo->count() - 1;
   }
   combo->setCurrentIndex(idx >= 0 ? idx : 0);
@@ -80,13 +83,14 @@ void UpdateVolumeLabel(QLabel* label, int val) {
   if (val > -40) {
     label->setText(QString::number(val));
   } else {
-    label->setText(QObject::tr("Mute"));
+    label->setText(CFG_TR("Mute"));
   }
 }
 
-constexpr auto kResetTooltipText =
-    "Requires a machine reset to\n"
-    "take effect. (Control - Reset).";
+constexpr const char kResetTooltipText[] =
+    QT_TRANSLATE_NOOP("ConfigDialog",
+                      "Requires a machine reset to\n"
+                      "take effect. (Control - Reset).");
 
 void CompactVBox(QVBoxLayout* layout) {
   layout->setContentsMargins(4, 4, 4, 4);
@@ -137,7 +141,7 @@ void SetResetRequiredTooltip(QWidget* widget) {
   if (!widget) {
     return;
   }
-  widget->setToolTip(QObject::tr(kResetTooltipText));
+  widget->setToolTip(CFG_TR(kResetTooltipText));
   widget->setAttribute(Qt::WA_Hover, true);
   widget->setAttribute(Qt::WA_AlwaysShowToolTips, true);
 }
@@ -679,9 +683,6 @@ void ConfigDialog::buildUi() {
     key_layout->addWidget(key106);
     key_layout->addWidget(key101);
     v->addWidget(key_box);
-    env_placesbar_ = new QCheckBox(tr("Show places bar in file dialogs (&P)"), page);
-    env_placesbar_->setEnabled(false);
-    v->addWidget(env_placesbar_);
     FinishTabPage(v);
     tabs_->addTab(page, tr("Environment"));
   }
@@ -916,8 +917,6 @@ void ConfigDialog::loadFromConfig() {
       btn->setChecked(true);
     }
   }
-  env_placesbar_->setChecked((config_.flag2 & Config::showplacesbar) != 0);
-
   updateCpuTab();
   updateScreenTab();
   updateFunctionTab();
@@ -1048,8 +1047,6 @@ void ConfigDialog::applyToConfig() {
   }
 
   config_.keytype = static_cast<Config::KeyType>(keytype_group_->checkedId());
-  config_.flag2 &= ~Config::showplacesbar;
-  if (env_placesbar_->isChecked()) config_.flag2 |= Config::showplacesbar;
 }
 
 void ConfigDialog::updateCpuTab() {

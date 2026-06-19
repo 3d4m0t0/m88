@@ -117,5 +117,4 @@ private:
 
   // Env
   class QButtonGroup* keytype_group_ = nullptr;
-  class QCheckBox* env_placesbar_ = nullptr;
 };

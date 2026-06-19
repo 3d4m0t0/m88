@@ -1,6 +1,7 @@
 #include "multi_disk_editor_dialog.h"
 
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -19,6 +20,8 @@
 
 namespace {
 
+#define MD_TR(source) QCoreApplication::translate("MultiDiskEditorDialog", source)
+
 void SetWorkingDirectory(const QString& dir) {
   if (dir.isEmpty()) {
     return;
@@ -32,30 +35,30 @@ void SetWorkingDirectory(const QString& dir) {
 QString DiskTypeLabel(uint type) {
   switch (type) {
     case 0:
-      return QObject::tr("2D");
+      return MD_TR("2D");
     case 2:
-      return QObject::tr("2HD");
+      return MD_TR("2HD");
     default:
-      return QObject::tr("2DD");
+      return MD_TR("2DD");
   }
 }
 
 bool PromptBlankDisk(QWidget* parent, QString* title_out, uint* type_out) {
   QDialog dlg(parent);
-  dlg.setWindowTitle(QObject::tr("New blank disk"));
+  dlg.setWindowTitle(MD_TR("New blank disk"));
 
   auto* title_edit = new QLineEdit(&dlg);
   title_edit->setMaxLength(16);
 
   auto* type_combo = new QComboBox(&dlg);
-  type_combo->addItem(QObject::tr("2D"), 0);
-  type_combo->addItem(QObject::tr("2DD"), 1);
-  type_combo->addItem(QObject::tr("2HD"), 2);
+  type_combo->addItem(MD_TR("2D"), 0);
+  type_combo->addItem(MD_TR("2DD"), 1);
+  type_combo->addItem(MD_TR("2HD"), 2);
   type_combo->setCurrentIndex(1);
 
   auto* form = new QFormLayout(&dlg);
-  form->addRow(QObject::tr("Title:"), title_edit);
-  form->addRow(QObject::tr("Type:"), type_combo);
+  form->addRow(MD_TR("Title:"), title_edit);
+  form->addRow(MD_TR("Type:"), type_combo);
 
   auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
                                        &dlg);
@@ -69,7 +72,7 @@ bool PromptBlankDisk(QWidget* parent, QString* title_out, uint* type_out) {
 
   *title_out = title_edit->text().trimmed();
   if (title_out->isEmpty()) {
-    *title_out = QObject::tr("Untitled");
+    *title_out = MD_TR("Untitled");
   }
   *type_out = static_cast<uint>(type_combo->currentData().toInt());
   return true;

@@ -1,5 +1,6 @@
 #include "emulator_controller.h"
 #include "main_window.h"
+#include "m88_i18n.h"
 #include "qt_platform.h"
 
 #include "../linux/display_scale.h"
@@ -61,6 +62,7 @@ int main(int argc, char** argv) {
   }
 
   QApplication app(argc, argv);
+  M88InstallTranslations(app);
   qRegisterMetaType<PC8801::Config>("PC8801::Config");
 
   PC8801::Config config;

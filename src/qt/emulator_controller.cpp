@@ -1,4 +1,5 @@
 #include "emulator_controller.h"
+#include "m88_i18n.h"
 
 #include "../linux/linux_config.h"
 #include "../linux/keyboard_vk.h"
@@ -53,6 +54,8 @@
 
 namespace {
 
+#define EMU_TR(source) QCoreApplication::translate("EmulatorController", source)
+
 bool RomFileExists(const char* filename) {
   return M88RomExists(filename);
 }
@@ -79,7 +82,7 @@ bool MountDriveImage(DiskManager& diskmgr, int drive, const QString& path,
   const QByteArray utf8 = resolved.toUtf8();
   if (!DiskFileExists(utf8.constData())) {
     if (error_out) {
-      *error_out = QObject::tr("ディスクが見つかりません: %1").arg(path);
+      *error_out = EMU_TR("Disk not found: %1").arg(path);
     }
     return false;
   }
@@ -87,7 +90,7 @@ bool MountDriveImage(DiskManager& diskmgr, int drive, const QString& path,
                      false)) {
     diskmgr.Unmount(drive);
     if (error_out) {
-      *error_out = QObject::tr("ディスクのマウントに失敗しました: %1").arg(path);
+      *error_out = EMU_TR("Failed to mount disk: %1").arg(path);
     }
     return false;
   }
@@ -219,7 +222,7 @@ bool EmulatorController::initialize() {
 
   impl_->diskmgr = std::make_unique<DiskManager>();
   if (!impl_->diskmgr->Init()) {
-    emit failed(QStringLiteral("Failed to initialize disk manager"));
+    emit failed(tr("Failed to initialize disk manager"));
     return false;
   }
 
@@ -229,13 +232,13 @@ bool EmulatorController::initialize() {
     const char* detail = Error::GetErrorText();
     emit failed(detail && *detail
                     ? QString::fromUtf8(detail)
-                    : QStringLiteral("Failed to initialize PC-8801 core"));
+                    : tr("Failed to initialize PC-8801 core"));
     return false;
   }
 
   impl_->keyif = std::make_unique<PC8801::WinKeyIF>();
   if (!impl_->keyif->Init() || !impl_->pc88->ConnectKeyboard(impl_->keyif.get())) {
-    emit failed(QStringLiteral("Failed to initialize keyboard"));
+    emit failed(tr("Failed to initialize keyboard"));
     return false;
   }
 
@@ -436,7 +439,7 @@ void EmulatorController::applyChangeDiskImage(int drive, const QString& path) {
       syncDrive1AfterDrive0Change();
     }
     refreshDisplayAfterDiskChange();
-    emit statusMessage(tr("ドライブ %1 を取り出しました").arg(drive + 1), 2000);
+    emit statusMessage(tr("Drive %1 ejected").arg(drive + 1), 2000);
     emitDiskConfigurationLocked();
     return;
   }
@@ -444,9 +447,7 @@ void EmulatorController::applyChangeDiskImage(int drive, const QString& path) {
   QString error;
   if (!MountDriveImage(*impl_->diskmgr, drive, path, 0, &error)) {
     impl_->drive_path[drive].clear();
-    emit statusMessage(error.isEmpty() ? tr("ディスクのマウントに失敗しました")
-                                       : error,
-                       5000);
+    emit statusMessage(error.isEmpty() ? tr("Failed to mount disk") : error, 5000);
     emitDiskConfigurationLocked();
     return;
   }
@@ -457,7 +458,7 @@ void EmulatorController::applyChangeDiskImage(int drive, const QString& path) {
     syncDrive1AfterDrive0Change();
   }
   refreshDisplayAfterDiskChange();
-  emit statusMessage(tr("ドライブ %1 にマウント: %2")
+  emit statusMessage(tr("Mounted on drive %1: %2")
                          .arg(drive + 1)
                          .arg(QFileInfo(path).fileName()));
   emitDiskConfigurationLocked();
@@ -489,7 +490,7 @@ void EmulatorController::applySelectDisk(int drive, int index) {
   const QByteArray utf8 = resolved.toUtf8();
   if (!impl_->diskmgr->Mount(static_cast<uint>(drive), utf8.constData(), false,
                               mount_index, false)) {
-    emit statusMessage(tr("ディスクの選択に失敗しました"), 5000);
+    emit statusMessage(tr("Failed to select disk"), 5000);
     emitDiskConfigurationLocked();
     return;
   }
@@ -518,7 +519,7 @@ void EmulatorController::processDeferredActions() {
   }
   if (disk_op != DiskOpType::None) {
     if (!impl_->diskmgr) {
-      emit statusMessage(tr("エミュレータの準備ができていません"));
+      emit statusMessage(tr("Emulator is not ready"));
     } else {
       switch (disk_op) {
         case DiskOpType::ChangeImage:
@@ -551,7 +552,7 @@ void EmulatorController::processDeferredActions() {
 
   if (reset_requested_.exchange(false, std::memory_order_acq_rel)) {
     applyUserResetAndRefresh();
-    emit statusMessage(tr("リセットしました"), 2000);
+    emit statusMessage(tr("Reset complete"), 2000);
   }
 }
 
@@ -716,7 +717,7 @@ QString AutoRecordWavName(const QString& drive0_path, const QString& drive1_path
 
 void EmulatorController::captureScreen(const QString& save_path) {
   if (!draw_) {
-    emit statusMessage(tr("画面を取得できません"), 3000);
+    emit statusMessage(tr("Could not capture screen"), 3000);
     return;
   }
 
@@ -728,20 +729,20 @@ void EmulatorController::captureScreen(const QString& save_path) {
   Draw::Palette palette[256] = {};
   if (!draw_->AcquireUiFrame(&data, &bpl, &width, &height, &palette_changed, palette, 256) ||
       !data || width < 640 || height < 400) {
-    emit statusMessage(tr("画面を取得できません"), 3000);
+    emit statusMessage(tr("Could not capture screen"), 3000);
     return;
   }
 
   std::vector<uint8> bmp;
   if (M88ScreenCapture::BuildBmp4(data, bpl, palette, &bmp) == 0) {
-    emit statusMessage(tr("画面イメージの作成に失敗しました"), 3000);
+    emit statusMessage(tr("Failed to create screen image"), 3000);
     return;
   }
 
   QString path = save_path;
   if (path.isEmpty()) {
     if (!impl_ || (impl_->config.flag2 & PC8801::Config::genscrnshotname) == 0) {
-      emit statusMessage(tr("保存先が指定されていません"), 3000);
+      emit statusMessage(tr("No save path specified"), 3000);
       return;
     }
     path = QDir(QString::fromUtf8(M88GetCaptureDir()))
@@ -753,16 +754,16 @@ void EmulatorController::captureScreen(const QString& save_path) {
   if (!file.Open(utf8.constData(), FileIO::create) ||
       file.Write(bmp.data(), static_cast<int32>(bmp.size())) !=
           static_cast<int32>(bmp.size())) {
-    emit statusMessage(tr("画面イメージを %1 に保存できません").arg(path), 3000);
+    emit statusMessage(tr("Could not save screen image to %1").arg(path), 3000);
     return;
   }
 
-  emit statusMessage(tr("画面イメージを %1 に保存しました").arg(path), 3000);
+  emit statusMessage(tr("Screen image saved to %1").arg(path), 3000);
 }
 
 void EmulatorController::toggleRecordSound() {
   if (!impl_ || !impl_->sound) {
-    emit statusMessage(tr("サウンド出力が無効です"), 3000);
+    emit statusMessage(tr("Sound output is disabled"), 3000);
     return;
   }
 
@@ -776,17 +777,17 @@ void EmulatorController::toggleRecordSound() {
       began = impl_->sound->DumpBegin(utf8.constData());
     });
     if (!began) {
-      emit statusMessage(tr("サウンドを %1 に記録できません").arg(path), 3000);
+      emit statusMessage(tr("Could not record sound to %1").arg(path), 3000);
       return;
     }
     emit recordSoundChanged(true);
-    emit statusMessage(tr("サウンドの記録を開始しました: %1").arg(path), 3000);
+    emit statusMessage(tr("Sound recording started: %1").arg(path), 3000);
     return;
   }
 
   withVmPaused([&]() { impl_->sound->DumpEnd(); });
   emit recordSoundChanged(false);
-  emit statusMessage(tr("サウンドの記録を終了しました"), 3000);
+  emit statusMessage(tr("Sound recording stopped"), 3000);
 }
 
 bool EmulatorController::isRecordingSound() const {
@@ -795,7 +796,7 @@ bool EmulatorController::isRecordingSound() const {
 
 void EmulatorController::saveSnapshot(int slot) {
   if (!impl_ || !impl_->pc88) {
-    emit statusMessage(tr("エミュレータの準備ができていません"), 3000);
+    emit statusMessage(tr("Emulator is not ready"), 3000);
     return;
   }
   if (slot < 0) {
@@ -813,15 +814,15 @@ void EmulatorController::saveSnapshot(int slot) {
   if (saved) {
     impl_->current_snapshot_slot = slot;
     emit snapshotStateChanged(slot);
-    emit statusMessage(tr("%1 に保存しました").arg(path), 3000);
+    emit statusMessage(tr("Saved to %1").arg(path), 3000);
   } else {
-    emit statusMessage(tr("%1 に保存できません").arg(path), 3000);
+    emit statusMessage(tr("Could not save to %1").arg(path), 3000);
   }
 }
 
 void EmulatorController::loadSnapshot(int slot) {
   if (!impl_ || !impl_->pc88 || !impl_->diskmgr || !impl_->keyif) {
-    emit statusMessage(tr("エミュレータの準備ができていません"), 3000);
+    emit statusMessage(tr("Emulator is not ready"), 3000);
     return;
   }
   if (slot < 0 || slot > 9) {
@@ -861,14 +862,14 @@ void EmulatorController::loadSnapshot(int slot) {
     impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
   });
   if (!loaded) {
-    emit statusMessage(tr("%1 から復元できません").arg(path), 3000);
+    emit statusMessage(tr("Could not restore from %1").arg(path), 3000);
     return;
   }
   emit frameReady();
   emitMachineConfig();
   emitDiskConfiguration();
   emit snapshotStateChanged(slot);
-  emit statusMessage(tr("%1 から復元しました").arg(path), 3000);
+  emit statusMessage(tr("Restored from %1").arg(path), 3000);
 }
 
 void EmulatorController::emitDisplayConfig() {
@@ -908,7 +909,8 @@ void EmulatorController::pollStatusUi() {
   }
   emit statusUiChanged(snap.bar_enabled, snap.show_fdc_lamps, snap.lamp_level[0],
                        snap.lamp_level[1], snap.lamp_level[2],
-                       QString::fromUtf8(snap.message), snap.message_duration_ms);
+                       M88TranslateStatusMessage(QString::fromUtf8(snap.message)),
+                       snap.message_duration_ms);
 }
 
 void EmulatorController::run() {
@@ -1146,7 +1148,7 @@ void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basi
 
 void EmulatorController::applyUserResetAndRefresh() {
   applyConfigAndReset("user_reset");
-  emit statusMessage(tr("リセットしました"), 2000);
+  emit statusMessage(tr("Reset complete"), 2000);
 }
 
 void EmulatorController::queueDiskOp(DiskOpType op, int drive, int index,
@@ -1192,7 +1194,7 @@ void EmulatorController::ejectDisk0() {
 
 void EmulatorController::resetMachine() {
   if (!impl_ || !impl_->pc88 || !impl_->keyif) {
-    emit statusMessage(tr("エミュレータの準備ができていません"));
+    emit statusMessage(tr("Emulator is not ready"));
     return;
   }
   reset_requested_.store(true, std::memory_order_release);

@@ -786,6 +786,11 @@ void MainWindow::setupMenuBar() {
   // Match Win32 IDR_MENU_M88 (M88.rc); unimplemented items stay visible but disabled.
   control_menu_ = menuBar()->addMenu(tr("&Control"));
 
+  reset_action_ = control_menu_->addAction(tr("&Reset"));
+  reset_action_->setShortcut(QKeySequence(Qt::Key_F12));
+
+  control_menu_->addSeparator();
+
   clock_group_ = new QActionGroup(this);
   clock_group_->setExclusive(true);
   clock_4mhz_ = control_menu_->addAction(tr("4MHz"));
@@ -855,9 +860,6 @@ void MainWindow::setupMenuBar() {
     }
   });
 
-  reset_action_ = control_menu_->addAction(tr("&Reset"));
-  reset_action_->setShortcut(QKeySequence(Qt::Key_F12));
-
   control_menu_->addSeparator();
   exit_action_ = control_menu_->addAction(tr("E&xit"));
   exit_action_->setShortcut(HostShortcut(Qt::Key_Q));
@@ -885,6 +887,7 @@ void MainWindow::setupMenuBar() {
 
   auto* tape_menu = menuBar()->addMenu(tr("Ta&pe"));
   AddPlaceholder(tape_menu, tr("&Open..."));
+  tape_menu->menuAction()->setEnabled(false);
 
   tools_menu_ = menuBar()->addMenu(tr("&Tools"));
   auto* tools_menu = tools_menu_;
@@ -977,13 +980,13 @@ void MainWindow::setupMenuBar() {
            "<p>Linux port: "
            "<a href=\"https://github.com/3d4m0t0/m88\">"
            "https://github.com/3d4m0t0/m88</a></p>"
-           "<p>オリジナル: "
+           "<p>Original: "
            "<a href=\"http://www.retropc.net/cisc/m88/\">"
            "http://www.retropc.net/cisc/m88/</a></p>"
            "<p>Forked from "
            "<a href=\"https://github.com/rururutan/m88\">"
            "https://github.com/rururutan/m88</a></p>"
-           "<p>謝辞: FM 音源（佐藤達之氏 fm.c）、N80/SR（arearea 氏）</p>")
+           "<p>Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)</p>")
             .arg(QString::fromLatin1(M88_LINUX_QT_VER_STRING)));
     box.setStandardButtons(QMessageBox::Ok);
     for (QLabel* label : box.findChildren<QLabel*>()) {
