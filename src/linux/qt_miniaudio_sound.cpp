@@ -1,6 +1,7 @@
 #include "qt_miniaudio_sound.h"
 
 #include "linux_audio_period.h"
+#include "linux/m88_miniaudio_devices.h"
 #include "headers.h"
 #include "misc.h"
 #include "pc88/pc88.h"
@@ -37,6 +38,29 @@ constexpr int kSrcRingMultiplier = 4;
 constexpr int kSpscCapacityMultiplier = 6;
 constexpr int kCallbackSpinIters = 8000;
 
+const char* BackendDisplayName(ma_backend backend) {
+  switch (backend) {
+    case ma_backend_pulseaudio:
+      return "PulseAudio";
+    case ma_backend_alsa:
+      return "ALSA";
+    case ma_backend_jack:
+      return "JACK";
+    default:
+      return "Auto";
+  }
+}
+
+void LogAudioOutput(const ma_device& dev, uint sample_rate_hz) {
+  const ma_backend backend =
+      dev.pContext ? dev.pContext->backend : ma_backend_null;
+  const char* backend_name = BackendDisplayName(backend);
+  const char* device_name =
+      dev.playback.name[0] != '\0' ? dev.playback.name : "default";
+  std::printf("M88: %s  %s  %u Hz\n", backend_name, device_name, sample_rate_hz);
+  std::fflush(stdout);
+}
+
 }  // namespace
 
 void QtMiniaudioSoundDataCallback(ma_device* device, void* output, const void* /*input*/,
@@ -52,6 +76,8 @@ void QtMiniaudioSoundDataCallback(ma_device* device, void* output, const void* /
 }
 
 struct QtMiniaudioSound::Device {
+  ma_context context {};
+  bool context_active = false;
   ma_device dev {};
   bool active = false;
 };
@@ -124,12 +150,20 @@ void QtMiniaudioSound::ApplyConfig(const Config* config) {
   if (!config) {
     return;
   }
+  std::strncpy(playback_device_name_, config->audiodevice,
+               sizeof(playback_device_name_) - 1);
+  playback_device_name_[sizeof(playback_device_name_) - 1] = '\0';
+  std::strncpy(playback_backend_name_, config->audiobackend,
+               sizeof(playback_backend_name_) - 1);
+  playback_backend_name_[sizeof(playback_backend_name_) - 1] = '\0';
   ChangeRate(config->sound, config->soundbuffer);
   Sound::ApplyConfig(config);
 }
 
 bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
-  if (current_rate_ == rate && current_buflen_ms_ == buflen_ms && device_->active) {
+  if (current_rate_ == rate && current_buflen_ms_ == buflen_ms && device_->active &&
+      std::strcmp(current_device_name_, playback_device_name_) == 0 &&
+      std::strcmp(current_backend_name_, playback_backend_name_) == 0) {
     return true;
   }
 
@@ -175,10 +209,37 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     config.dataCallback = QtMiniaudioSoundDataCallback;
     config.pUserData = this;
 
-    const ma_result result = ma_device_init(nullptr, &config, &device_->dev);
+    ma_device_id chosen_id {};
+    const ma_device_id* device_id = nullptr;
+    if (playback_device_name_[0] != '\0') {
+      if (M88MiniaudioDevices::ResolvePlaybackId(playback_backend_name_,
+                                                   playback_device_name_, &chosen_id)) {
+        device_id = &chosen_id;
+      } else {
+        std::fprintf(stderr,
+                     "M88: audio device not found: %s (backend=%s, using default)\n",
+                     playback_device_name_,
+                     playback_backend_name_[0] ? playback_backend_name_ : "auto");
+      }
+    }
+    config.playback.pDeviceID = device_id;
+
+    if (!M88MiniaudioDevices::InitContext(playback_backend_name_, &device_->context)) {
+      std::fprintf(stderr, "M88: miniaudio context init failed (backend=%s)\n",
+                   playback_backend_name_[0] ? playback_backend_name_ : "auto");
+      return false;
+    }
+    device_->context_active = true;
+
+    const ma_result result =
+        ma_device_init(&device_->context, &config, &device_->dev);
     if (result != MA_SUCCESS) {
-      std::fprintf(stderr, "miniaudio open failed (%u Hz): %d\n", open_rate,
+      std::fprintf(stderr, "miniaudio open failed (%u Hz, backend=%s): %d\n", open_rate,
+                   playback_backend_name_[0] ? playback_backend_name_ : "auto",
                    static_cast<int>(result));
+      ma_context_uninit(&device_->context);
+      device_->context = {};
+      device_->context_active = false;
       return false;
     }
 
@@ -212,6 +273,12 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     }
 
     device_->active = true;
+    std::strncpy(current_device_name_, playback_device_name_,
+                 sizeof(current_device_name_) - 1);
+    current_device_name_[sizeof(current_device_name_) - 1] = '\0';
+    std::strncpy(current_backend_name_, playback_backend_name_,
+                 sizeof(current_backend_name_) - 1);
+    current_backend_name_[sizeof(current_backend_name_) - 1] = '\0';
     return true;
   };
 
@@ -220,13 +287,7 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     return false;
   }
 
-  if (sample_rate_ != kMixRate) {
-    std::fprintf(stderr,
-                 "m88: BEEP buzzer quality is best at %u Hz (current %u Hz); "
-                 "set Sound to 55k in config\n",
-                 kMixRate, sample_rate_);
-  }
-
+  LogAudioOutput(device_->dev, sample_rate_);
   return true;
 }
 
@@ -274,6 +335,13 @@ void QtMiniaudioSound::CloseDevice() {
   ma_device_uninit(&device_->dev);
   device_->dev = {};
   device_->active = false;
+  if (device_->context_active) {
+    ma_context_uninit(&device_->context);
+    device_->context = {};
+    device_->context_active = false;
+  }
+  current_device_name_[0] = '\0';
+  current_backend_name_[0] = '\0';
 }
 
 int QtMiniaudioSound::SamplesForEmuTicks(int emu_ticks) const {

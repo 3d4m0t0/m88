@@ -223,6 +223,16 @@ bool ParseKeyValueLine(const char* line, Config* cfg) {
     g_ini_keys.soundbuffer = true;
     return true;
   }
+  if (std::strcmp(key, "AudioDevice") == 0) {
+    std::strncpy(cfg->audiodevice, value ? value : "", sizeof(cfg->audiodevice) - 1);
+    cfg->audiodevice[sizeof(cfg->audiodevice) - 1] = '\0';
+    return true;
+  }
+  if (std::strcmp(key, "AudioBackend") == 0) {
+    std::strncpy(cfg->audiobackend, value ? value : "", sizeof(cfg->audiobackend) - 1);
+    cfg->audiobackend[sizeof(cfg->audiobackend) - 1] = '\0';
+    return true;
+  }
   if (std::strcmp(key, "CPUClock") == 0 && ParseIniInt(value, &n)) {
     cfg->clock = Limit(n, 1000, 1);
     g_ini_keys.cpuclock = true;
@@ -892,6 +902,12 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   std::fprintf(fp, "Sound=%d\n", SoundRateToIniValue(cfg->sound));
   std::fprintf(fp, "Switches=%d\n", cfg->dipsw);
   std::fprintf(fp, "SoundBuffer=%u\n", cfg->soundbuffer);
+  if (cfg->audiodevice[0] != '\0') {
+    std::fprintf(fp, "AudioDevice=%s\n", cfg->audiodevice);
+  }
+  if (cfg->audiobackend[0] != '\0') {
+    std::fprintf(fp, "AudioBackend=%s\n", cfg->audiobackend);
+  }
   std::fprintf(fp, "MouseSensibility=%u\n", cfg->mousesensibility);
   std::fprintf(fp, "CPUMode=%d\n", cfg->cpumode);
   std::fprintf(fp, "ERAMBank=%d\n", cfg->erambanks);

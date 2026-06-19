@@ -67,6 +67,10 @@ class QtMiniaudioSound : public Sound {
   int period_frames_ = 512;
   int target_spsc_frames_ = 1536;
   int max_spsc_frames_ = 3072;
+  char playback_device_name_[256] = {};
+  char current_device_name_[256] = {};
+  char playback_backend_name_[32] = {};
+  char current_backend_name_[32] = {};
   uint64_t contract_ticks_ = 0;
   int delivered_frames_ = 0;
 };

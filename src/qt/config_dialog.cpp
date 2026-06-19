@@ -1,11 +1,13 @@
 #include "config_dialog.h"
 #include "qt_platform.h"
 
+#include "../linux/m88_miniaudio_devices.h"
 #include "../common/misc.h"
 
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGridLayout>
@@ -29,7 +31,41 @@
 
 using PC8801::Config;
 
+#include <cstring>
+
 namespace {
+
+void PopulateSoundBackendCombo(QComboBox* combo) {
+  if (!combo) {
+    return;
+  }
+  combo->clear();
+  combo->addItem(QObject::tr("Auto"), QString());
+  combo->addItem(QStringLiteral("PulseAudio"), QStringLiteral("pulse"));
+  combo->addItem(QStringLiteral("ALSA"), QStringLiteral("alsa"));
+  combo->addItem(QStringLiteral("JACK"), QStringLiteral("jack"));
+}
+
+void PopulateSoundDeviceCombo(QComboBox* combo, const char* backend_name,
+                              const QString& select_device = {}) {
+  if (!combo) {
+    return;
+  }
+  const QString keep =
+      select_device.isNull() ? combo->currentData().toString() : select_device;
+  combo->clear();
+  combo->addItem(QObject::tr("Default"), QString());
+  for (const auto& dev : M88MiniaudioDevices::ListPlayback(backend_name)) {
+    const QString name = QString::fromUtf8(dev.name.c_str());
+    combo->addItem(name, name);
+  }
+  int idx = combo->findData(keep);
+  if (idx < 0 && !keep.isEmpty()) {
+    combo->addItem(QObject::tr("%1 (not found)").arg(keep), keep);
+    idx = combo->count() - 1;
+  }
+  combo->setCurrentIndex(idx >= 0 ? idx : 0);
+}
 
 int LimitInt(int v, int maxv, int minv) { return Limit(v, maxv, minv); }
 
@@ -461,10 +497,12 @@ void ConfigDialog::buildUi() {
     sound_cmdsing_ = new QCheckBox(tr("Enable CMD SING (&G)"), page);
     sound_mixalways_ = new QCheckBox(tr("Prioritize sound mixing (&S)"), page);
     sound_precisemix_ = new QCheckBox(tr("High precision mixing (&P)"), page);
-    sound_waveout_ = new QCheckBox(tr("Play via WaveOut API (&W)"), page);
-    sound_waveout_->setEnabled(false);
-    sound_dsnotify_ = new QCheckBox(tr("Use DirectSound notify"), page);
-    sound_dsnotify_->setEnabled(false);
+    sound_backend_ = new QComboBox(page);
+    sound_backend_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    PopulateSoundBackendCombo(sound_backend_);
+    sound_device_ = new QComboBox(page);
+    sound_device_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    PopulateSoundDeviceCombo(sound_device_, nullptr);
     sound_fmclock_ = new QCheckBox(tr("Use native FM clock for synthesis"), page);
     sound_lpf_ = new QCheckBox(tr("Enable LPF"), page);
     sound_lpffc_ = new QSpinBox(page);
@@ -480,8 +518,23 @@ void ConfigDialog::buildUi() {
     opt_grid->addWidget(sound_mixalways_, 0, 1);
     opt_grid->addWidget(sound_precisemix_, 1, 0);
     opt_grid->addWidget(sound_fmclock_, 1, 1);
-    opt_grid->addWidget(sound_waveout_, 2, 0);
-    opt_grid->addWidget(sound_dsnotify_, 2, 1);
+
+    auto* device_row = new QHBoxLayout();
+    device_row->setContentsMargins(0, 0, 0, 0);
+    device_row->setSpacing(4);
+    device_row->addWidget(new QLabel(tr("Output device:"), page));
+    device_row->addWidget(sound_device_, 1);
+    device_row->addWidget(new QLabel(tr("Backend:"), page));
+    device_row->addWidget(sound_backend_);
+    opt_grid->addLayout(device_row, 2, 0, 1, 2);
+
+    connect(sound_backend_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this](int) {
+              const QByteArray backend =
+                  sound_backend_->currentData().toString().toUtf8();
+              PopulateSoundDeviceCombo(sound_device_, backend.constData());
+              markDirty();
+            });
 
     auto* lpf_host = new QWidget(page);
     auto* lpf_row = new QHBoxLayout(lpf_host);
@@ -728,6 +781,10 @@ void ConfigDialog::connectDirtyTracking() {
   for (QRadioButton* radio : findChildren<QRadioButton*>()) {
     connect(radio, &QRadioButton::toggled, this, &ConfigDialog::markDirty);
   }
+  for (QComboBox* combo : findChildren<QComboBox*>()) {
+    connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &ConfigDialog::markDirty);
+  }
 }
 
 void ConfigDialog::setApplyEnabled(bool enabled) {
@@ -810,6 +867,20 @@ void ConfigDialog::loadFromConfig() {
   sound_mixalways_->setChecked((config_.flags & Config::mixsoundalways) != 0);
   sound_precisemix_->setChecked((config_.flags & Config::precisemixing) != 0);
   sound_fmclock_->setChecked((config_.flag2 & Config::usefmclock) != 0);
+  {
+    const QString saved_backend = QString::fromUtf8(config_.audiobackend);
+    int backend_idx = sound_backend_->findData(saved_backend);
+    if (backend_idx < 0 && !saved_backend.isEmpty()) {
+      sound_backend_->addItem(saved_backend, saved_backend);
+      backend_idx = sound_backend_->count() - 1;
+    }
+    sound_backend_->setCurrentIndex(backend_idx >= 0 ? backend_idx : 0);
+
+    const QByteArray backend =
+        sound_backend_->currentData().toString().toUtf8();
+    const QString saved_device = QString::fromUtf8(config_.audiodevice);
+    PopulateSoundDeviceCombo(sound_device_, backend.constData(), saved_device);
+  }
   sound_lpf_->setChecked((config_.flag2 & Config::lpfenable) != 0);
   sound_lpffc_->setValue(static_cast<int>(config_.lpffc / 1000));
   sound_lpforder_->setValue(static_cast<int>(config_.lpforder));
@@ -940,6 +1011,18 @@ void ConfigDialog::applyToConfig() {
   if (sound_precisemix_->isChecked()) config_.flags |= Config::precisemixing;
   config_.flag2 &= ~(Config::usefmclock | Config::lpfenable);
   if (sound_fmclock_->isChecked()) config_.flag2 |= Config::usefmclock;
+  {
+    const QString backend = sound_backend_->currentData().toString();
+    const QByteArray backend_utf8 = backend.toUtf8();
+    std::strncpy(config_.audiobackend, backend_utf8.constData(),
+                 sizeof(config_.audiobackend) - 1);
+    config_.audiobackend[sizeof(config_.audiobackend) - 1] = '\0';
+
+    const QString dev = sound_device_->currentData().toString();
+    const QByteArray dev_utf8 = dev.toUtf8();
+    std::strncpy(config_.audiodevice, dev_utf8.constData(), sizeof(config_.audiodevice) - 1);
+    config_.audiodevice[sizeof(config_.audiodevice) - 1] = '\0';
+  }
   if (sound_lpf_->isChecked()) config_.flag2 |= Config::lpfenable;
   config_.lpffc =
       static_cast<uint>(LimitInt(sound_lpffc_->value(), 24, 3) * 1000);

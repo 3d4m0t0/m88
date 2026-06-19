@@ -110,6 +110,8 @@ public:
 	int romeolatency;
 	int winposx;
 	int winposy;
+	char audiodevice[256];  // empty = miniaudio default playback device
+	char audiobackend[32];  // empty/auto, pulse, alsa, jack
 
 	BASICMode basicmode;
 

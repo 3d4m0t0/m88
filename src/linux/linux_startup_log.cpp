@@ -54,8 +54,7 @@ void M88LogSound(const PC8801::Config* config) {
   if (!config) {
     return;
   }
-  std::fprintf(stderr, "M88: sound %u Hz, buffer %u ms\n", config->sound,
-               config->soundbuffer);
+  std::fprintf(stderr, "M88: sound buffer %u ms\n", config->soundbuffer);
 }
 
 void M88LogFdd(const PC8801::Config* config) {

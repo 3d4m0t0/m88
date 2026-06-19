@@ -6,6 +6,8 @@
 
 class QTabWidget;
 
+class QComboBox;
+
 class ConfigDialog : public QDialog {
   Q_OBJECT
 
@@ -84,12 +86,12 @@ private:
   class QCheckBox* sound_cmdsing_ = nullptr;
   class QCheckBox* sound_mixalways_ = nullptr;
   class QCheckBox* sound_precisemix_ = nullptr;
-  class QCheckBox* sound_waveout_ = nullptr;
+  class QComboBox* sound_device_ = nullptr;
+  class QComboBox* sound_backend_ = nullptr;
   class QCheckBox* sound_fmclock_ = nullptr;
   class QCheckBox* sound_lpf_ = nullptr;
   class QSpinBox* sound_lpffc_ = nullptr;
   class QSpinBox* sound_lpforder_ = nullptr;
-  class QCheckBox* sound_dsnotify_ = nullptr;
 
   // Volume sliders + labels
   struct VolumeWidgets {
