@@ -84,6 +84,7 @@ add_library(m88_core STATIC
 
 target_include_directories(m88_core PUBLIC
   ${M88_CORE_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/linux
 )
 
 target_compile_definitions(m88_core PUBLIC

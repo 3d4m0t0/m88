@@ -258,6 +258,9 @@ void PC88::UpdateScreen(bool refresh)
 void PC88::Reset()
 {
 	dexc = 0;
+	if (beep) {
+		beep->Reset();
+	}
 
 	bool cd = false;
 	if (IsCDSupported())

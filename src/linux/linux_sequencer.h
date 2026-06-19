@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
+#include <thread>
 
 // Windows Sequencer / TimeKeeper pacing model for Linux frontends.
 // See src/win32/sequence.cpp and src/win32/timekeep.h.
@@ -94,15 +96,31 @@ struct M88Sequencer {
   template <typename StopFn>
   FrameResult RunFrame(PC88* vm, DrawFrameFn draw_fn, void* draw_ctx, bool force_draw,
                        StopFn stop, M88EmuTimePacer& emu_pacer,
-                       M88EmuTimePacer::AudioHint audio_hint = {},
+                       M88EmuTimePacer::AudioHint audio_hint,
+                       uint64_t fast_slice_ns = 20'000'000ULL) {
+    return RunFrame(vm, draw_fn, draw_ctx, force_draw, stop, emu_pacer,
+                    [audio_hint]() { return audio_hint; },
+                    std::function<void(int)>{}, std::function<void()>{},
+                    std::function<void(int)>{}, fast_slice_ns);
+  }
+
+  template <typename StopFn>
+  FrameResult RunFrame(PC88* vm, DrawFrameFn draw_fn, void* draw_ctx, bool force_draw,
+                       StopFn stop, M88EmuTimePacer& emu_pacer,
+                       const std::function<M88EmuTimePacer::AudioHint()>& audio_hint = {},
+                       const std::function<void(int emu_ticks)>& mix_audio_slice = {},
+                       const std::function<void()>& drain_audio = {},
+                       const std::function<void(int emu_sleep_ticks)>& prepare_audio_sleep = {},
                        uint64_t fast_slice_ns = 20'000'000ULL) {
     if (!vm) {
       return {};
     }
     if (IsFastMode()) {
-      return RunFastSlice(vm, draw_fn, draw_ctx, stop, fast_slice_ns);
+      return RunFastSlice(vm, draw_fn, draw_ctx, stop, fast_slice_ns, mix_audio_slice,
+                          drain_audio);
     }
-    return RunNormal(vm, draw_fn, draw_ctx, force_draw, stop, emu_pacer, audio_hint);
+    return RunNormal(vm, draw_fn, draw_ctx, force_draw, stop, emu_pacer, audio_hint,
+                     mix_audio_slice, drain_audio, prepare_audio_sleep);
   }
 
   long TakeExecCount() {
@@ -111,28 +129,133 @@ struct M88Sequencer {
     return n;
   }
 
+  void SetProceedSliceTicks(int ticks) {
+    proceed_slice_ticks_ = std::max(1, ticks);
+  }
+  int ProceedSliceTicks() const { return proceed_slice_ticks_; }
+
  private:
-  template <typename StopFn>
-  void Execute(PC88* vm, long clk, long length, long eff, StopFn stop) {
+  int proceed_slice_ticks_ = 10;
+
+  template <typename StopFn, typename MixFn>
+  void Execute(PC88* vm, long clk, long length, long eff, StopFn stop, MixFn mix_fn) {
     long remaining = length;
     while (remaining > 0 && !stop()) {
-      const long slice = std::min<long>(remaining, 500);
+      const long slice = std::min<long>(remaining, proceed_slice_ticks_);
       const int ret = vm->Proceed(static_cast<uint>(slice), static_cast<uint>(clk),
                                   static_cast<uint>(std::max<long>(1, eff)));
       execcount += clk * ret;
       remaining -= slice;
+      if (mix_fn) {
+        mix_fn(static_cast<int>(slice));
+      }
+#ifdef M88_LINUX_PORT
+      std::this_thread::yield();
+#endif
     }
+  }
+
+  template <typename StopFn>
+  void Execute(PC88* vm, long clk, long length, long eff, StopFn stop) {
+    Execute(vm, clk, length, eff, stop, std::function<void()>{});
   }
 
   template <typename StopFn>
   FrameResult RunNormal(PC88* vm, DrawFrameFn draw_fn, void* draw_ctx, bool force_draw,
                         StopFn stop, M88EmuTimePacer& emu_pacer,
-                        M88EmuTimePacer::AudioHint audio_hint) {
+                        const std::function<M88EmuTimePacer::AudioHint()>& audio_hint,
+                        const std::function<void(int emu_ticks)>& mix_audio_slice,
+                        const std::function<void()>& drain_audio,
+                        const std::function<void(int emu_sleep_ticks)>& prepare_audio_sleep) {
     FrameResult result;
     const int texec = vm->GetFramePeriod();
     const int twork = texec * 100 / speed;
     vm->TimeSync();
-    Execute(vm, clock, texec, clock * speed / 100, stop);
+    const int32_t frame_start = static_cast<int32_t>(keeper.GetTime());
+
+    int ticks_left = texec;
+    const int slice_ticks = proceed_slice_ticks_;
+    const int total_slices = std::max(1, (texec + slice_ticks - 1) / slice_ticks);
+
+    auto ring_low = [&]() -> bool {
+      if (!audio_hint) {
+        return false;
+      }
+      const M88EmuTimePacer::AudioHint h = audio_hint();
+      return h.ring_avail >= 0 && h.min_ring_frames > 0 &&
+             h.ring_avail < h.min_ring_frames;
+    };
+
+    auto run_emu_slice = [&]() -> bool {
+      if (ticks_left <= 0 || stop()) {
+        return false;
+      }
+      const long slice = std::min<long>(slice_ticks, ticks_left);
+      const int ret = vm->Proceed(static_cast<uint>(slice), static_cast<uint>(clock),
+                                  static_cast<uint>(std::max<long>(1, clock * speed / 100)));
+      execcount += clock * ret;
+      ticks_left -= static_cast<int>(slice);
+      if (mix_audio_slice) {
+        mix_audio_slice(static_cast<int>(slice));
+      }
+      if (drain_audio) {
+        drain_audio();
+      }
+#ifdef M88_LINUX_PORT
+      std::this_thread::yield();
+#endif
+      return true;
+    };
+
+    // Spread emulation across the frame wall budget so audio Mix/Drain continues
+    // while the callback consumes SPSC, instead of burst-then-sleep starvation.
+    int slices_done = 0;
+    while (!stop() && ticks_left > 0) {
+      if (ring_low()) {
+        run_emu_slice();
+        ++slices_done;
+        continue;
+      }
+
+      const int32_t now = static_cast<int32_t>(keeper.GetTime());
+      const int32_t scheduled =
+          frame_start + (slices_done * twork) / total_slices;
+      if (now < scheduled) {
+        const uint64_t target_ns = M88MonotonicNowNs() +
+                                   static_cast<uint64_t>(scheduled - now) * 10'000ULL;
+        while (!stop() && ticks_left > 0 && M88MonotonicNowNs() < target_ns) {
+          if (ring_low()) {
+            break;
+          }
+          if (drain_audio) {
+            drain_audio();
+          }
+          const uint64_t poll_ns = M88MonotonicNowNs() + 1'000'000ULL;
+          M88MonotonicDetail::SleepUntilAbs(std::min(target_ns, poll_ns), stop);
+        }
+        continue;
+      }
+
+      run_emu_slice();
+      ++slices_done;
+    }
+
+    if (drain_audio) {
+      drain_audio();
+    }
+
+    const auto poll_hint = [&]() {
+      return audio_hint ? audio_hint() : M88EmuTimePacer::AudioHint{};
+    };
+    const auto sleep_produce = [&]() {
+      if (ticks_left > 0) {
+        run_emu_slice();
+        return;
+      }
+      if (drain_audio) {
+        drain_audio();
+      }
+    };
 
     const int32_t tcpu = static_cast<int32_t>(keeper.GetTime()) - time;
     if (tcpu < twork) {
@@ -148,15 +271,27 @@ struct M88Sequencer {
         draw_fn(draw_ctx, true);
       }
 
-      const int32_t tdraw = static_cast<int32_t>(keeper.GetTime()) - time;
+      const int32_t tdraw = static_cast<int32_t>(keeper.GetTime()) - frame_start;
       drawnextframe = tdraw <= twork;
-      emu_pacer.SleepAfterFrame(twork, stop, audio_hint);
+      if (prepare_audio_sleep) {
+        prepare_audio_sleep(twork);
+      }
+      emu_pacer.SleepAfterFrame(twork, stop, poll_hint, sleep_produce);
+      while (!stop() && ticks_left > 0) {
+        run_emu_slice();
+      }
       time += twork;
       return result;
     }
 
     time += twork;
-    emu_pacer.SleepAfterFrame(twork, stop, audio_hint);
+    if (prepare_audio_sleep) {
+      prepare_audio_sleep(twork);
+    }
+    emu_pacer.SleepAfterFrame(twork, stop, poll_hint, sleep_produce);
+    while (!stop() && ticks_left > 0) {
+      run_emu_slice();
+    }
     if (++skippedframe >= 20) {
       result.update_screen = true;
       skippedframe = 0;
@@ -170,9 +305,9 @@ struct M88Sequencer {
   }
 
   // Burst / fullspeed: Windows ExecuteAsynchronus clock<=0 branch, sliced for UI.
-  template <typename StopFn>
+  template <typename StopFn, typename MixFn, typename DrainFn>
   FrameResult RunFastSlice(PC88* vm, DrawFrameFn draw_fn, void* draw_ctx, StopFn stop,
-                           uint64_t slice_ns) {
+                           uint64_t slice_ns, MixFn mix_fn, DrainFn drain_fn) {
     FrameResult result;
     if (fast_window_begin == 0) {
       fast_window_begin = static_cast<int>(keeper.GetTime());
@@ -186,9 +321,12 @@ struct M88Sequencer {
         return result;
       }
       if (clock) {
-        Execute(vm, -clock, 500, effclock, stop);
+        Execute(vm, -clock, 500, effclock, stop, mix_fn);
       } else {
-        Execute(vm, effclock, 500 * speed / 100, effclock, stop);
+        Execute(vm, effclock, 500 * speed / 100, effclock, stop, mix_fn);
+      }
+      if (drain_fn) {
+        drain_fn();
       }
       fast_eclk += 5;
     } while (M88MonotonicNowNs() < slice_end_ns &&

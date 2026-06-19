@@ -44,11 +44,9 @@ bool Sound::Init(PC88* pc88, uint rate, int bufsize)
 	
 	if (!SetRate(rate, bufsize))
 		return false;
-	
-#ifndef M88_LINUX_PORT
-	// Periodic Update() without OPN Count() breaks ADPCM on Linux/SDL audio path.
+
+	// Periodic Mix while a beep port is held; edge-only Update() is not enough alone.
 	pc88->AddEvent(5000, this, STATIC_CAST(TimeFunc, &Sound::UpdateCounter), 0, true);
-#endif
 	return true;
 }
 
@@ -159,11 +157,12 @@ int Sound::Get(Sample* dest, int nsamples)
 //
 int Sound::Get(SampleL* dest, int nsamples)
 {
-	// 合成
-	memset(dest, 0, nsamples * 2 * sizeof(int32));
+	memset(dest, 0, static_cast<size_t>(nsamples) * 2 * sizeof(int32));
+
 	CriticalSection::Lock lock(cs_ss);
-	for (SSNode* s = sslist; s; s = s->next)
+	for (SSNode* s = sslist; s; s = s->next) {
 		s->ss->Mix(dest, nsamples);
+	}
 	return nsamples;
 }
 
@@ -196,6 +195,11 @@ int Sound::GetRingAvail()
 	return enabled ? soundbuf.GetAvail() : 0;
 }
 
+uint32 Sound::GetEmuClockTicks() const
+{
+	return pc ? static_cast<uint32>(pc->GetTime()) : 0;
+}
+
 int Sound::GetOutput(Sample* dest, int nsamples)
 {
 	const int got = soundbuf.Get(dest, nsamples);
@@ -209,7 +213,7 @@ int Sound::GetOutput(Sample* dest, int nsamples)
 			frame[1] = static_cast<Sample>(Limit(lpf_.Filter(1, frame[1]), 32767, -32768));
 		}
 	}
-	if (dump_active_) {
+	if (dump_active_.load(std::memory_order_acquire)) {
 		RecordDumpSamples(dest, got);
 	}
 	return got;
@@ -256,6 +260,36 @@ WavPcmHeader MakeWavHeader(uint rate, uint32 data_bytes)
 	return hdr;
 }
 
+void FinalizeWavDump(FileIO& file, uint32& bytes, uint rate)
+{
+	if (!file.IsOpen()) {
+		bytes = 0;
+		return;
+	}
+	const WavPcmHeader hdr = MakeWavHeader(rate, bytes);
+	file.Seek(0, FileIO::begin);
+	file.Write(&hdr, static_cast<int32>(kWavHeaderSize));
+	file.Close();
+	bytes = 0;
+}
+
+bool OpenWavDump(FileIO& file, const char* path, uint rate)
+{
+	if (!path || !*path || rate == 0) {
+		return false;
+	}
+	if (!file.Open(path, FileIO::create)) {
+		return false;
+	}
+	const WavPcmHeader hdr = MakeWavHeader(rate, 0);
+	if (file.Write(&hdr, static_cast<int32>(kWavHeaderSize)) !=
+	    static_cast<int32>(kWavHeaderSize)) {
+		file.Close();
+		return false;
+	}
+	return true;
+}
+
 }  // namespace
 
 bool Sound::DumpBegin(const char* path)
@@ -265,42 +299,28 @@ bool Sound::DumpBegin(const char* path)
 	}
 
 	CriticalSection::Lock lock(cs_dump_);
-	if (dump_active_) {
+	if (dump_active_.load(std::memory_order_acquire)) {
 		return false;
 	}
 
-	if (!dump_file_.Open(path, FileIO::create)) {
-		return false;
-	}
-
-	const WavPcmHeader hdr = MakeWavHeader(samplingrate, 0);
-	if (dump_file_.Write(&hdr, static_cast<int32>(kWavHeaderSize)) !=
-	    static_cast<int32>(kWavHeaderSize)) {
-		dump_file_.Close();
+	if (!OpenWavDump(dump_file_, path, samplingrate)) {
 		return false;
 	}
 
 	dump_bytes_ = 0;
-	dump_active_ = true;
+	dump_active_.store(true, std::memory_order_release);
 	return true;
 }
 
 void Sound::DumpEnd()
 {
 	CriticalSection::Lock lock(cs_dump_);
-	if (!dump_active_) {
+	if (!dump_active_.load(std::memory_order_acquire)) {
 		return;
 	}
 
-	dump_active_ = false;
-
-	if (dump_file_.IsOpen()) {
-		const WavPcmHeader hdr = MakeWavHeader(samplingrate, dump_bytes_);
-		dump_file_.Seek(0, FileIO::begin);
-		dump_file_.Write(&hdr, static_cast<int32>(kWavHeaderSize));
-		dump_file_.Close();
-	}
-	dump_bytes_ = 0;
+	dump_active_.store(false, std::memory_order_release);
+	FinalizeWavDump(dump_file_, dump_bytes_, samplingrate);
 }
 
 void Sound::RecordDumpSamples(const Sample* data, int frames)
@@ -310,7 +330,7 @@ void Sound::RecordDumpSamples(const Sample* data, int frames)
 	}
 
 	CriticalSection::Lock lock(cs_dump_);
-	if (!dump_active_ || !dump_file_.IsOpen()) {
+	if (!dump_active_.load(std::memory_order_acquire) || !dump_file_.IsOpen()) {
 		return;
 	}
 
@@ -414,8 +434,8 @@ bool Sound::Update(ISoundSource* /*src*/)
 				tdiff += MulDiv((samples - filled) * 2000,
 				                pc->GetEffectiveSpeed(), rate50);
 			}
+			prevtime = currenttime;
 		}
-		prevtime = currenttime;
 	}
 	return true;
 }

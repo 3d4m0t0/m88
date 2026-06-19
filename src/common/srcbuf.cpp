@@ -4,7 +4,6 @@
 #include "srcbuf.h"
 #include "misc.h"
 
-
 #ifndef PI
 #define PI			3.14159265358979323846
 #endif
@@ -238,8 +237,11 @@ int SamplingRateConverter::Get(Sample* dest, int samples)
 			read++;
 			if (read == buffersize)
 				read = 0;
-			if (fillwhenempty && Avail() < 2*M+1)
-				FillMain(Max(ss, count));
+			if (fillwhenempty)
+			{
+				if (Avail() < 2*M+1)
+					FillMain(Max(ss, count));
+			}
 			ss = 0;
 			oo += ic;
 		}

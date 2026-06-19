@@ -35,7 +35,11 @@ class M88EmuThread {
     std::atomic<bool>* running = nullptr;
     M88EmuTimePacer* emu_pacer = nullptr;
     std::function<M88EmuTimePacer::AudioHint()> audio_hint;
+    std::function<void(int emu_ticks)> mix_audio_slice;
+    std::function<void()> drain_audio;
+    std::function<void(int emu_sleep_ticks)> prepare_audio_sleep;
     std::function<void(bool drew_screen)> on_frame;
+    bool emu_realtime_priority = true;
   };
 
   M88EmuThread() = default;

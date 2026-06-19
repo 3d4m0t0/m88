@@ -10,8 +10,6 @@
 
 // ---------------------------------------------------------------------------
 
-class PC88;
-
 namespace PC8801
 {
 class Sound;
@@ -34,6 +32,7 @@ public:
 	~Beep();
 	
 	bool Init();
+	void Reset();
 	void Cleanup();	
 	void EnableSING(bool s) { p40mask = s ? 0xa0 : 0x20; port40 &= p40mask; }
 	

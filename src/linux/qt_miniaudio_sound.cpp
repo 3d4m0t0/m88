@@ -10,7 +10,15 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <memory>
+#include <thread>
+
+#if defined(__linux__)
+#include <pthread.h>
+#include <sched.h>
+#include <sys/resource.h>
+#endif
 
 using namespace PC8801;
 
@@ -18,6 +26,16 @@ namespace {
 
 constexpr uint kMutedRate = 100;
 constexpr uint kMixRate = 55467;
+
+constexpr int kDrainChunkFrames = 512;
+constexpr int kDrainGuard = 512;
+constexpr int kSpscDrainChunk = 512;
+constexpr int kPrimePeriods = 3;
+constexpr int kTargetPeriods = 5;
+constexpr int kMaxPeriods = 8;
+constexpr int kSrcRingMultiplier = 4;
+constexpr int kSpscCapacityMultiplier = 6;
+constexpr int kCallbackSpinIters = 8000;
 
 }  // namespace
 
@@ -46,18 +64,60 @@ QtMiniaudioSound::QtMiniaudioSound()
 
 QtMiniaudioSound::~QtMiniaudioSound() { Cleanup(); }
 
+size_t QtMiniaudioSound::SpscCapacityFrames(uint sample_rate_hz, uint buflen_ms) {
+  if (sample_rate_hz < 8000 || buflen_ms == 0) {
+    return 0;
+  }
+  const size_t need =
+      (static_cast<size_t>(sample_rate_hz) * buflen_ms + 999) / 1000;
+  size_t cap = 64;
+  const size_t want = need * kSpscCapacityMultiplier;
+  while (cap < want) {
+    cap <<= 1;
+  }
+  return cap;
+}
+
 bool QtMiniaudioSound::Init(PC88* pc, uint /*rate*/, uint /*buflen_ms*/) {
   current_rate_ = 0;
   current_buflen_ms_ = 0;
   sample_rate_ = 0;
   CloseDevice();
-
   return Sound::Init(pc, kMutedRate, 0);
 }
 
 void QtMiniaudioSound::Cleanup() {
   CloseDevice();
+  spsc_.Reset();
   Sound::Cleanup();
+}
+
+void QtMiniaudioSound::ResetSpsc(uint sample_rate_hz, uint buflen_ms) {
+  const size_t cap = SpscCapacityFrames(sample_rate_hz, buflen_ms);
+  if (cap > 0) {
+    spsc_.Init(cap);
+  } else {
+    spsc_.Reset();
+  }
+}
+
+int QtMiniaudioSound::PrimeSpscSilence(int frames) {
+  if (frames <= 0 || spsc_.Capacity() == 0) {
+    return 0;
+  }
+  Sample silence[kDrainChunkFrames * 2] = {};
+  int left = frames;
+  int primed = 0;
+  while (left > 0 && spsc_.Free() > 0) {
+    const int chunk = std::min(left, kDrainChunkFrames);
+    const size_t pushed = spsc_.Push(silence, static_cast<size_t>(chunk));
+    if (pushed == 0) {
+      break;
+    }
+    left -= static_cast<int>(pushed);
+    primed += static_cast<int>(pushed);
+  }
+  return primed;
 }
 
 void QtMiniaudioSound::ApplyConfig(const Config* config) {
@@ -66,7 +126,6 @@ void QtMiniaudioSound::ApplyConfig(const Config* config) {
   }
   ChangeRate(config->sound, config->soundbuffer);
   Sound::ApplyConfig(config);
-  FillWhenEmpty(true);
 }
 
 bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
@@ -87,7 +146,8 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
 
   int bufsize = 0;
   if (sample_rate_ > 0) {
-    bufsize = static_cast<int>((kMixRate * buflen_ms / 1000) & ~15);
+    bufsize = static_cast<int>(
+        (kMixRate * buflen_ms * kSrcRingMultiplier / 1000) & ~15);
   }
   if (rate < 1000) {
     bufsize = 0;
@@ -100,6 +160,8 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
   if (bufsize <= 0 || sample_rate_ == 0) {
     return true;
   }
+
+  ResetSpsc(sample_rate_, buflen_ms);
 
   const ma_uint32 frames_per_buffer =
       static_cast<ma_uint32>(M88AudioPeriodFrames(rate, bufsize));
@@ -128,14 +190,20 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
                      "miniaudio: requested %u Hz, device %u Hz (reconfiguring resampler)\n",
                      rate, device_rate);
       }
-      bufsize = static_cast<int>((kMixRate * buflen_ms / 1000) & ~15);
+      bufsize = static_cast<int>(
+          (kMixRate * buflen_ms * kSrcRingMultiplier / 1000) & ~15);
       if (!SetRate(device_rate, bufsize)) {
         ma_device_uninit(&device_->dev);
         return false;
       }
+      ResetSpsc(device_rate, buflen_ms);
     }
 
-    PrimeBuffer(bufsize > 0 ? bufsize / 2 : 0);
+    FillWhenEmpty(true);
+    RecomputeLatencyTargets(bufsize);
+    const int prime_frames = period_frames_ * kPrimePeriods;
+    PrimeSpscSilence(prime_frames > 0 ? prime_frames : target_spsc_frames_);
+    ResyncPcmContractAfterRateChange();
 
     if (ma_device_start(&device_->dev) != MA_SUCCESS) {
       std::fprintf(stderr, "miniaudio start failed\n");
@@ -152,11 +220,53 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     return false;
   }
 
+  if (sample_rate_ != kMixRate) {
+    std::fprintf(stderr,
+                 "m88: BEEP buzzer quality is best at %u Hz (current %u Hz); "
+                 "set Sound to 55k in config\n",
+                 kMixRate, sample_rate_);
+  }
+
   return true;
 }
 
+void QtMiniaudioSound::RecomputeLatencyTargets(int mix_ring_samples) {
+  period_frames_ = static_cast<int>(
+      M88AudioPeriodFrames(sample_rate_, mix_ring_samples));
+  period_frames_ = std::max(period_frames_, 128);
+  target_spsc_frames_ = period_frames_ * kTargetPeriods;
+  max_spsc_frames_ = period_frames_ * kMaxPeriods;
+  const int cfg_cap =
+      static_cast<int>((static_cast<uint64_t>(sample_rate_) * current_buflen_ms_) / 1000);
+  if (cfg_cap > 0) {
+    max_spsc_frames_ = std::max(max_spsc_frames_, cfg_cap);
+    target_spsc_frames_ = std::min(target_spsc_frames_, max_spsc_frames_);
+  }
+  const int ring_cap = static_cast<int>(spsc_.Capacity());
+  if (ring_cap > 0) {
+    max_spsc_frames_ = std::min(max_spsc_frames_, ring_cap);
+    target_spsc_frames_ = std::min(target_spsc_frames_, max_spsc_frames_);
+  }
+}
+
+void QtMiniaudioSound::TryRaiseAudioThreadPriority() {
+#if defined(__linux__)
+  static std::once_flag once;
+  std::call_once(once, []() {
+    sched_param sp {};
+    sp.sched_priority = 2;
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0) {
+      setpriority(PRIO_PROCESS, 0, -10);
+    }
+  });
+#endif
+}
+
 void QtMiniaudioSound::CloseDevice() {
-  if (!device_ || !device_->active) {
+  if (!device_) {
+    return;
+  }
+  if (!device_->active) {
     return;
   }
   device_->dev.pUserData = nullptr;
@@ -166,19 +276,181 @@ void QtMiniaudioSound::CloseDevice() {
   device_->active = false;
 }
 
+int QtMiniaudioSound::SamplesForEmuTicks(int emu_ticks) const {
+  if (emu_ticks <= 0 || sample_rate_ < 8000) {
+    return 0;
+  }
+  return static_cast<int>(
+      (static_cast<uint64_t>(emu_ticks) * sample_rate_ + 99'999ULL) / 100'000ULL);
+}
+
+void QtMiniaudioSound::ResetPcmContract() {
+  // Scheduler time does not rewind on CPU reset; zeroing contract_ticks/delivered
+  // leaves a huge due-delivered backlog (same symptom as mid-run rate change).
+  ResyncPcmContractAfterRateChange();
+}
+
+void QtMiniaudioSound::ResyncPcmContractAfterRateChange() {
+  SyncContractTicks();
+  delivered_frames_ = ContractFramesDue();
+}
+
+int QtMiniaudioSound::ContractFramesDue() const {
+  if (sample_rate_ < 8000) {
+    return 0;
+  }
+  return static_cast<int>(
+      (contract_ticks_ * static_cast<uint64_t>(sample_rate_)) / 100'000ULL);
+}
+
+void QtMiniaudioSound::SyncContractTicks() {
+  contract_ticks_ = static_cast<uint64_t>(GetEmuClockTicks());
+}
+
+int QtMiniaudioSound::MinPlaybackHeadroom() const {
+  return std::max(period_frames_ * 2, 256);
+}
+
+int QtMiniaudioSound::SpscSleepNeed(int emu_sleep_ticks) const {
+  if (emu_sleep_ticks <= 0) {
+    return MinPlaybackHeadroom();
+  }
+  return SamplesForEmuTicks(emu_sleep_ticks) + period_frames_;
+}
+
+void QtMiniaudioSound::MaintainPlaybackHeadroom(int min_frames) {
+  if (spsc_.Capacity() == 0 || min_frames <= 0) {
+    return;
+  }
+  const int in_spsc = static_cast<int>(spsc_.Avail());
+  if (in_spsc >= min_frames) {
+    return;
+  }
+  SyncContractTicks();
+  const int need = min_frames - in_spsc;
+  int may_push = ContractFramesDue() - delivered_frames_;
+  if (may_push <= 0) {
+    // SPSC starved while SRC has audio — do not block on contract when empty.
+    if (in_spsc > 0 || GetRingAvail() < 61) {
+      return;
+    }
+    may_push = std::min(need, period_frames_);
+  } else {
+    may_push = std::min(need, may_push);
+  }
+  const int pushed = DrainFrames(may_push);
+  if (pushed <= 0) {
+    return;
+  }
+  delivered_frames_ += pushed;
+}
+
+int QtMiniaudioSound::DrainFrames(int target_frames) {
+  if (target_frames <= 0 || spsc_.Capacity() == 0) {
+    return 0;
+  }
+
+  const int headroom = MaxSpscFrames() - static_cast<int>(spsc_.Avail());
+  if (headroom <= 0) {
+    return 0;
+  }
+  target_frames = std::min(target_frames, headroom);
+
+  Sample scratch[kDrainChunkFrames * 2];
+  int remaining = target_frames;
+  int pushed = 0;
+  int guard = 0;
+  while (remaining > 0 && spsc_.Free() > 0 && guard++ < kDrainGuard) {
+    const int want =
+        std::min({remaining, kSpscDrainChunk, static_cast<int>(spsc_.Free())});
+    const int got = Sound::GetOutput(scratch, want);
+    if (got <= 0) {
+      break;
+    }
+    spsc_.Push(scratch, static_cast<size_t>(got));
+    remaining -= got;
+    pushed += got;
+  }
+  return pushed;
+}
+
+void QtMiniaudioSound::MixSlice(int emu_ticks) {
+  if (spsc_.Capacity() == 0 || emu_ticks <= 0) {
+    return;
+  }
+  Update(nullptr);
+  SyncContractTicks();
+  const int due = ContractFramesDue();
+  int backlog = due - delivered_frames_;
+  if (backlog > 0) {
+    const int headroom = MaxSpscFrames() - static_cast<int>(spsc_.Avail());
+    const int push_goal = headroom > 0 ? std::min(backlog, headroom) : 0;
+    const int pushed = push_goal > 0 ? DrainFrames(backlog) : 0;
+    delivered_frames_ += pushed;
+  }
+  MaintainPlaybackHeadroom(MinPlaybackHeadroom());
+}
+
+void QtMiniaudioSound::CatchUpContract() {
+  if (spsc_.Capacity() == 0) {
+    return;
+  }
+  SyncContractTicks();
+  const int backlog = ContractFramesDue() - delivered_frames_;
+  if (backlog > 0) {
+    const int headroom = MaxSpscFrames() - static_cast<int>(spsc_.Avail());
+    const int push_goal = headroom > 0 ? std::min(backlog, headroom) : 0;
+    const int pushed = push_goal > 0 ? DrainFrames(backlog) : 0;
+    delivered_frames_ += pushed;
+  }
+  MaintainPlaybackHeadroom(MinPlaybackHeadroom());
+}
+
+void QtMiniaudioSound::PrepareSleep(int emu_sleep_ticks) {
+  if (spsc_.Capacity() == 0 || emu_sleep_ticks <= 0) {
+    return;
+  }
+  CatchUpContract();
+  const int sleep_need = SpscSleepNeed(emu_sleep_ticks);
+  MaintainPlaybackHeadroom(sleep_need);
+}
+
+int QtMiniaudioSound::GetSpscAvail() const {
+  if (spsc_.Capacity() == 0) {
+    return 0;
+  }
+  return static_cast<int>(spsc_.Avail());
+}
+
+int QtMiniaudioSound::GetSpscCapacity() const {
+  if (spsc_.Capacity() == 0) {
+    return 0;
+  }
+  return static_cast<int>(spsc_.Capacity());
+}
+
 void QtMiniaudioSound::FillAudio(int16_t* stream, int frame_count) {
   if (!stream || frame_count <= 0) {
     return;
   }
-
+  TryRaiseAudioThreadPriority();
   auto* out = reinterpret_cast<Sample*>(stream);
-  const int samples = frame_count;
-  int written = 0;
-
-  written = GetOutput(out, samples);
-
-  if (written < samples) {
-    std::memset(out + written * 2, 0,
-                static_cast<size_t>(samples - written) * sizeof(Sample) * 2);
+  size_t written = spsc_.Pop(out, static_cast<size_t>(frame_count));
+  int spin = 0;
+  while (written < static_cast<size_t>(frame_count) && spin < kCallbackSpinIters) {
+    if ((spin++ & 63) == 0) {
+      std::this_thread::yield();
+    }
+    const size_t more =
+        spsc_.Pop(out + written * 2, static_cast<size_t>(frame_count) - written);
+    if (more == 0) {
+      continue;
+    }
+    written += more;
+    spin = 0;
+  }
+  if (written < static_cast<size_t>(frame_count)) {
+    const size_t missing = static_cast<size_t>(frame_count) - written;
+    std::memset(out + written * 2, 0, missing * 2 * sizeof(Sample));
   }
 }

@@ -127,7 +127,9 @@ void M88EmuThread::Resume() {
 }
 
 void M88EmuThread::ThreadMain() {
-  TryRaiseRealtimePriority();
+  if (params_.emu_realtime_priority) {
+    TryRaiseRealtimePriority();
+  }
 
   EmuDrawCtx draw_ctx;
   draw_ctx.pc88 = params_.vm;
@@ -174,8 +176,11 @@ void M88EmuThread::ThreadMain() {
       SignalFrameBoundary();
       continue;
     }
-    const auto result = params_.seq->RunFrame(params_.vm, EmuStageFrame, &draw_ctx,
-                                             force_draw, stop, *params_.emu_pacer, audio);
+    (void)audio;
+    const auto result = params_.seq->RunFrame(
+        params_.vm, EmuStageFrame, &draw_ctx, force_draw, stop, *params_.emu_pacer,
+        params_.audio_hint, params_.mix_audio_slice, params_.drain_audio,
+        params_.prepare_audio_sleep);
 
     if (params_.title_exec_count) {
       params_.title_exec_count->fetch_add(params_.seq->TakeExecCount(),

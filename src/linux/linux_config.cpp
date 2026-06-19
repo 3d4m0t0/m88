@@ -407,7 +407,8 @@ void M88SetDefaultConfig(Config* cfg) {
 
   // Match Windows 88config.cpp default Flags (subcpucontrol ON).
   cfg->flags = Config::subcpucontrol | Config::savedirectory | Config::force480 |
-               Config::enablewait | Config::opnaona8 | Config::precisemixing;
+               Config::enablewait | Config::opnaona8 | Config::precisemixing |
+               Config::mixsoundalways;
   cfg->flags &= ~Config::specialpalette;
 
   cfg->flag2 = Config::genscrnshotname;

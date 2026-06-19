@@ -11,10 +11,11 @@
 using namespace PC8801;
 
 // ---------------------------------------------------------------------------
-//	�����E�j��
+//	生成・破棄
 //
 Beep::Beep(const ID& id)
-: Device(id), soundcontrol(0)
+: Device(id), soundcontrol(0), bslice(0), pslice(0), bcount(0), bperiod(0), port40(0),
+  p40mask(0xa0)
 {
 }
 
@@ -24,17 +25,27 @@ Beep::~Beep()
 }
 
 // ---------------------------------------------------------------------------
-//	�������Ƃ�
+//	初期化とか
 //
 bool Beep::Init()
 {
-	port40 = 0;
+	Reset();
 	p40mask = 0xa0;
+	port40 &= p40mask;
 	return true;
 }
 
+void Beep::Reset()
+{
+	port40 = 0;
+	pslice = 0;
+	bslice = 0;
+	bcount = 0;
+	port40 &= p40mask;
+}
+
 // ---------------------------------------------------------------------------
-//	��Еt��
+//	後片付け
 //
 void Beep::Cleanup()
 {
@@ -51,7 +62,7 @@ bool IFCALL Beep::Connect(ISoundControl* control)
 }
 
 // ---------------------------------------------------------------------------
-//	���[�g�ݒ�
+//	レート設定
 //
 bool Beep::SetRate(uint rate)
 {
@@ -62,8 +73,9 @@ bool Beep::SetRate(uint rate)
 	return true;
 }
 
+
 // ---------------------------------------------------------------------------
-//	�r�[�v������
+//	ビープ音生成
 //
 //	0-2000
 //	 0 -  4		1111
@@ -111,11 +123,18 @@ void IFCALL Beep::Mix(int32* dest, int nsamples)
 }
 
 // ---------------------------------------------------------------------------
-//	BEEP Port �ւ� Out
+//	BEEP Port への Out
 //
 void IOCALL Beep::Out40(uint, uint data)
 {
+	const uint raw = data;
 	data &= p40mask;
+#ifdef M88_LINUX_PORT
+	// VRTC/calendar writes (bit4 set, no beep latch bits) must not touch beep state.
+	if ((raw & 0x10u) != 0u && (raw & 0xa0u) == 0u) {
+		return;
+	}
+#endif
 	int i = data ^ port40;
 	if (i & 0xa0)
 	{
@@ -132,7 +151,7 @@ void IOCALL Beep::Out40(uint, uint data)
 }
 
 // ---------------------------------------------------------------------------
-//	��ԕۑ�
+//	状態保存
 //
 uint IFCALL Beep::GetStatusSize()
 {
@@ -165,4 +184,3 @@ const Device::OutFuncPtr Beep::outdef[] =
 {
 	STATIC_CAST(Device::OutFuncPtr, &Out40),
 };
-

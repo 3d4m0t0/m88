@@ -255,7 +255,6 @@ bool EmulatorController::initialize() {
   }
 
   M88ApplyConfig(impl_->pc88.get(), &impl_->config);
-  impl_->sound->ApplyConfig(&impl_->config);
   impl_->keyif->ApplyConfig(&impl_->config);
   impl_->keyif->Activate(true);
   syncHostInputFromConfig();
@@ -283,7 +282,12 @@ bool EmulatorController::initialize() {
   impl_->seq.ApplyConfig(impl_->config);
   impl_->seq.ResetPacing();
   impl_->emu_time_pacer.Reset();
+  updateSequencerAudio();
   M88PostStartupCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
+  if (impl_->sound) {
+    impl_->sound->ApplyConfig(&impl_->config);
+    impl_->sound->ResetPcmContract();
+  }
   impl_->hw_reset_done = true;
   impl_->pc88->UpdateScreen(true);
   if (draw_) {
@@ -562,6 +566,16 @@ void EmulatorController::resetSequencerPacing() {
   impl_->seq.ApplyConfig(impl_->config);
   impl_->seq.ResetPacing();
   impl_->emu_time_pacer.Reset();
+  updateSequencerAudio();
+}
+
+void EmulatorController::updateSequencerAudio() {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  // Both paths slice Proceed so the audio callback can interleave during a frame.
+  // (Callback-pull with a single 1792-tick Proceed starves game-B BEEP toggles.)
+  impl_->seq.SetProceedSliceTicks(10);
 }
 
 void EmulatorController::withVmPaused(const std::function<void()>& fn) {
@@ -601,6 +615,7 @@ void EmulatorController::importConfig(PC8801::Config config) {
     M88ApplyConfig(impl_->pc88.get(), &impl_->config);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      updateSequencerAudio();
     }
     resetSequencerPacing();
     impl_->seq.ForceDrawAfterReset(impl_->config.refreshtiming);
@@ -756,7 +771,11 @@ void EmulatorController::toggleRecordSound() {
                              .filePath(AutoRecordWavName(impl_->drive_path[0],
                                                          impl_->drive_path[1]));
     const QByteArray utf8 = path.toUtf8();
-    if (!impl_->sound->DumpBegin(utf8.constData())) {
+    bool began = false;
+    withVmPaused([&]() {
+      began = impl_->sound->DumpBegin(utf8.constData());
+    });
+    if (!began) {
       emit statusMessage(tr("サウンドを %1 に記録できません").arg(path), 3000);
       return;
     }
@@ -765,7 +784,7 @@ void EmulatorController::toggleRecordSound() {
     return;
   }
 
-  impl_->sound->DumpEnd();
+  withVmPaused([&]() { impl_->sound->DumpEnd(); });
   emit recordSoundChanged(false);
   emit statusMessage(tr("サウンドの記録を終了しました"), 3000);
 }
@@ -830,6 +849,7 @@ void EmulatorController::loadSnapshot(int slot) {
     impl_->keyif->ApplyConfig(&impl_->config);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      updateSequencerAudio();
     }
     syncHostInputFromConfig();
     resetSequencerPacing();
@@ -915,13 +935,29 @@ void EmulatorController::run() {
   params.emu_pacer = &impl_->emu_time_pacer;
   params.audio_hint = [this]() {
     M88EmuTimePacer::AudioHint hint;
-    if (impl_->sound && impl_->sound->GetRingSize() > 0) {
-      hint.ring_avail = impl_->sound->GetRingAvail();
-      hint.ring_size = impl_->sound->GetRingSize();
+    if (impl_->sound && impl_->sound->GetSpscCapacity() > 0) {
+      hint.ring_avail = impl_->sound->GetSpscAvail();
+      hint.ring_size = impl_->sound->GetSpscCapacity();
       hint.sample_rate_hz =
           static_cast<int>(impl_->sound->GetOutputSampleRate());
+      hint.min_ring_frames = impl_->sound->MinPlaybackHeadroom();
     }
     return hint;
+  };
+  params.mix_audio_slice = [this](int emu_ticks) {
+    if (impl_->sound) {
+      impl_->sound->MixSlice(emu_ticks);
+    }
+  };
+  params.drain_audio = [this]() {
+    if (impl_->sound) {
+      impl_->sound->CatchUpContract();
+    }
+  };
+  params.prepare_audio_sleep = [this](int emu_sleep_ticks) {
+    if (impl_->sound) {
+      impl_->sound->PrepareSleep(emu_sleep_ticks);
+    }
   };
   params.on_frame = [this](bool drew_screen) {
     if (drew_screen) {
@@ -929,6 +965,7 @@ void EmulatorController::run() {
     }
     QMetaObject::invokeMethod(this, "pollEmulationIdle", Qt::QueuedConnection);
   };
+  params.emu_realtime_priority = false;
 
   impl_->emu_thread.Start(std::move(params));
 
@@ -1086,15 +1123,17 @@ void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basi
     impl_->keyif->FlushGuestKeys();
     impl_->keyif->ApplyConfig(&impl_->config);
     M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+    resetSequencerPacing();
+    M88UserCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      updateSequencerAudio();
+      impl_->sound->ResetPcmContract();
     }
     syncHostInputFromConfig();
     if (diag_tag && std::strcmp(diag_tag, "mode_switch") == 0) {
       M88LogMachine(&impl_->config);
     }
-    resetSequencerPacing();
-    M88UserCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
     impl_->pc88->UpdateScreen(true);
     if (draw_) {
       draw_->InvalidateUiStaging();
@@ -1175,6 +1214,7 @@ void EmulatorController::setClock(int clock) {
     M88ApplyConfig(impl_->pc88.get(), &impl_->config);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      updateSequencerAudio();
     }
     resetSequencerPacing();
   });

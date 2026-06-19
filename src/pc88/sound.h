@@ -12,6 +12,8 @@
 #include "srcbuf.h"
 #include "lpf.h"
 
+#include <atomic>
+
 // ---------------------------------------------------------------------------
 
 class PC88;
@@ -36,7 +38,7 @@ public:
 	bool SetRate(uint rate, int bufsize);
 
 	void IOCALL UpdateCounter(uint);
-	
+
 	bool IFCALL Connect(ISoundSource* src);
 	bool IFCALL Disconnect(ISoundSource* src);
 	bool IFCALL Update(ISoundSource* src=0);
@@ -57,8 +59,9 @@ public:
 	int		GetRingAvail();
 	int		GetRingSize() const { return buffersize; }
 	uint	GetOutputSampleRate() const { return samplingrate; }
+	uint32	GetEmuClockTicks() const;
 
-	bool	IsDumping() const { return dump_active_; }
+	bool	IsDumping() const { return dump_active_.load(std::memory_order_acquire); }
 	bool	DumpBegin(const char* path);
 	void	DumpEnd();
 
@@ -101,7 +104,7 @@ private:
 
 	void RecordDumpSamples(const Sample* data, int frames);
 
-	bool dump_active_;
+	std::atomic<bool> dump_active_{false};
 	uint32 dump_bytes_;
 	FileIO dump_file_;
 	CriticalSection cs_dump_;

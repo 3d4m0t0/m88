@@ -98,6 +98,7 @@ private:
   bool initialize();
   void shutdown();
   void resetSequencerPacing();
+  void updateSequencerAudio();
   bool burstActive() const;
   void syncStatusBarFromConfig();
   void pollStatusUi();
