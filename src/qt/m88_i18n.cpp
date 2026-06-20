@@ -2,12 +2,14 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLibraryInfo>
 #include <QLocale>
+#include <QStandardPaths>
 #include <QTranslator>
 
 #include <cstdio>
@@ -15,37 +17,131 @@
 
 namespace {
 
-constexpr auto kAppTranslationResource = ":/i18n/m88-qt_ja.json";
+const char* const kEmbeddedLocales[] = {"en", "ja"};
 
-bool UseJapaneseUi() {
-  const QByteArray forced = qgetenv("M88_LANG");
-  if (forced == "ja" || forced == "jp") {
-    return true;
-  }
-  if (forced == "en" || forced == "C") {
-    return false;
-  }
-  switch (QLocale::system().language()) {
-    case QLocale::Japanese:
+bool IsEmbeddedLocale(const QString& locale) {
+  for (const char* embedded : kEmbeddedLocales) {
+    if (locale == QLatin1String(embedded)) {
       return true;
-    default:
-      return false;
+    }
   }
+  return false;
+}
+
+QString NormalizeLocaleTag(QString tag) {
+  tag = tag.trimmed().replace(QLatin1Char('-'), QLatin1Char('_'));
+  if (tag.compare(QStringLiteral("jp"), Qt::CaseInsensitive) == 0) {
+    return QStringLiteral("ja");
+  }
+  if (tag.compare(QStringLiteral("C"), Qt::CaseInsensitive) == 0 ||
+      tag.compare(QStringLiteral("POSIX"), Qt::CaseInsensitive) == 0) {
+    return QStringLiteral("en");
+  }
+  return tag;
+}
+
+QString ResolveUiLocaleTag() {
+  const QByteArray forced = qgetenv("M88_LANG");
+  if (!forced.isEmpty()) {
+    return NormalizeLocaleTag(QString::fromUtf8(forced));
+  }
+
+  const QLocale locale = QLocale::system();
+  switch (locale.language()) {
+    case QLocale::Japanese:
+      return QStringLiteral("ja");
+    case QLocale::English:
+      return QStringLiteral("en");
+    default:
+      break;
+  }
+  return NormalizeLocaleTag(locale.name());
+}
+
+QStringList LocaleCandidates(const QString& locale_tag) {
+  QStringList candidates;
+  const QString normalized = NormalizeLocaleTag(locale_tag);
+  if (!normalized.isEmpty()) {
+    candidates << normalized;
+  }
+  const int sep = normalized.indexOf(QLatin1Char('_'));
+  if (sep > 0) {
+    const QString language = normalized.left(sep);
+    if (!candidates.contains(language)) {
+      candidates << language;
+    }
+  }
+  return candidates;
+}
+
+QStringList TranslationSearchPaths() {
+  QStringList paths;
+
+  const QByteArray env_dir = qgetenv("M88_TRANSLATIONS_DIR");
+  if (!env_dir.isEmpty()) {
+    paths << QDir::cleanPath(QString::fromLocal8Bit(env_dir));
+  }
+
+  const QStringList data_dirs =
+      QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+  for (const QString& data_dir : data_dirs) {
+    const QString path = data_dir + QStringLiteral("/m88-qt/translations");
+    if (!paths.contains(path)) {
+      paths << path;
+    }
+  }
+
+  const QString app_dir = QCoreApplication::applicationDirPath();
+  const QString rel_share = QDir(app_dir).filePath(QStringLiteral("../share/m88-qt/translations"));
+  const QString local_dir = QDir(app_dir).filePath(QStringLiteral("translations"));
+  for (const QString& path : {rel_share, local_dir}) {
+    const QString cleaned = QDir::cleanPath(path);
+    if (!paths.contains(cleaned)) {
+      paths << cleaned;
+    }
+  }
+
+  return paths;
 }
 
 class M88JsonTranslator final : public QTranslator {
  public:
-  explicit M88JsonTranslator(QObject* parent = nullptr) : QTranslator(parent) {
-    if (!loadFromResource(QString::fromLatin1(kAppTranslationResource))) {
-      const QString file_path =
-          QCoreApplication::applicationDirPath() +
-          QStringLiteral("/translations/m88-qt_ja.json");
-      loadFromFile(file_path);
-    }
-  }
+  explicit M88JsonTranslator(QObject* parent = nullptr) : QTranslator(parent) {}
 
   bool isLoaded() const { return !map_.isEmpty(); }
   int entryCount() const { return map_.size(); }
+  const QString& loadedLocale() const { return loaded_locale_; }
+  const QString& loadedFrom() const { return loaded_from_; }
+
+  bool loadLocale(const QString& locale_tag) {
+    map_.clear();
+    loaded_locale_.clear();
+    loaded_from_.clear();
+
+    for (const QString& candidate : LocaleCandidates(locale_tag)) {
+      if (IsEmbeddedLocale(candidate)) {
+        const QString resource_path =
+            QStringLiteral(":/i18n/m88-qt_%1.json").arg(candidate);
+        if (loadFromResource(resource_path)) {
+          loaded_locale_ = candidate;
+          loaded_from_ = resource_path;
+          return true;
+        }
+        continue;
+      }
+
+      for (const QString& dir : TranslationSearchPaths()) {
+        const QString file_path =
+            dir + QStringLiteral("/m88-qt_") + candidate + QStringLiteral(".json");
+        if (loadFromFile(file_path)) {
+          loaded_locale_ = candidate;
+          loaded_from_ = file_path;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
   QString translate(const char* context, const char* sourceText, const char* disambiguation,
                     int n) const override {
@@ -87,6 +183,8 @@ class M88JsonTranslator final : public QTranslator {
     if (array.isEmpty()) {
       return false;
     }
+
+    QHash<QByteArray, QString> next;
     for (const QJsonValue& entry : array) {
       if (!entry.isObject()) {
         continue;
@@ -98,44 +196,81 @@ class M88JsonTranslator final : public QTranslator {
       if (context.isEmpty() || source.isEmpty() || translation.isEmpty()) {
         continue;
       }
-      map_.insert(context.toUtf8() + '\0' + source.toUtf8(), translation);
+      next.insert(context.toUtf8() + '\0' + source.toUtf8(), translation);
     }
-    return !map_.isEmpty();
+    if (next.isEmpty()) {
+      return false;
+    }
+    map_ = std::move(next);
+    return true;
   }
 
   QHash<QByteArray, QString> map_;
+  QString loaded_locale_;
+  QString loaded_from_;
 };
 
-bool LoadQtBaseTranslator(QApplication& app) {
+bool LoadQtBaseTranslator(QApplication& app, const QString& locale_tag) {
+  if (locale_tag.startsWith(QStringLiteral("en"))) {
+    return false;
+  }
+
   QTranslator* qt_translator = new QTranslator(&app);
   const QString translations_path =
       QLibraryInfo::path(QLibraryInfo::TranslationsPath);
-  if (qt_translator->load(QStringLiteral("qtbase_ja"), translations_path)) {
-    app.installTranslator(qt_translator);
+  for (const QString& candidate : LocaleCandidates(locale_tag)) {
+    if (qt_translator->load(QStringLiteral("qtbase_") + candidate, translations_path)) {
+      app.installTranslator(qt_translator);
+      return true;
+    }
+  }
+
+  delete qt_translator;
+  return false;
+}
+
+bool InstallAppTranslator(QApplication& app, const QString& locale_tag,
+                            const char* requested_label) {
+  auto* app_translator = new M88JsonTranslator(&app);
+  if (app_translator->loadLocale(locale_tag)) {
+    app.installTranslator(app_translator);
+    std::fprintf(stderr, "M88: UI language: %s (%d strings, %s)\n",
+                 app_translator->loadedLocale().toUtf8().constData(),
+                 app_translator->entryCount(),
+                 app_translator->loadedFrom().toUtf8().constData());
     return true;
   }
-  delete qt_translator;
+
+  std::fprintf(stderr,
+               "M88: warning: UI translations for %s could not be loaded; "
+               "falling back to English\n",
+               requested_label);
+  delete app_translator;
   return false;
 }
 
 }  // namespace
 
 void M88InstallTranslations(QApplication& app) {
-  if (!UseJapaneseUi()) {
+  const QString requested = ResolveUiLocaleTag();
+  const QByteArray requested_label = requested.toUtf8();
+
+  if (requested.startsWith(QStringLiteral("en"))) {
+    if (InstallAppTranslator(app, QStringLiteral("en"), requested_label.constData())) {
+      return;
+    }
+    std::fprintf(stderr, "M88: UI language: English\n");
     return;
   }
-  LoadQtBaseTranslator(app);
-  auto* app_translator = new M88JsonTranslator(&app);
-  if (app_translator->isLoaded()) {
-    app.installTranslator(app_translator);
-    std::fprintf(stderr, "M88: UI language: Japanese (%d strings)\n",
-                 app_translator->entryCount());
-  } else {
-    std::fprintf(stderr,
-                 "M88: warning: Japanese UI translations could not be loaded "
-                 "(resource %s)\n",
-                 kAppTranslationResource);
-    delete app_translator;
+
+  LoadQtBaseTranslator(app, requested);
+  if (InstallAppTranslator(app, requested, requested_label.constData())) {
+    return;
+  }
+
+  LoadQtBaseTranslator(app, QStringLiteral("en"));
+  if (!InstallAppTranslator(app, QStringLiteral("en"), requested_label.constData())) {
+    std::fprintf(stderr, "M88: UI language: English (source strings)\n");
   }
 }
 

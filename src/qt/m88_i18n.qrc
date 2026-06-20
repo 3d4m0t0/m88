@@ -1,6 +1,7 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
   <qresource prefix="/i18n">
+    <file alias="m88-qt_en.json">../../translations/m88-qt_en.json</file>
     <file alias="m88-qt_ja.json">../../translations/m88-qt_ja.json</file>
   </qresource>
 </RCC>

@@ -58,6 +58,14 @@ if(TARGET m88-qt)
     "${CMAKE_CURRENT_SOURCE_DIR}/data/LICENSE.BSD"
     DESTINATION ${M88_QT_LICENSEDIR})
 
+  file(GLOB M88_EXTERNAL_TRANSLATIONS
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/m88-qt_*.json")
+  list(FILTER M88_EXTERNAL_TRANSLATIONS EXCLUDE REGEX ".*/m88-qt_(en|ja)\\.json$")
+  if(M88_EXTERNAL_TRANSLATIONS)
+    install(FILES ${M88_EXTERNAL_TRANSLATIONS}
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/m88-qt/translations)
+  endif()
+
   message(STATUS "Install rules: ${CMAKE_INSTALL_BINDIR}/m88-qt, "
                  "${CMAKE_INSTALL_DATADIR}/applications/m88-qt.desktop, "
                  "${M88_QT_DOCDIR}/")
