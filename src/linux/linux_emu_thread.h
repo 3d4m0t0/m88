@@ -71,6 +71,7 @@ class M88EmuThread {
   std::mutex boundary_mutex_;
   std::condition_variable boundary_cv_;
   std::atomic<bool> active_{true};
+  std::atomic<int> pause_depth_{0};
   std::atomic<bool> should_stop_{false};
   std::atomic<bool> at_frame_boundary_{false};
 };

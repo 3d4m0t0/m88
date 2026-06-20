@@ -75,6 +75,7 @@ void M88EmuThread::Start(Params params) {
 void M88EmuThread::Stop() {
   should_stop_ = true;
   active_ = true;
+  pause_depth_.store(0, std::memory_order_release);
   boundary_cv_.notify_all();
   // Break out of a long Z80::ExecDual slice running on this thread.
   if (params_.vm) {
@@ -114,15 +115,28 @@ void M88EmuThread::WaitIfPaused() {
 }
 
 void M88EmuThread::Pause() {
-  active_ = false;
+  const int prev = pause_depth_.fetch_add(1, std::memory_order_acq_rel);
+  if (prev > 0) {
+    return;
+  }
+  active_.store(false, std::memory_order_release);
   std::unique_lock<std::mutex> lock(boundary_mutex_);
   boundary_cv_.wait(lock, [this]() {
-    return at_frame_boundary_.load() || should_stop_.load();
+    return at_frame_boundary_.load(std::memory_order_acquire) ||
+           should_stop_.load(std::memory_order_acquire);
   });
 }
 
 void M88EmuThread::Resume() {
-  active_ = true;
+  const int prev = pause_depth_.fetch_sub(1, std::memory_order_acq_rel);
+  if (prev > 1) {
+    return;
+  }
+  if (prev <= 0) {
+    pause_depth_.store(0, std::memory_order_release);
+    return;
+  }
+  active_.store(true, std::memory_order_release);
   boundary_cv_.notify_all();
 }
 

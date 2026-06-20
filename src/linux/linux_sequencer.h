@@ -17,21 +17,21 @@ struct M88TimeKeeper {
   static constexpr int kUnit = 100;  // 0.01 ms per tick
 
   uint64_t base_ns = 0;
-  uint32_t time = 0;
+  int64_t time = 0;
 
   void Reset() {
     base_ns = M88MonotonicNowNs();
     time = 0;
   }
 
-  uint32_t GetTime() {
+  int64_t GetTime() {
     const uint64_t now = M88MonotonicNowNs();
     if (base_ns == 0) {
       base_ns = now;
     }
     const uint64_t delta_ns = now - base_ns;
     base_ns = now;
-    time += static_cast<uint32_t>(delta_ns / 10'000ULL);
+    time += static_cast<int64_t>(delta_ns / 10'000ULL);
     return time;
   }
 };
@@ -42,14 +42,14 @@ struct M88Sequencer {
   int clock = 40;       // host 0.1 MHz; 0 = fullspeed; <0 = burst (-host_clock)
   int speed = 100;      // config.speed / 10 (100 = 100%)
   int effclock = 100;
-  int time = 0;
+  int64_t time = 0;
 
   uint skippedframe = 0;
   uint refreshcount = 0;
   uint refreshtiming = 1;
   bool drawnextframe = true;
 
-  int fast_window_begin = 0;
+  int64_t fast_window_begin = 0;
   int fast_eclk = 0;
 
   long execcount = 0;
@@ -169,9 +169,9 @@ struct M88Sequencer {
                         const std::function<void(int emu_sleep_ticks)>& prepare_audio_sleep) {
     FrameResult result;
     const int texec = vm->GetFramePeriod();
-    const int twork = texec * 100 / speed;
+    const int64_t twork = static_cast<int64_t>(texec) * 100 / speed;
     vm->TimeSync();
-    const int32_t frame_start = static_cast<int32_t>(keeper.GetTime());
+    const int64_t frame_start = keeper.GetTime();
 
     int ticks_left = texec;
     const int slice_ticks = proceed_slice_ticks_;
@@ -217,9 +217,9 @@ struct M88Sequencer {
         continue;
       }
 
-      const int32_t now = static_cast<int32_t>(keeper.GetTime());
-      const int32_t scheduled =
-          frame_start + (slices_done * twork) / total_slices;
+      const int64_t now = keeper.GetTime();
+      const int64_t scheduled =
+          frame_start + (static_cast<int64_t>(slices_done) * twork) / total_slices;
       if (now < scheduled) {
         const uint64_t target_ns = M88MonotonicNowNs() +
                                    static_cast<uint64_t>(scheduled - now) * 10'000ULL;
@@ -257,7 +257,11 @@ struct M88Sequencer {
       }
     };
 
-    const int32_t tcpu = static_cast<int32_t>(keeper.GetTime()) - time;
+    int64_t tcpu = keeper.GetTime() - time;
+    if (tcpu < 0 || tcpu > twork * 4) {
+      time = keeper.GetTime();
+      tcpu = 0;
+    }
     if (tcpu < twork) {
       const bool draw_eligible = drawnextframe || refreshtiming <= 1;
       if (draw_eligible && ++refreshcount >= refreshtiming) {
@@ -271,7 +275,7 @@ struct M88Sequencer {
         draw_fn(draw_ctx, true);
       }
 
-      const int32_t tdraw = static_cast<int32_t>(keeper.GetTime()) - frame_start;
+      const int64_t tdraw = keeper.GetTime() - frame_start;
       drawnextframe = tdraw <= twork;
       if (prepare_audio_sleep) {
         prepare_audio_sleep(twork);
@@ -295,7 +299,7 @@ struct M88Sequencer {
     if (++skippedframe >= 20) {
       result.update_screen = true;
       skippedframe = 0;
-      time = static_cast<int>(keeper.GetTime());
+      time = keeper.GetTime();
       emu_pacer.Resync(M88MonotonicNowNs());
       if (draw_fn) {
         draw_fn(draw_ctx, true);
@@ -310,7 +314,7 @@ struct M88Sequencer {
                            uint64_t slice_ns, MixFn mix_fn, DrainFn drain_fn) {
     FrameResult result;
     if (fast_window_begin == 0) {
-      fast_window_begin = static_cast<int>(keeper.GetTime());
+      fast_window_begin = keeper.GetTime();
       fast_eclk = 0;
       vm->TimeSync();
     }
@@ -330,15 +334,18 @@ struct M88Sequencer {
       }
       fast_eclk += 5;
     } while (M88MonotonicNowNs() < slice_end_ns &&
-             static_cast<uint32_t>(keeper.GetTime() - fast_window_begin) < 1000);
+             keeper.GetTime() - fast_window_begin < 1000);
 
-    const uint32_t ms = keeper.GetTime() - static_cast<uint32_t>(fast_window_begin);
+    const int64_t ms = keeper.GetTime() - fast_window_begin;
     if (ms < 1000) {
       return result;
     }
 
     result.update_screen = true;
-    const int adapt = std::min(1000, fast_eclk) * effclock * 100 / static_cast<int>(std::max<uint32_t>(1, ms)) + 1;
+    const int adapt =
+        std::min(1000, fast_eclk) * effclock * 100 /
+            static_cast<int>(std::max<int64_t>(1, ms)) +
+        1;
     effclock = std::min(10000, adapt);
     fast_window_begin = 0;
     fast_eclk = 0;
