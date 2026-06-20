@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.3d4m0t0.m88-qt</id>
+  <name>M88</name>
+  <summary>PC-8801 series emulator</summary>
+  <summary xml:lang="ja">PC-8801 シリーズ エミュレータ</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>BSD-2-Clause</project_license>
+  <description>
+    <p>
+      Linux port of the M88 PC-8801 emulator with a Qt 6 frontend.
+      Requires legally obtained ROM files from hardware you own.
+    </p>
+    <p xml:lang="ja">
+      M88 PC-8801 エミュレータの Linux (Qt 6) 移植版です。
+      所有する実機から吸い出した ROM ファイルが必要です。
+    </p>
+  </description>
+  <launchable type="desktop-id">m88-qt.desktop</launchable>
+  <url type="homepage">https://github.com/3d4m0t0/m88</url>
+  <developer id="io.github.3d4m0t0">
+    <name>3d4m0t0</name>
+  </developer>
+  <releases>
+    <release version="@M88_PORT_VERSION@" date="@M88_RELEASE_DATE@"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

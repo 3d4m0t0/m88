@@ -1,0 +1,49 @@
+.\" Man page for m88-qt.  Install with: cmake --install build --prefix /usr
+.TH M88-QT 1 "@M88_PORT_VERSION@" "M88"
+.SH NAME
+m88-qt \- PC-8801 series emulator (Qt frontend)
+.SH SYNOPSIS
+.B m88-qt
+[\fIoptions\fR]
+.SH DESCRIPTION
+.B m88-qt
+is a Qt 6 frontend for the M88 PC-8801 emulator on Linux.
+.PP
+Configuration and user data are stored in the current working directory when
+\fIm88.ini\fR is present there; otherwise they are stored under
+\fI$HOME/.config/m88/\fR.
+.PP
+ROM files must be placed in the \fIroms/\fR subdirectory of the configuration
+directory, or loaded from a directory given with \fB--rom-dir\fR.
+.SH OPTIONS
+.TP
+.BR \-\-scale " N"
+Set the initial window scale factor.
+.TP
+.BR \-\-rom-dir " PATH"
+Load ROM and rhythm WAV files from \fIPATH\fR instead of the default
+\fIroms/\fR directory.
+.TP
+.BR \-d0 " FILE"
+Insert disk image \fIFILE\fR into drive 0 at startup.
+.TP
+.BR \-\-config " PATH"
+Use \fIPATH\fR as the configuration file (\fIm88.ini\fR).
+.TP
+.BR \-\-keyboard " TYPE"
+Select keyboard layout (\fBjis\fR, \fB101\fR, etc.).
+.TP
+.BR \-\-arrow-tenkey
+Map arrow keys to the numeric keypad.
+.SH FILES
+.TP
+.I ~/.config/m88/m88.ini
+User configuration (when not using a local \fIm88.ini\fR).
+.TP
+.I ~/.config/m88/roms/
+Default ROM directory in user configuration mode.
+.SH SEE ALSO
+Project documentation in \fI@M88_QT_DOCDIR_FULL@\fR.
+.SH COPYRIGHT
+Linux/Qt port files are under the 2-clause BSD license.
+Other parts of M88 follow the original cisc license; see README.md.

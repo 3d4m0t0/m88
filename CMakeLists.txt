@@ -263,3 +263,5 @@ if(M88_BUILD_LINUX_FRONTEND)
     message(STATUS "Configured m88 (experimental SDL2 frontend)")
   endif()
 endif()
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/M88Install.cmake")

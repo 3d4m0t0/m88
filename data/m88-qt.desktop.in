@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=M88
+GenericName=PC-8801 Emulator
+GenericName[ja]=PC-8801 エミュレータ
+Comment=PC-8801 series emulator (Qt)
+Comment[ja]=PC-8801 シリーズ エミュレータ (Qt)
+Exec=m88-qt %f
+Icon=m88-qt
+Terminal=false
+Categories=Game;Emulator;
+Keywords=emulator;pc8801;retro;nec;m88;
+StartupNotify=true
