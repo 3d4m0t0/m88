@@ -33,6 +33,17 @@ QString NormalizeLocaleTag(QString tag) {
   if (tag.compare(QStringLiteral("jp"), Qt::CaseInsensitive) == 0) {
     return QStringLiteral("ja");
   }
+  if (tag.compare(QStringLiteral("zh"), Qt::CaseInsensitive) == 0 ||
+      tag.startsWith(QStringLiteral("zh_hans"), Qt::CaseInsensitive) ||
+      tag.startsWith(QStringLiteral("zh_cn"), Qt::CaseInsensitive)) {
+    return QStringLiteral("zh_CN");
+  }
+  if (tag.startsWith(QStringLiteral("zh_tw"), Qt::CaseInsensitive) ||
+      tag.startsWith(QStringLiteral("zh_hk"), Qt::CaseInsensitive) ||
+      tag.startsWith(QStringLiteral("zh_mo"), Qt::CaseInsensitive) ||
+      tag.startsWith(QStringLiteral("zh_hant"), Qt::CaseInsensitive)) {
+    return QStringLiteral("zh_TW");
+  }
   if (tag.compare(QStringLiteral("C"), Qt::CaseInsensitive) == 0 ||
       tag.compare(QStringLiteral("POSIX"), Qt::CaseInsensitive) == 0) {
     return QStringLiteral("en");
@@ -52,6 +63,28 @@ QString ResolveUiLocaleTag() {
       return QStringLiteral("ja");
     case QLocale::English:
       return QStringLiteral("en");
+    case QLocale::Korean:
+      return QStringLiteral("ko");
+    case QLocale::German:
+      return QStringLiteral("de");
+    case QLocale::French:
+      return QStringLiteral("fr");
+    case QLocale::Spanish:
+      return QStringLiteral("es");
+    case QLocale::Chinese: {
+      const QString name = locale.name();
+      if (name.startsWith(QStringLiteral("zh_TW"), Qt::CaseInsensitive) ||
+          name.startsWith(QStringLiteral("zh_HK"), Qt::CaseInsensitive) ||
+          name.startsWith(QStringLiteral("zh_MO"), Qt::CaseInsensitive) ||
+          name.startsWith(QStringLiteral("zh_Hant"), Qt::CaseInsensitive)) {
+        return QStringLiteral("zh_TW");
+      }
+      if (name.startsWith(QStringLiteral("zh_CN"), Qt::CaseInsensitive) ||
+          name.startsWith(QStringLiteral("zh_Hans"), Qt::CaseInsensitive)) {
+        return QStringLiteral("zh_CN");
+      }
+      break;
+    }
     default:
       break;
   }

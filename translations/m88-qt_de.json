@@ -1,0 +1,1409 @@
+{
+  "translations": [
+    {
+      "context": "ConfigDialog",
+      "source": "Auto",
+      "translation": "Automatisch"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Default",
+      "translation": "Standard"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "%1 (not found)",
+      "translation": "%1 (nicht gefunden)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Mute",
+      "translation": "Stumm"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires a machine reset to\ntake effect. (Control - Reset).",
+      "translation": "Erfordert einen Maschinen-Reset,\num wirksam zu werden. (Control - Reset)."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "M88 Configuration",
+      "translation": "M88-Konfiguration"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Speed",
+      "translation": "Geschwindigkeit"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " MHz",
+      "translation": " MHz"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "CPU clock (&C):",
+      "translation": "CPU-Takt (&C):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Ratio (&B):",
+      "translation": "Verhältnis (&B):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Full speed (&M)",
+      "translation": "Volle Geschwindigkeit (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Skip speed limit (&N)",
+      "translation": "Geschwindigkeitslimit ignorieren (&N)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Main/sub CPU ratio (&R)",
+      "translation": "Haupt-/Sub-CPU-Verhältnis (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:1",
+      "translation": "1:1"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "2:1",
+      "translation": "2:1"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Misc",
+      "translation": "Sonstiges"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Run sub CPU always (&S)",
+      "translation": "Sub-CPU immer ausführen (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Wait (&W)",
+      "translation": "Wait (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FDD wait (&F)",
+      "translation": "FDD wait (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Extended RAM (&E)",
+      "translation": "Erweiterter RAM (&E)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "x 32 KB",
+      "translation": "x 32 KB"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "%1%",
+      "translation": "%1%"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "CPU",
+      "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Screen refresh ratio (&R)",
+      "translation": "Bildwiederholrate (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:1 (60Hz)",
+      "translation": "1:1 (60 Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:2 (30Hz)",
+      "translation": "1:2 (30 Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:3 (20Hz)",
+      "translation": "1:3 (20 Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:4 (15Hz)",
+      "translation": "1:4 (15 Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable PCG (&P)",
+      "translation": "PCG aktivieren (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "15KHz monitor mode (&1)",
+      "translation": "15-kHz-Monitor-Modus (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Digital palette mode (&D)",
+      "translation": "Digitale Paletten-Modus (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Force 640x480 in fullscreen (&V)",
+      "translation": "640x480 im Vollbild erzwingen (&V)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Lower draw priority (&L)",
+      "translation": "Zeichenpriorität senken (&L)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Show even scanlines (&F)",
+      "translation": "Gerade Scanlines anzeigen (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sync to VSync in fullscreen (&S)",
+      "translation": "Im Vollbild mit VSync synchronisieren (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Screen",
+      "translation": "Bildschirm"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Remember directory on exit (&D)",
+      "translation": "Verzeichnis beim Beenden merken (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Remember window position (&W)",
+      "translation": "Fensterposition merken (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available on Wayland (the compositor controls window placement).",
+      "translation": "Unter Wayland nicht verfügbar (Fensterplatzierung wird vom Compositor gesteuert)."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Confirm reset/exit (&E)",
+      "translation": "Reset/Beenden bestätigen (&E)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Suppress menu via keyboard (&K)",
+      "translation": "Menü per Tastatur unterdrücken (&K)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use gamepad (&J)",
+      "translation": "Gamepad verwenden (&J)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Swap gamepad buttons (&S)",
+      "translation": "Gamepad-Tasten tauschen (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "F12 as Reset (&F)",
+      "translation": "F12 als Reset (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use serial mouse (&M)",
+      "translation": "Serielle Maus verwenden (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use bus mouse (&O)",
+      "translation": "Bus-Maus verwenden (&O)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Auto screenshot filename (&C)",
+      "translation": "Screenshot-Dateiname automatisch (&C)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Compress snapshot files (&Z)",
+      "translation": "Schnappschussdateien komprimieren (&Z)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sensitivity (&P):",
+      "translation": "Empfindlichkeit (&P):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "coarse",
+      "translation": "grob"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Other",
+      "translation": "Funktionen"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sample rate (&M)",
+      "translation": "Abtastrate (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h)",
+      "translation": "FM ($44h)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPN (&1)",
+      "translation": "OPN (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPNA (&2)",
+      "translation": "OPNA (&2)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "None",
+      "translation": "Keine"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h)",
+      "translation": "FM ($A8h)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPN (MkII)",
+      "translation": "OPN (MkII)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPNA (MkIII)",
+      "translation": "OPNA (MkIII)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " ms",
+      "translation": " ms"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound buffer (&B):",
+      "translation": "Soundpuffer (&B):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable CMD SING (&G)",
+      "translation": "CMD SING aktivieren (&G)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Prioritize sound mixing (&S)",
+      "translation": "Soundmischung priorisieren (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "High precision mixing (&P)",
+      "translation": "Hochpräzises Mischen (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use native FM clock for synthesis",
+      "translation": "Nativen FM-Takt für Synthese verwenden"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable LPF",
+      "translation": "LPF aktivieren"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " kHz",
+      "translation": " kHz"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Output device:",
+      "translation": "Ausgabegerät:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Backend:",
+      "translation": "Backend:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Cutoff:",
+      "translation": "Grenzfrequenz:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Order:",
+      "translation": "Ordnung:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound",
+      "translation": "Ton"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&FM",
+      "translation": "&FM"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&SSG",
+      "translation": "&SSG"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "AD&PCM",
+      "translation": "AD&PCM"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Rhythm",
+      "translation": "&Rhythmus"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Bass Drum",
+      "translation": "&Basstrommel"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Snare &Drum",
+      "translation": "&Snare"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Top &Cymbal",
+      "translation": "Top-&Becken"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Hi-Hat",
+      "translation": "&Hi-Hat"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Tom",
+      "translation": "&Tom"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "R&im Shot",
+      "translation": "R&imshot"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Reset Source",
+      "translation": "Quelle zurücksetzen"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Reset Rhythm",
+      "translation": "Rhythmus zurücksetzen"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Volume",
+      "translation": "Lautstärke"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Boot mode (&M)",
+      "translation": "Startmodus (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Terminal",
+      "translation": "Terminal"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "BASIC",
+      "translation": "BASIC"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Chars per line (&W)",
+      "translation": "Zeichen pro Zeile (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "80",
+      "translation": "80"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "40",
+      "translation": "40"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Lines per screen (&H)",
+      "translation": "Zeilen pro Bildschirm (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "25",
+      "translation": "25"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "20",
+      "translation": "20"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "S parameter (&S)",
+      "translation": "S-Parameter (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable",
+      "translation": "Aktivieren"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Disable",
+      "translation": "Deaktivieren"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "DEL code (&L)",
+      "translation": "DEL-Code (&L)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Process",
+      "translation": "Verarbeiten"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Ignore",
+      "translation": "Ignorieren"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Parity check (&P)",
+      "translation": "Paritätsprüfung (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "On",
+      "translation": "Ein"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Off",
+      "translation": "Aus"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Parity type (&Q)",
+      "translation": "Paritätstyp (&Q)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Even",
+      "translation": "Gerade"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Odd",
+      "translation": "Ungerade"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Data bits (&D)",
+      "translation": "Datenbits (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "8-bit",
+      "translation": "8-Bit"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "7-bit",
+      "translation": "7-Bit"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Stop bits (&T)",
+      "translation": "Stoppbits (&T)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "2-bit",
+      "translation": "2-Bit"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1-bit",
+      "translation": "1-Bit"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "X parameter (&X)",
+      "translation": "X-Parameter (&X)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Duplex (&U)",
+      "translation": "Duplex (&U)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half",
+      "translation": "Halbduplex"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Full",
+      "translation": "Vollduplex"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Boot from FDD (&B)",
+      "translation": "Von FDD starten (&B)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No",
+      "translation": "Nein"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "DIP-SW",
+      "translation": "DIP-SW"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Host keyboard",
+      "translation": "Host-Tastatur"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Japanese 106-key (&J)",
+      "translation": "Japanische 106-Tasten (&J)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "101/104-key AT (&1)",
+      "translation": "101/104-Tasten AT (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Environment",
+      "translation": "Umgebung"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Disk not found: %1",
+      "translation": "Datenträger nicht gefunden: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to mount disk: %1",
+      "translation": "Datenträger konnte nicht eingebunden werden: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Drive %1 ejected",
+      "translation": "Laufwerk %1 ausgeworfen"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to mount disk",
+      "translation": "Datenträger konnte nicht eingebunden werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Mounted on drive %1: %2",
+      "translation": "In Laufwerk %1 eingebunden: %2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to select disk",
+      "translation": "Datenträgerauswahl fehlgeschlagen"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Emulator is not ready",
+      "translation": "Emulator ist nicht bereit"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Reset complete",
+      "translation": "Reset abgeschlossen"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not capture screen",
+      "translation": "Bildschirm konnte nicht erfasst werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to create screen image",
+      "translation": "Bildschirmbild konnte nicht erstellt werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "No save path specified",
+      "translation": "Kein Speicherpfad angegeben"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not save screen image to %1",
+      "translation": "Bildschirmbild konnte nicht nach %1 gespeichert werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Screen image saved to %1",
+      "translation": "Bildschirmbild gespeichert nach %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound output is disabled",
+      "translation": "Tonausgabe ist deaktiviert"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not record sound to %1",
+      "translation": "Ton konnte nicht nach %1 aufgezeichnet werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound recording started: %1",
+      "translation": "Tonaufnahme gestartet: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound recording stopped",
+      "translation": "Tonaufnahme beendet"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Saved to %1",
+      "translation": "Gespeichert nach %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not save to %1",
+      "translation": "Konnte nicht nach %1 speichern"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not restore from %1",
+      "translation": "Konnte nicht von %1 wiederherstellen"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Restored from %1",
+      "translation": "Wiederhergestellt von %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Burst mode on",
+      "translation": "Burst-Modus ein"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Burst mode off",
+      "translation": "Burst-Modus aus"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Clock: %1 MHz",
+      "translation": "Takt: %1 MHz"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Basic mode changed",
+      "translation": "BASIC-Modus geändert"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize disk manager",
+      "translation": "Datenträger-Manager konnte nicht initialisiert werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize PC-8801 core",
+      "translation": "PC-8801-Kern konnte nicht initialisiert werden"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize keyboard",
+      "translation": "Tastatur konnte nicht initialisiert werden"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Emulator running",
+      "translation": "Emulator läuft"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Required ROM not found (pc88.rom or n88.rom). Place ROM files in the roms directory and restart.",
+      "translation": "Erforderliche ROM nicht gefunden (pc88.rom oder n88.rom). ROM-Dateien in das roms-Verzeichnis legen und neu starten."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Control",
+      "translation": "&Steuerung"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Reset",
+      "translation": "&Reset"
+    },
+    {
+      "context": "MainWindow",
+      "source": "4MHz",
+      "translation": "4 MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "8MHz",
+      "translation": "8 MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V&1(S) mode",
+      "translation": "N88-V1(S)-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V1(&H) mode",
+      "translation": "N88-V1(H)-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V&2 mode",
+      "translation": "N88-V2-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V2(C&D) mode",
+      "translation": "N88-V2(C&D)-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&N mode",
+      "translation": "N-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N8&0 mode",
+      "translation": "N80-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N&80SR mode",
+      "translation": "N80SR-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Toggle &fullscreen",
+      "translation": "&Vollbild umschalten"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Burst mode",
+      "translation": "&Burst-Modus"
+    },
+    {
+      "context": "MainWindow",
+      "source": "E&xit",
+      "translation": "Be&enden"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Disk",
+      "translation": "&Datenträger"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &1...",
+      "translation": "Laufwerk &1..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &2...",
+      "translation": "Laufwerk &2..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &%1...",
+      "translation": "Laufwerk &%1..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &%1 - %2",
+      "translation": "Laufwerk &%1 - %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Change disk image...",
+      "translation": "Datenträger&abbild ändern..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Ta&pe",
+      "translation": "&Band"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Open...",
+      "translation": "&Öffnen..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Tools",
+      "translation": "&Extras"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Configure...",
+      "translation": "&Konfigurieren..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "S&how Status",
+      "translation": "Status an&zeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Capture...",
+      "translation": "&Aufnahme..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Record Sound",
+      "translation": "Ton &aufnehmen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Save Snapshot",
+      "translation": "Schnappschuss &speichern"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Load Snapshot",
+      "translation": "Schnappschuss &laden"
+    },
+    {
+      "context": "MainWindow",
+      "source": "D&ebug",
+      "translation": "&Debug"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &FDC Status",
+      "translation": "&FDC-Status anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Register",
+      "translation": "&Register anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &OPN Register",
+      "translation": "&OPN-Register anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Memory",
+      "translation": "&Speicher anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Code",
+      "translation": "&Code anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Basic code",
+      "translation": "&BASIC-Code anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show Out&port",
+      "translation": "Ausgabe&port anzeigen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Load Monitor",
+      "translation": "Monitor &laden"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Dump CPU&1 Log",
+      "translation": "CPU&1-Log speichern"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Dump CPU&2 Log",
+      "translation": "CPU&2-Log speichern"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Help",
+      "translation": "&Hilfe"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&About",
+      "translation": "&Über M88"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Reset",
+      "translation": "Reset"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Reset the emulated machine?",
+      "translation": "Emulierte Maschine zurücksetzen?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Exit",
+      "translation": "Beenden"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Exit M88?",
+      "translation": "M88 beenden?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open disk image",
+      "translation": "Datenträgerabbild öffnen"
+    },
+    {
+      "context": "MainWindow",
+      "source": "8801 disk image (*.d88);;All files (*)",
+      "translation": "8801-Datenträgerabbild (*.d88);;Alle Dateien (*)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "M88 - %1 fps.  %2.%3 MHz",
+      "translation": "M88 - %1 fps.  %2.%3 MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "About M88",
+      "translation": "Über M88"
+    },
+    {
+      "context": "MainWindow",
+      "source": "<h3>M88 for Linux (Qt)</h3><p>rel %1<br/>PC-8801 series emulator / Copyright (C) 1998, 2003 cisc</p><p>Linux port: <a href=\"https://github.com/3d4m0t0/m88\">https://github.com/3d4m0t0/m88</a></p><p>Original: <a href=\"http://www.retropc.net/cisc/m88/\">http://www.retropc.net/cisc/m88/</a></p><p>Forked from <a href=\"https://github.com/rururutan/m88\">https://github.com/rururutan/m88</a></p><p>Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)</p>",
+      "translation": "<h3>M88 for Linux (Qt)</h3><p>rel %1<br/>PC-8801-Emulator / Copyright (C) 1998, 2003 cisc</p><p>Linux-Port: <a href=\"https://github.com/3d4m0t0/m88\">https://github.com/3d4m0t0/m88</a></p><p>Original: <a href=\"http://www.retropc.net/cisc/m88/\">http://www.retropc.net/cisc/m88/</a></p><p>Abgeleitet von: <a href=\"https://github.com/rururutan/m88\">https://github.com/rururutan/m88</a></p><p>Danksagungen: FM-Sound (Tatsuya Sato fm.c), N80/SR (arearea)</p>"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Save captured image",
+      "translation": "Aufnahme speichern"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Bitmap image [4bpp] (*.bmp);;All files (*)",
+      "translation": "Bitmap-Bild [4bpp] (*.bmp);;Alle Dateien (*)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&N No disk",
+      "translation": "&Kein Datenträger"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&0 Change disk",
+      "translation": "&Wechseln"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(untitled)",
+      "translation": "(ohne Titel)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&%1 %2",
+      "translation": "&%1 %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "%1 %2",
+      "translation": "%1 %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Edit multi-disk image...",
+      "translation": "Multi-Datenträgerabbild &bearbeiten..."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Multi-disk image editor",
+      "translation": "Multi-Datenträgerabbild-Editor"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "New",
+      "translation": "Neu"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Load",
+      "translation": "Laden"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Output directory:",
+      "translation": "Ausgabeverzeichnis:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "directory path",
+      "translation": "Verzeichnispfad"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Output file:",
+      "translation": "Ausgabedatei:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "filename.d88",
+      "translation": "dateiname.d88"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Name",
+      "translation": "Name"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Source",
+      "translation": "Quelle"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Browse...",
+      "translation": "Durchsuchen..."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Blank",
+      "translation": "Leer"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Clear",
+      "translation": "Leeren"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "New blank disk",
+      "translation": "Neue leere Diskette"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Title:",
+      "translation": "Titel:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Type:",
+      "translation": "Typ:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Untitled",
+      "translation": "Ohne Titel"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2D",
+      "translation": "2D"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2DD",
+      "translation": "2DD"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2HD",
+      "translation": "2HD"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "(empty)",
+      "translation": "(leer)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": " (disk %1)",
+      "translation": " (Datenträger %1)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Blank (%1)",
+      "translation": "Leer (%1)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Load disk image",
+      "translation": "Datenträgerabbild laden"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Could not read disk image:\n%1",
+      "translation": "Datenträgerabbild konnte nicht gelesen werden:\n%1"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Select output directory",
+      "translation": "Ausgabeverzeichnis wählen"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Select disk image",
+      "translation": "Datenträgerabbild wählen"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "8801 disk image (*.d88);;All files (*)",
+      "translation": "8801-Datenträgerabbild (*.d88);;Alle Dateien (*)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Write multi-disk image",
+      "translation": "Multi-Datenträgerabbild schreiben"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Enter an output file name.",
+      "translation": "Ausgabedateinamen eingeben."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Add at least one disk image.",
+      "translation": "Mindestens ein Datenträgerabbild hinzufügen."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Failed to write disk image:\n%1",
+      "translation": "Datenträgerabbild konnte nicht geschrieben werden:\n%1"
+    },
+    {
+      "context": "StatusBar",
+      "source": "%1 mode",
+      "translation": "%1-Modus"
+    },
+    {
+      "context": "StatusBar",
+      "source": "Read ",
+      "translation": "Read "
+    },
+    {
+      "context": "StatusBar",
+      "source": "Write ",
+      "translation": "Write "
+    },
+    {
+      "context": "StatusBar",
+      "source": "Scan ",
+      "translation": "Scan "
+    },
+    {
+      "context": "StatusBar",
+      "source": "ReadID ",
+      "translation": "ReadID "
+    },
+    {
+      "context": "StatusBar",
+      "source": "WriteID ",
+      "translation": "WriteID "
+    },
+    {
+      "context": "StatusBar",
+      "source": "ReadDiagnostic ",
+      "translation": "ReadDiagnostic "
+    },
+    {
+      "context": "StatusBar",
+      "source": "end of tape",
+      "translation": "Bandende"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N",
+      "translation": "N"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N80",
+      "translation": "N80"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N80-V2",
+      "translation": "N80-V2"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V1(S)",
+      "translation": "N88-V1(S)"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V1(H)",
+      "translation": "N88-V1(H)"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V2",
+      "translation": "N88-V2"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V2 with CD",
+      "translation": "N88-V2 with CD"
+    },
+    {
+      "context": "BasicMode",
+      "source": "Unknown",
+      "translation": "Unbekannt"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available with 101/104-key AT keyboard (Alt is not mapped to GRPH).",
+      "translation": "Mit 101/104-Tasten-AT-Tastatur nicht verfügbar (Alt ist nicht GRPH zugeordnet)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Map arrow keys to ten-key (&N)",
+      "translation": "Pfeiltasten auf Ziffernblock legen (&N)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys mapped to ten-key",
+      "translation": "Pfeiltasten auf Ziffernblock gelegt"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys not mapped to ten-key",
+      "translation": "Pfeiltasten-Ziffernblock-Zuordnung aufgehoben"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Inhibit display idle (&I)",
+      "translation": "Display-Idle unterdrücken (&I)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires Wayland with idle-inhibit support (not available in this session).",
+      "translation": "Erfordert Wayland mit idle-inhibit-Unterstützung (in dieser Sitzung nicht verfügbar)."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half-width kana via IME (&H)",
+      "translation": "Halbbreite Kana per IME (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Converts host IME text (romaji, hiragana, etc.) into PC-88 half-width kana key strokes.",
+      "translation": "Wandelt Host-IME-Text (Romaji, Hiragana usw.) in PC-88-Halbbreite-Kana-Tastendrücke um."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No host input method was detected at startup (fcitx, ibus, etc.).",
+      "translation": "Beim Start wurde keine Host-Eingabemethode erkannt (fcitx, ibus usw.)."
+    },
+    {
+      "context": "AboutDialog",
+      "source": "OK",
+      "translation": "OK"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "M88 for Linux (Qt) (rel %1)\nPC-8801 series emulator.\nCopyright (C) 1998, 2003 cisc",
+      "translation": "M88 for Linux (Qt) (rel %1)\nPC-8801-Serie-Emulator\nCopyright (C) 1998, 2003 cisc"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "GitHub:",
+      "translation": "GitHub:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Forked from:",
+      "translation": "Abgeleitet von:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Original:",
+      "translation": "Original:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "build date: %1",
+      "translation": "Build-Datum: %1"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)",
+      "translation": "Danksagungen: FM-Sound (Tatsuya Sato fm.c), N80/SR (arearea)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&Yes",
+      "translation": "&Ja"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&No",
+      "translation": "&Nein"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset",
+      "translation": "Reset"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset the emulated machine?",
+      "translation": "Emulierte Maschine zurücksetzen?"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit",
+      "translation": "Beenden"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit M88?",
+      "translation": "M88 beenden?"
+    }
+  ]
+}

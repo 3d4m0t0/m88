@@ -1,0 +1,1409 @@
+{
+  "translations": [
+    {
+      "context": "ConfigDialog",
+      "source": "Auto",
+      "translation": "自動"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Default",
+      "translation": "預設"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "%1 (not found)",
+      "translation": "%1（找不到）"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Mute",
+      "translation": "靜音"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires a machine reset to\ntake effect. (Control - Reset).",
+      "translation": "需要重設機器後\n才能生效。（Control - Reset）"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "M88 Configuration",
+      "translation": "M88 設定"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Speed",
+      "translation": "速度"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " MHz",
+      "translation": " MHz"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "CPU clock (&C):",
+      "translation": "CPU 時脈 (&C):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Ratio (&B):",
+      "translation": "比率 (&B):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Full speed (&M)",
+      "translation": "全速 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Skip speed limit (&N)",
+      "translation": "不限速 (&N)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Main/sub CPU ratio (&R)",
+      "translation": "主/副 CPU 比率 (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:1",
+      "translation": "1:1"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "2:1",
+      "translation": "2:1"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Misc",
+      "translation": "其他"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Run sub CPU always (&S)",
+      "translation": "始終執行副 CPU (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Wait (&W)",
+      "translation": "Wait (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FDD wait (&F)",
+      "translation": "FDD wait (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Extended RAM (&E)",
+      "translation": "擴充 RAM (&E)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "x 32 KB",
+      "translation": "x 32 KB"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "%1%",
+      "translation": "%1%"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "CPU",
+      "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Screen refresh ratio (&R)",
+      "translation": "畫面更新比率 (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:1 (60Hz)",
+      "translation": "1:1 (60Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:2 (30Hz)",
+      "translation": "1:2 (30Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:3 (20Hz)",
+      "translation": "1:3 (20Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:4 (15Hz)",
+      "translation": "1:4 (15Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable PCG (&P)",
+      "translation": "啟用 PCG (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "15KHz monitor mode (&1)",
+      "translation": "15KHz 顯示器模式 (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Digital palette mode (&D)",
+      "translation": "數字調色板模式 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Force 640x480 in fullscreen (&V)",
+      "translation": "全螢幕時固定 640x480 (&V)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Lower draw priority (&L)",
+      "translation": "降低繪製優先級 (&L)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Show even scanlines (&F)",
+      "translation": "顯示偶數掃描線 (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sync to VSync in fullscreen (&S)",
+      "translation": "全螢幕時 VSync 同步 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Screen",
+      "translation": "畫面"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Remember directory on exit (&D)",
+      "translation": "結束時记住目錄 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Remember window position (&W)",
+      "translation": "結束時记住窗口位置 (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available on Wayland (the compositor controls window placement).",
+      "translation": "Wayland 下不可用（窗口位置由合成器管理）。"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Confirm reset/exit (&E)",
+      "translation": "確認重設/結束 (&E)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Suppress menu via keyboard (&K)",
+      "translation": "用鍵盤抑制選單 (&K)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use gamepad (&J)",
+      "translation": "使用遊戲手把 (&J)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Swap gamepad buttons (&S)",
+      "translation": "交換手柄按钮 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "F12 as Reset (&F)",
+      "translation": "F12 作為重設 (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use serial mouse (&M)",
+      "translation": "使用序列埠滑鼠 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use bus mouse (&O)",
+      "translation": "使用匯流排滑鼠 (&O)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Auto screenshot filename (&C)",
+      "translation": "自動產生螢幕擷圖檔案名稱 (&C)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Compress snapshot files (&Z)",
+      "translation": "壓縮快照檔案 (&Z)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sensitivity (&P):",
+      "translation": "靈敏度 (&P):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "coarse",
+      "translation": "粗"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Other",
+      "translation": "功能"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sample rate (&M)",
+      "translation": "取樣率 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h)",
+      "translation": "FM ($44h)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPN (&1)",
+      "translation": "OPN (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPNA (&2)",
+      "translation": "OPNA (&2)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "None",
+      "translation": "無"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h)",
+      "translation": "FM ($A8h)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPN (MkII)",
+      "translation": "OPN (MkII)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPNA (MkIII)",
+      "translation": "OPNA (MkIII)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " ms",
+      "translation": " ms"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound buffer (&B):",
+      "translation": "音效緩衝區 (&B):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable CMD SING (&G)",
+      "translation": "啟用 CMD SING (&G)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Prioritize sound mixing (&S)",
+      "translation": "優先音效混音 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "High precision mixing (&P)",
+      "translation": "高精度混音 (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use native FM clock for synthesis",
+      "translation": "FM 合成使用原生 FM 時脈"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable LPF",
+      "translation": "啟用 LPF"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " kHz",
+      "translation": " kHz"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Output device:",
+      "translation": "輸出設備:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Backend:",
+      "translation": "後端:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Cutoff:",
+      "translation": "截止頻率:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Order:",
+      "translation": "階數:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound",
+      "translation": "音效"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&FM",
+      "translation": "&FM"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&SSG",
+      "translation": "&SSG"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "AD&PCM",
+      "translation": "AD&PCM"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Rhythm",
+      "translation": "節奏 (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Bass Drum",
+      "translation": "大鼓 (&B)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Snare &Drum",
+      "translation": "小鼓 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Top &Cymbal",
+      "translation": "Top Cymbal (&C)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Hi-Hat",
+      "translation": "腳踏鈸 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Tom",
+      "translation": "Tom (&T)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "R&im Shot",
+      "translation": "Rim (&I)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Reset Source",
+      "translation": "重設音源"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Reset Rhythm",
+      "translation": "重設節奏"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Volume",
+      "translation": "音量"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Boot mode (&M)",
+      "translation": "啟動模式 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Terminal",
+      "translation": "終端機"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "BASIC",
+      "translation": "BASIC"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Chars per line (&W)",
+      "translation": "每行字符數 (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "80",
+      "translation": "80"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "40",
+      "translation": "40"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Lines per screen (&H)",
+      "translation": "每畫面行數 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "25",
+      "translation": "25"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "20",
+      "translation": "20"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "S parameter (&S)",
+      "translation": "S 參數 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable",
+      "translation": "啟用"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Disable",
+      "translation": "停用"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "DEL code (&L)",
+      "translation": "DEL 程式碼 (&L)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Process",
+      "translation": "處理"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Ignore",
+      "translation": "忽略"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Parity check (&P)",
+      "translation": "同位校驗 (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "On",
+      "translation": "開"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Off",
+      "translation": "關"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Parity type (&Q)",
+      "translation": "同位類型 (&Q)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Even",
+      "translation": "偶"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Odd",
+      "translation": "奇"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Data bits (&D)",
+      "translation": "資料位 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "8-bit",
+      "translation": "8 位"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "7-bit",
+      "translation": "7 位"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Stop bits (&T)",
+      "translation": "停止位 (&T)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "2-bit",
+      "translation": "2 位"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1-bit",
+      "translation": "1 位"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "X parameter (&X)",
+      "translation": "X 參數 (&X)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Duplex (&U)",
+      "translation": "雙工 (&U)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half",
+      "translation": "半雙工"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Full",
+      "translation": "全雙工"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Boot from FDD (&B)",
+      "translation": "從 FDD 啟動 (&B)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No",
+      "translation": "否"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "DIP-SW",
+      "translation": "DIP-SW"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Host keyboard",
+      "translation": "主機鍵盤"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Japanese 106-key (&J)",
+      "translation": "日文 106 鍵 (&J)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "101/104-key AT (&1)",
+      "translation": "101/104 鍵 AT (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Environment",
+      "translation": "環境"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Disk not found: %1",
+      "translation": "找不到磁碟: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to mount disk: %1",
+      "translation": "掛載磁碟失敗: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Drive %1 ejected",
+      "translation": "已結束磁碟機 %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to mount disk",
+      "translation": "掛載磁碟失敗"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Mounted on drive %1: %2",
+      "translation": "已掛載到磁碟機 %1: %2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to select disk",
+      "translation": "選擇磁碟失敗"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Emulator is not ready",
+      "translation": "模擬器未就緒"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Reset complete",
+      "translation": "已重設"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not capture screen",
+      "translation": "無法擷取畫面"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to create screen image",
+      "translation": "創建畫面映像失敗"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "No save path specified",
+      "translation": "未指定儲存路徑"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not save screen image to %1",
+      "translation": "無法將畫面儲存到 %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Screen image saved to %1",
+      "translation": "畫面已儲存到 %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound output is disabled",
+      "translation": "音效輸出已停用"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not record sound to %1",
+      "translation": "無法將音效錄製到 %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound recording started: %1",
+      "translation": "已開始錄製音效: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound recording stopped",
+      "translation": "已停止錄製音效"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Saved to %1",
+      "translation": "已儲存到 %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not save to %1",
+      "translation": "無法儲存到 %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not restore from %1",
+      "translation": "無法從 %1 恢復"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Restored from %1",
+      "translation": "已從 %1 恢復"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Burst mode on",
+      "translation": "爆發模式 開"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Burst mode off",
+      "translation": "爆發模式 關"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Clock: %1 MHz",
+      "translation": "時脈: %1 MHz"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Basic mode changed",
+      "translation": "已變更 BASIC 模式"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize disk manager",
+      "translation": "初始化磁碟管理器失敗"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize PC-8801 core",
+      "translation": "初始化 PC-8801 核心失敗"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize keyboard",
+      "translation": "初始化鍵盤失敗"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Emulator running",
+      "translation": "模擬器執行中"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Required ROM not found (pc88.rom or n88.rom). Place ROM files in the roms directory and restart.",
+      "translation": "找不到必需的 ROM（pc88.rom 或 n88.rom）。請將 ROM 放入 roms 目錄後重新啟動。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Control",
+      "translation": "控制(&C)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Reset",
+      "translation": "重設(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "4MHz",
+      "translation": "4MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "8MHz",
+      "translation": "8MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V&1(S) mode",
+      "translation": "N88-V1(S) 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V1(&H) mode",
+      "translation": "N88-V1(H) 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V&2 mode",
+      "translation": "N88-V2 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V2(C&D) mode",
+      "translation": "N88-V2(C&D) 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&N mode",
+      "translation": "N 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N8&0 mode",
+      "translation": "N80 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N&80SR mode",
+      "translation": "N80SR 模式"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Toggle &fullscreen",
+      "translation": "切換全螢幕(&F)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Burst mode",
+      "translation": "爆發模式(&B)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "E&xit",
+      "translation": "結束(&X)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Disk",
+      "translation": "磁碟(&D)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &1...",
+      "translation": "磁碟機 1(&1)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &2...",
+      "translation": "磁碟機 2(&2)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &%1...",
+      "translation": "磁碟機 %1(&%1)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &%1 - %2",
+      "translation": "磁碟機 %1(&%1) - %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Change disk image...",
+      "translation": "變更磁碟映像(&C)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Ta&pe",
+      "translation": "磁帶(&P)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Open...",
+      "translation": "開啟(&O)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Tools",
+      "translation": "工具(&T)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Configure...",
+      "translation": "設定(&C)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "S&how Status",
+      "translation": "顯示狀態(&H)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Capture...",
+      "translation": "擷取(&C)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Record Sound",
+      "translation": "錄製音效(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Save Snapshot",
+      "translation": "儲存快照(&S)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Load Snapshot",
+      "translation": "載入快照(&L)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "D&ebug",
+      "translation": "偵錯(&E)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &FDC Status",
+      "translation": "顯示 FDC 狀態(&F)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Register",
+      "translation": "顯示暫存器(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &OPN Register",
+      "translation": "顯示 OPN 暫存器(&O)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Memory",
+      "translation": "顯示記憶體(&M)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Code",
+      "translation": "顯示程式碼(&C)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Basic code",
+      "translation": "顯示 BASIC 程式碼(&B)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show Out&port",
+      "translation": "顯示輸出連接埠(&P)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Load Monitor",
+      "translation": "載入監視器(&L)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Dump CPU&1 Log",
+      "translation": "匯出 CPU1 記錄(&1)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Dump CPU&2 Log",
+      "translation": "匯出 CPU2 記錄(&2)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Help",
+      "translation": "說明(&H)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&About",
+      "translation": "關於 M88(&A)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Reset",
+      "translation": "重設"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Reset the emulated machine?",
+      "translation": "是否重設模擬器？"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Exit",
+      "translation": "結束"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Exit M88?",
+      "translation": "是否結束 M88？"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open disk image",
+      "translation": "開啟磁碟映像"
+    },
+    {
+      "context": "MainWindow",
+      "source": "8801 disk image (*.d88);;All files (*)",
+      "translation": "8801 磁碟映像 (*.d88);;所有檔案 (*)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "M88 - %1 fps.  %2.%3 MHz",
+      "translation": "M88 - %1 fps.  %2.%3 MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "About M88",
+      "translation": "關於 M88"
+    },
+    {
+      "context": "MainWindow",
+      "source": "<h3>M88 for Linux (Qt)</h3><p>rel %1<br/>PC-8801 series emulator / Copyright (C) 1998, 2003 cisc</p><p>Linux port: <a href=\"https://github.com/3d4m0t0/m88\">https://github.com/3d4m0t0/m88</a></p><p>Original: <a href=\"http://www.retropc.net/cisc/m88/\">http://www.retropc.net/cisc/m88/</a></p><p>Forked from <a href=\"https://github.com/rururutan/m88\">https://github.com/rururutan/m88</a></p><p>Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)</p>",
+      "translation": "<h3>M88 for Linux (Qt)</h3><p>rel %1<br/>PC-8801 模擬器 / Copyright (C) 1998, 2003 cisc</p><p>Linux 移植: <a href=\"https://github.com/3d4m0t0/m88\">https://github.com/3d4m0t0/m88</a></p><p>原版: <a href=\"http://www.retropc.net/cisc/m88/\">http://www.retropc.net/cisc/m88/</a></p><p>衍生自: <a href=\"https://github.com/rururutan/m88\">https://github.com/rururutan/m88</a></p><p>致謝: FM 音源（佐藤達之 fm.c）、N80/SR（arearea）</p>"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Save captured image",
+      "translation": "儲存擷取映像"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Bitmap image [4bpp] (*.bmp);;All files (*)",
+      "translation": "Bitmap 映像 [4bpp] (*.bmp);;所有檔案 (*)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&N No disk",
+      "translation": "無磁碟(&N)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&0 Change disk",
+      "translation": "變更(&0)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(untitled)",
+      "translation": "（（未命名））"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&%1 %2",
+      "translation": "&%1 %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "%1 %2",
+      "translation": "%1 %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Edit multi-disk image...",
+      "translation": "編輯多磁碟映像(&E)..."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Multi-disk image editor",
+      "translation": "多磁碟映像編輯器"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "New",
+      "translation": "新建"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Load",
+      "translation": "載入"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Output directory:",
+      "translation": "輸出目錄:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "directory path",
+      "translation": "目錄路徑"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Output file:",
+      "translation": "輸出檔案:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "filename.d88",
+      "translation": "檔案名稱.d88"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Name",
+      "translation": "名稱"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Source",
+      "translation": "來源"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Browse...",
+      "translation": "瀏覽..."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Blank",
+      "translation": "空白"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Clear",
+      "translation": "清除"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "New blank disk",
+      "translation": "新建空白磁碟"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Title:",
+      "translation": "標題:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Type:",
+      "translation": "類型:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Untitled",
+      "translation": "（未命名）"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2D",
+      "translation": "2D"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2DD",
+      "translation": "2DD"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2HD",
+      "translation": "2HD"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "(empty)",
+      "translation": "（空）"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": " (disk %1)",
+      "translation": "（磁碟 %1）"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Blank (%1)",
+      "translation": "空白 (%1)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Load disk image",
+      "translation": "載入磁碟映像"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Could not read disk image:\n%1",
+      "translation": "無法讀取磁碟映像:\n%1"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Select output directory",
+      "translation": "選擇輸出目錄"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Select disk image",
+      "translation": "選擇磁碟映像"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "8801 disk image (*.d88);;All files (*)",
+      "translation": "8801 磁碟映像 (*.d88);;所有檔案 (*)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Write multi-disk image",
+      "translation": "寫入多磁碟映像"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Enter an output file name.",
+      "translation": "請輸入輸出檔案名。"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Add at least one disk image.",
+      "translation": "請至少新增一個磁碟映像。"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Failed to write disk image:\n%1",
+      "translation": "寫入磁碟映像失敗:\n%1"
+    },
+    {
+      "context": "StatusBar",
+      "source": "%1 mode",
+      "translation": "%1 模式"
+    },
+    {
+      "context": "StatusBar",
+      "source": "Read ",
+      "translation": "Read "
+    },
+    {
+      "context": "StatusBar",
+      "source": "Write ",
+      "translation": "Write "
+    },
+    {
+      "context": "StatusBar",
+      "source": "Scan ",
+      "translation": "Scan "
+    },
+    {
+      "context": "StatusBar",
+      "source": "ReadID ",
+      "translation": "ReadID "
+    },
+    {
+      "context": "StatusBar",
+      "source": "WriteID ",
+      "translation": "WriteID "
+    },
+    {
+      "context": "StatusBar",
+      "source": "ReadDiagnostic ",
+      "translation": "ReadDiagnostic "
+    },
+    {
+      "context": "StatusBar",
+      "source": "end of tape",
+      "translation": "磁帶結束"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N",
+      "translation": "N"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N80",
+      "translation": "N80"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N80-V2",
+      "translation": "N80-V2"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V1(S)",
+      "translation": "N88-V1(S)"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V1(H)",
+      "translation": "N88-V1(H)"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V2",
+      "translation": "N88-V2"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V2 with CD",
+      "translation": "N88-V2 with CD"
+    },
+    {
+      "context": "BasicMode",
+      "source": "Unknown",
+      "translation": "未知"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available with 101/104-key AT keyboard (Alt is not mapped to GRPH).",
+      "translation": "101/104 鍵 AT 鍵盤不可用（Alt 未對應到 GRPH）。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Map arrow keys to ten-key (&N)",
+      "translation": "將方向鍵對應到數字鍵盤 (&N)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys mapped to ten-key",
+      "translation": "方向鍵已對應到數字鍵盤"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys not mapped to ten-key",
+      "translation": "已取消方向鍵到數字鍵盤的對應"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Inhibit display idle (&I)",
+      "translation": "抑制顯示器閒置 (&I)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires Wayland with idle-inhibit support (not available in this session).",
+      "translation": "需要支持 idle-inhibit 的 Wayland（當前會話不可用）。"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half-width kana via IME (&H)",
+      "translation": "IME 半形假名 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Converts host IME text (romaji, hiragana, etc.) into PC-88 half-width kana key strokes.",
+      "translation": "將主機 IME 輸入（罗马字、平假名等）轉換為 PC-88 半形假名按鍵。"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No host input method was detected at startup (fcitx, ibus, etc.).",
+      "translation": "啟動時未偵測到主機輸入法（fcitx、ibus 等）。"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "OK",
+      "translation": "確定"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "M88 for Linux (Qt) (rel %1)\nPC-8801 series emulator.\nCopyright (C) 1998, 2003 cisc",
+      "translation": "M88 for Linux (Qt) (rel %1)\nPC-8801 系列模擬器\nCopyright (C) 1998, 2003 cisc"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "GitHub:",
+      "translation": "GitHub:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Forked from:",
+      "translation": "衍生自:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Original:",
+      "translation": "原版:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "build date: %1",
+      "translation": "建置日期: %1"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)",
+      "translation": "Credits: FM 音源 (佐藤達之 fm.c), N80/SR (arearea)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&Yes",
+      "translation": "是(&Y)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&No",
+      "translation": "否(&N)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset",
+      "translation": "重設"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset the emulated machine?",
+      "translation": "是否重設模擬器？"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit",
+      "translation": "結束"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit M88?",
+      "translation": "是否結束 M88？"
+    }
+  ]
+}

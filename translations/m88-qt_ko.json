@@ -1,0 +1,1409 @@
+{
+  "translations": [
+    {
+      "context": "ConfigDialog",
+      "source": "Auto",
+      "translation": "자동"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Default",
+      "translation": "기본값"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "%1 (not found)",
+      "translation": "%1(을)를 찾을 수 없음"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Mute",
+      "translation": "음소거"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires a machine reset to\ntake effect. (Control - Reset).",
+      "translation": "적용하려면\n머신 리셋이 필요합니다. (Control - Reset)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "M88 Configuration",
+      "translation": "M88 설정"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Speed",
+      "translation": "속도"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " MHz",
+      "translation": " MHz"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "CPU clock (&C):",
+      "translation": "CPU 클럭 (&C):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Ratio (&B):",
+      "translation": "비율 (&B):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Full speed (&M)",
+      "translation": "전속 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Skip speed limit (&N)",
+      "translation": "속도 제한 없음 (&N)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Main/sub CPU ratio (&R)",
+      "translation": "메인/서브 CPU 비율 (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:1",
+      "translation": "1:1"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "2:1",
+      "translation": "2:1"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Misc",
+      "translation": "기타"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Run sub CPU always (&S)",
+      "translation": "서브 CPU 항상 실행 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Wait (&W)",
+      "translation": "Wait (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FDD wait (&F)",
+      "translation": "FDD wait (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Extended RAM (&E)",
+      "translation": "확장 RAM (&E)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "x 32 KB",
+      "translation": "x 32 KB"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "%1%",
+      "translation": "%1%"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "CPU",
+      "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Screen refresh ratio (&R)",
+      "translation": "화면 갱신 비율 (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:1 (60Hz)",
+      "translation": "1:1 (60Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:2 (30Hz)",
+      "translation": "1:2 (30Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:3 (20Hz)",
+      "translation": "1:3 (20Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1:4 (15Hz)",
+      "translation": "1:4 (15Hz)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable PCG (&P)",
+      "translation": "PCG 사용 (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "15KHz monitor mode (&1)",
+      "translation": "15KHz 모니터 모드 (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Digital palette mode (&D)",
+      "translation": "디지털 팔레트 모드 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Force 640x480 in fullscreen (&V)",
+      "translation": "전체 화면에서 640x480 고정 (&V)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Lower draw priority (&L)",
+      "translation": "그리기 우선순위 낮춤 (&L)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Show even scanlines (&F)",
+      "translation": "짝수 스캔라인 표시 (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sync to VSync in fullscreen (&S)",
+      "translation": "전체 화면 VSync 동기 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Screen",
+      "translation": "화면"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Remember directory on exit (&D)",
+      "translation": "종료 시 디렉터리 기억 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Remember window position (&W)",
+      "translation": "종료 시 창 위치 기억 (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available on Wayland (the compositor controls window placement).",
+      "translation": "Wayland에서는 사용할 수 없습니다(창 배치는 컴포지터가 관리합니다)."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Confirm reset/exit (&E)",
+      "translation": "리셋/종료 확인 (&E)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Suppress menu via keyboard (&K)",
+      "translation": "키보드로 메뉴 억제 (&K)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use gamepad (&J)",
+      "translation": "게임패드 사용 (&J)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Swap gamepad buttons (&S)",
+      "translation": "게임패드 버튼 교환 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "F12 as Reset (&F)",
+      "translation": "F12를 리셋으로 (&F)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use serial mouse (&M)",
+      "translation": "시리얼 마우스 사용 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use bus mouse (&O)",
+      "translation": "버스 마우스 사용 (&O)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Auto screenshot filename (&C)",
+      "translation": "스크린샷 파일명 자동 생성 (&C)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Compress snapshot files (&Z)",
+      "translation": "스냅샷 파일 압축 (&Z)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sensitivity (&P):",
+      "translation": "감도 (&P):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "coarse",
+      "translation": "거침"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Other",
+      "translation": "기능"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sample rate (&M)",
+      "translation": "샘플링 레이트 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h)",
+      "translation": "FM ($44h)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPN (&1)",
+      "translation": "OPN (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPNA (&2)",
+      "translation": "OPNA (&2)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "None",
+      "translation": "없음"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h)",
+      "translation": "FM ($A8h)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPN (MkII)",
+      "translation": "OPN (MkII)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "OPNA (MkIII)",
+      "translation": "OPNA (MkIII)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " ms",
+      "translation": " ms"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound buffer (&B):",
+      "translation": "사운드 버퍼 (&B):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable CMD SING (&G)",
+      "translation": "CMD SING 사용 (&G)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Prioritize sound mixing (&S)",
+      "translation": "사운드 믹싱 우선 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "High precision mixing (&P)",
+      "translation": "고정밀 믹싱 (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Use native FM clock for synthesis",
+      "translation": "FM 합성에 네이티브 FM 클럭 사용"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable LPF",
+      "translation": "LPF 사용"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": " kHz",
+      "translation": " kHz"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Output device:",
+      "translation": "출력 장치:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Backend:",
+      "translation": "백엔드:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Cutoff:",
+      "translation": "컷오프:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Order:",
+      "translation": "차수:"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound",
+      "translation": "사운드"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&FM",
+      "translation": "&FM"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&SSG",
+      "translation": "&SSG"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "AD&PCM",
+      "translation": "AD&PCM"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Rhythm",
+      "translation": "리듬 (&R)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Bass Drum",
+      "translation": "베이스 드럼 (&B)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Snare &Drum",
+      "translation": "스네어 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Top &Cymbal",
+      "translation": "탑 심벌 (&C)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Hi-Hat",
+      "translation": "하이햇 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "&Tom",
+      "translation": "탐 (&T)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "R&im Shot",
+      "translation": "림샷 (&I)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Reset Source",
+      "translation": "소스 리셋"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Reset Rhythm",
+      "translation": "리듬 리셋"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Volume",
+      "translation": "음량"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Boot mode (&M)",
+      "translation": "부팅 모드 (&M)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Terminal",
+      "translation": "터미널"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "BASIC",
+      "translation": "BASIC"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Chars per line (&W)",
+      "translation": "한 줄 문자 수 (&W)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "80",
+      "translation": "80"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "40",
+      "translation": "40"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Lines per screen (&H)",
+      "translation": "화면당 줄 수 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "25",
+      "translation": "25"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "20",
+      "translation": "20"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "S parameter (&S)",
+      "translation": "S 매개변수 (&S)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Enable",
+      "translation": "사용"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Disable",
+      "translation": "사용 안 함"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "DEL code (&L)",
+      "translation": "DEL 코드 (&L)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Process",
+      "translation": "처리"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Ignore",
+      "translation": "무시"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Parity check (&P)",
+      "translation": "패리티 검사 (&P)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "On",
+      "translation": "켜기"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Off",
+      "translation": "끄기"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Parity type (&Q)",
+      "translation": "패리티 종류 (&Q)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Even",
+      "translation": "짝수"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Odd",
+      "translation": "홀수"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Data bits (&D)",
+      "translation": "데이터 비트 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "8-bit",
+      "translation": "8비트"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "7-bit",
+      "translation": "7비트"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Stop bits (&T)",
+      "translation": "정지 비트 (&T)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "2-bit",
+      "translation": "2비트"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "1-bit",
+      "translation": "1비트"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "X parameter (&X)",
+      "translation": "X 매개변수 (&X)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Duplex (&U)",
+      "translation": "듀플렉스 (&U)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half",
+      "translation": "반이중"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Full",
+      "translation": "전이중"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Boot from FDD (&B)",
+      "translation": "FDD에서 부팅 (&B)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No",
+      "translation": "아니오"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "DIP-SW",
+      "translation": "DIP-SW"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Host keyboard",
+      "translation": "호스트 키보드"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Japanese 106-key (&J)",
+      "translation": "일본어 106키 (&J)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "101/104-key AT (&1)",
+      "translation": "101/104키 AT (&1)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Environment",
+      "translation": "환경"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Disk not found: %1",
+      "translation": "디스크를 찾을 수 없음: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to mount disk: %1",
+      "translation": "디스크 마운트 실패: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Drive %1 ejected",
+      "translation": "드라이브 %1 꺼냄"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to mount disk",
+      "translation": "디스크 마운트 실패"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Mounted on drive %1: %2",
+      "translation": "드라이브 %1에 마운트: %2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to select disk",
+      "translation": "디스크 선택 실패"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Emulator is not ready",
+      "translation": "에뮬레이터가 준비되지 않았습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Reset complete",
+      "translation": "리셋 완료"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not capture screen",
+      "translation": "화면을 캡처할 수 없습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to create screen image",
+      "translation": "화면 이미지 생성 실패"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "No save path specified",
+      "translation": "저장 경로가 지정되지 않았습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not save screen image to %1",
+      "translation": "화면 이미지를 %1에 저장할 수 없습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Screen image saved to %1",
+      "translation": "화면 이미지를 %1에 저장했습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound output is disabled",
+      "translation": "사운드 출력이 비활성화되어 있습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not record sound to %1",
+      "translation": "사운드를 %1에 녹음할 수 없습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound recording started: %1",
+      "translation": "사운드 녹음 시작: %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Sound recording stopped",
+      "translation": "사운드 녹음 중지"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Saved to %1",
+      "translation": "%1에 저장했습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not save to %1",
+      "translation": "%1에 저장할 수 없습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Could not restore from %1",
+      "translation": "%1에서 복원할 수 없습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Restored from %1",
+      "translation": "%1에서 복원했습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Burst mode on",
+      "translation": "버스트 모드 켜짐"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Burst mode off",
+      "translation": "버스트 모드 꺼짐"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Clock: %1 MHz",
+      "translation": "클럭: %1 MHz"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Basic mode changed",
+      "translation": "BASIC 모드 변경됨"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize disk manager",
+      "translation": "디스크 관리자 초기화 실패"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize PC-8801 core",
+      "translation": "PC-8801 코어 초기화 실패"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Failed to initialize keyboard",
+      "translation": "키보드 초기화 실패"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Emulator running",
+      "translation": "에뮬레이터 실행 중"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Required ROM not found (pc88.rom or n88.rom). Place ROM files in the roms directory and restart.",
+      "translation": "필요한 ROM을 찾을 수 없습니다(pc88.rom 또는 n88.rom). roms 디렉터리에 ROM을 넣고 다시 시작하세요."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Control",
+      "translation": "제어(&C)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Reset",
+      "translation": "리셋(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "4MHz",
+      "translation": "4MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "8MHz",
+      "translation": "8MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V&1(S) mode",
+      "translation": "N88-V1(S) 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V1(&H) mode",
+      "translation": "N88-V1(H) 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V&2 mode",
+      "translation": "N88-V2 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N88-V2(C&D) mode",
+      "translation": "N88-V2(C&D) 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&N mode",
+      "translation": "N 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N8&0 mode",
+      "translation": "N80 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "N&80SR mode",
+      "translation": "N80SR 모드"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Toggle &fullscreen",
+      "translation": "전체 화면 전환(&F)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Burst mode",
+      "translation": "버스트 모드(&B)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "E&xit",
+      "translation": "종료(&X)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Disk",
+      "translation": "디스크(&D)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &1...",
+      "translation": "드라이브 1(&1)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &2...",
+      "translation": "드라이브 2(&2)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &%1...",
+      "translation": "드라이브 %1(&%1)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Drive &%1 - %2",
+      "translation": "드라이브 %1(&%1) - %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Change disk image...",
+      "translation": "디스크 이미지 변경(&C)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Ta&pe",
+      "translation": "테이프(&P)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Open...",
+      "translation": "열기(&O)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Tools",
+      "translation": "도구(&T)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Configure...",
+      "translation": "설정(&C)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "S&how Status",
+      "translation": "상태 표시(&H)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Capture...",
+      "translation": "캡처(&C)..."
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Record Sound",
+      "translation": "사운드 녹음(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Save Snapshot",
+      "translation": "스냅샷 저장(&S)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Load Snapshot",
+      "translation": "스냅샷 불러오기(&L)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "D&ebug",
+      "translation": "디버그(&E)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &FDC Status",
+      "translation": "FDC 상태 표시(&F)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Register",
+      "translation": "레지스터 표시(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &OPN Register",
+      "translation": "OPN 레지스터 표시(&O)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Memory",
+      "translation": "메모리 표시(&M)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Code",
+      "translation": "코드 표시(&C)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show &Basic code",
+      "translation": "BASIC 코드 표시(&B)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Show Out&port",
+      "translation": "출력 포트 표시(&P)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Load Monitor",
+      "translation": "모니터 불러오기(&L)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Dump CPU&1 Log",
+      "translation": "CPU1 로그 덤프(&1)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Dump CPU&2 Log",
+      "translation": "CPU2 로그 덤프(&2)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Help",
+      "translation": "도움말(&H)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&About",
+      "translation": "M88 정보(&A)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Reset",
+      "translation": "리셋"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Reset the emulated machine?",
+      "translation": "에뮬레이터를 리셋하시겠습니까?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Exit",
+      "translation": "종료"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Exit M88?",
+      "translation": "M88을 종료하시겠습니까?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open disk image",
+      "translation": "디스크 이미지 열기"
+    },
+    {
+      "context": "MainWindow",
+      "source": "8801 disk image (*.d88);;All files (*)",
+      "translation": "8801 디스크 이미지 (*.d88);;모든 파일 (*)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "M88 - %1 fps.  %2.%3 MHz",
+      "translation": "M88 - %1 fps.  %2.%3 MHz"
+    },
+    {
+      "context": "MainWindow",
+      "source": "About M88",
+      "translation": "M88 정보"
+    },
+    {
+      "context": "MainWindow",
+      "source": "<h3>M88 for Linux (Qt)</h3><p>rel %1<br/>PC-8801 series emulator / Copyright (C) 1998, 2003 cisc</p><p>Linux port: <a href=\"https://github.com/3d4m0t0/m88\">https://github.com/3d4m0t0/m88</a></p><p>Original: <a href=\"http://www.retropc.net/cisc/m88/\">http://www.retropc.net/cisc/m88/</a></p><p>Forked from <a href=\"https://github.com/rururutan/m88\">https://github.com/rururutan/m88</a></p><p>Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)</p>",
+      "translation": "<h3>M88 for Linux (Qt)</h3><p>rel %1<br/>PC-8801 에뮬레이터 / Copyright (C) 1998, 2003 cisc</p><p>Linux 포트: <a href=\"https://github.com/3d4m0t0/m88\">https://github.com/3d4m0t0/m88</a></p><p>오리지널: <a href=\"http://www.retropc.net/cisc/m88/\">http://www.retropc.net/cisc/m88/</a></p><p>포크 출처: <a href=\"https://github.com/rururutan/m88\">https://github.com/rururutan/m88</a></p><p>크레딧: FM 사운드(사토 타츠야 fm.c), N80/SR(arearea)</p>"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Save captured image",
+      "translation": "캡처 이미지 저장"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Bitmap image [4bpp] (*.bmp);;All files (*)",
+      "translation": "Bitmap 이미지 [4bpp] (*.bmp);;모든 파일 (*)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&N No disk",
+      "translation": "디스크 없음(&N)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&0 Change disk",
+      "translation": "변경(&0)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(untitled)",
+      "translation": "(제목 없음)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&%1 %2",
+      "translation": "&%1 %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "%1 %2",
+      "translation": "%1 %2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "&Edit multi-disk image...",
+      "translation": "멀티 디스크 이미지 편집(&E)..."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Multi-disk image editor",
+      "translation": "멀티 디스크 이미지 편집기"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "New",
+      "translation": "새로 만들기"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Load",
+      "translation": "불러오기"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Output directory:",
+      "translation": "출력 디렉터리:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "directory path",
+      "translation": "디렉터리 경로"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Output file:",
+      "translation": "출력 파일:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "filename.d88",
+      "translation": "파일명.d88"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Name",
+      "translation": "이름"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Source",
+      "translation": "소스"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Browse...",
+      "translation": "찾아보기..."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Blank",
+      "translation": "빈 디스크"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Clear",
+      "translation": "지우기"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "New blank disk",
+      "translation": "새 빈 디스크"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Title:",
+      "translation": "제목:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Type:",
+      "translation": "종류:"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Untitled",
+      "translation": "제목 없음"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2D",
+      "translation": "2D"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2DD",
+      "translation": "2DD"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "2HD",
+      "translation": "2HD"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "(empty)",
+      "translation": "(비어 있음)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": " (disk %1)",
+      "translation": " (디스크 %1)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Blank (%1)",
+      "translation": "빈 디스크 (%1)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Load disk image",
+      "translation": "디스크 이미지 불러오기"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Could not read disk image:\n%1",
+      "translation": "디스크 이미지를 읽을 수 없습니다:\n%1"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Select output directory",
+      "translation": "출력 디렉터리 선택"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Select disk image",
+      "translation": "디스크 이미지 선택"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "8801 disk image (*.d88);;All files (*)",
+      "translation": "8801 디스크 이미지 (*.d88);;모든 파일 (*)"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Write multi-disk image",
+      "translation": "멀티 디스크 이미지 쓰기"
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Enter an output file name.",
+      "translation": "출력 파일 이름을 입력하세요."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Add at least one disk image.",
+      "translation": "디스크 이미지를 하나 이상 추가하세요."
+    },
+    {
+      "context": "MultiDiskEditorDialog",
+      "source": "Failed to write disk image:\n%1",
+      "translation": "디스크 이미지 쓰기 실패:\n%1"
+    },
+    {
+      "context": "StatusBar",
+      "source": "%1 mode",
+      "translation": "%1 모드"
+    },
+    {
+      "context": "StatusBar",
+      "source": "Read ",
+      "translation": "Read "
+    },
+    {
+      "context": "StatusBar",
+      "source": "Write ",
+      "translation": "Write "
+    },
+    {
+      "context": "StatusBar",
+      "source": "Scan ",
+      "translation": "Scan "
+    },
+    {
+      "context": "StatusBar",
+      "source": "ReadID ",
+      "translation": "ReadID "
+    },
+    {
+      "context": "StatusBar",
+      "source": "WriteID ",
+      "translation": "WriteID "
+    },
+    {
+      "context": "StatusBar",
+      "source": "ReadDiagnostic ",
+      "translation": "ReadDiagnostic "
+    },
+    {
+      "context": "StatusBar",
+      "source": "end of tape",
+      "translation": "테이프 끝"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N",
+      "translation": "N"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N80",
+      "translation": "N80"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N80-V2",
+      "translation": "N80-V2"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V1(S)",
+      "translation": "N88-V1(S)"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V1(H)",
+      "translation": "N88-V1(H)"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V2",
+      "translation": "N88-V2"
+    },
+    {
+      "context": "BasicMode",
+      "source": "N88-V2 with CD",
+      "translation": "N88-V2 with CD"
+    },
+    {
+      "context": "BasicMode",
+      "source": "Unknown",
+      "translation": "알 수 없음"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available with 101/104-key AT keyboard (Alt is not mapped to GRPH).",
+      "translation": "101/104키 AT 키보드에서는 사용할 수 없습니다(Alt가 GRPH에 매핑되지 않음)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Map arrow keys to ten-key (&N)",
+      "translation": "방향키를 숫자 키패드에 매핑 (&N)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys mapped to ten-key",
+      "translation": "방향키를 숫자 키패드에 매핑했습니다"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys not mapped to ten-key",
+      "translation": "방향키 숫자 키패드 매핑 해제"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Inhibit display idle (&I)",
+      "translation": "디스플레이 유휴 억제 (&I)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires Wayland with idle-inhibit support (not available in this session).",
+      "translation": "idle-inhibit를 지원하는 Wayland가 필요합니다(이 세션에서는 사용 불가)."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half-width kana via IME (&H)",
+      "translation": "IME 반각 가나 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Converts host IME text (romaji, hiragana, etc.) into PC-88 half-width kana key strokes.",
+      "translation": "호스트 IME 입력(로마자, 히라가나 등)을 PC-88 반각 가나 키 입력으로 변환합니다."
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No host input method was detected at startup (fcitx, ibus, etc.).",
+      "translation": "시작 시 호스트 입력기(fcitx, ibus 등)가 감지되지 않았습니다."
+    },
+    {
+      "context": "AboutDialog",
+      "source": "OK",
+      "translation": "확인"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "M88 for Linux (Qt) (rel %1)\nPC-8801 series emulator.\nCopyright (C) 1998, 2003 cisc",
+      "translation": "M88 for Linux (Qt) (rel %1)\nPC-8801 시리즈 에뮬레이터\nCopyright (C) 1998, 2003 cisc"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "GitHub:",
+      "translation": "GitHub:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Forked from:",
+      "translation": "포크 출처:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Original:",
+      "translation": "오리지널:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "build date: %1",
+      "translation": "빌드 날짜: %1"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)",
+      "translation": "Credits: FM 사운드 (사토 타츠야 fm.c), N80/SR (arearea)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&Yes",
+      "translation": "예(&Y)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&No",
+      "translation": "아니오(&N)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset",
+      "translation": "리셋"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset the emulated machine?",
+      "translation": "에뮬레이터를 리셋하시겠습니까?"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit",
+      "translation": "종료"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit M88?",
+      "translation": "M88을 종료하시겠습니까?"
+    }
+  ]
+}
