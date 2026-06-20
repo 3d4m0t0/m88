@@ -8,16 +8,17 @@
 namespace M88MiniaudioDevices {
 
 struct Entry {
-  std::string name;
+  std::string name;  // UI label (PulseAudio description, etc.)
+  std::string id;    // Backend device id (PulseAudio sink name, ALSA id, ...)
 };
 
 // backend_name: empty / "auto" = miniaudio default priority; "pulse", "alsa", "jack".
 bool IsExplicitPulseBackend(const char* backend_name);
 bool IsAutoBackend(const char* backend_name);
 
-// True for auto and pulse: first open via ma_device_init(NULL, ...).
-// Pulse then reopens with InitContext("pulse") + optional device ID.
-// ALSA/JACK always use InitContext + device ID directly.
+// True for auto backend: miniaudio picks backend (ma_device_init(NULL, ...)).
+// If Pulse is selected, reopen with InitContext("pulse") + optional device ID.
+// pulse/alsa/jack use InitContext directly (single playback stream).
 bool UsesNativeDeviceInit(const char* backend_name, const char* device_name);
 
 bool InitContext(const char* backend_name, ma_context* context);

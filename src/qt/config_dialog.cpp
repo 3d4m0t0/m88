@@ -70,10 +70,21 @@ void PopulateSoundDeviceCombo(QComboBox* combo, const char* backend_name,
   combo->clear();
   combo->addItem(CFG_TR("Default"), QString());
   for (const auto& dev : M88MiniaudioDevices::ListPlayback(backend_name)) {
-    const QString name = QString::fromUtf8(dev.name.c_str());
-    combo->addItem(name, name);
+    const QString display = QString::fromUtf8(dev.name.c_str());
+    const QString id =
+        dev.id.empty() ? display : QString::fromUtf8(dev.id.c_str());
+    combo->addItem(display, id);
   }
   int idx = combo->findData(keep);
+  if (idx < 0 && !keep.isEmpty()) {
+    // Legacy configs stored the UI description in AudioDevice=.
+    for (int i = 1; i < combo->count(); ++i) {
+      if (combo->itemText(i) == keep) {
+        idx = i;
+        break;
+      }
+    }
+  }
   if (idx < 0 && !keep.isEmpty()) {
     combo->addItem(CFG_TR("%1 (not found)").arg(keep), keep);
     idx = combo->count() - 1;

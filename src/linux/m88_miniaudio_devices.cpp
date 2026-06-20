@@ -15,6 +15,25 @@ bool NamesEqual(const char* a, const char* b) {
   return std::strcmp(a, b) == 0;
 }
 
+const char* DeviceIdCString(ma_backend backend, const ma_device_id& id) {
+  switch (backend) {
+    case ma_backend_pulseaudio:
+      return id.pulse;
+    case ma_backend_alsa:
+      return id.alsa;
+    case ma_backend_jack:
+      return "";
+    default:
+      return "";
+  }
+}
+
+bool DeviceIdMatches(ma_backend backend, const ma_device_info& info,
+                     const char* saved) {
+  const char* id_str = DeviceIdCString(backend, info.id);
+  return id_str[0] != '\0' && NamesEqual(id_str, saved);
+}
+
 bool BackendIsAuto(const char* backend_name) {
   return !backend_name || backend_name[0] == '\0' ||
          strcasecmp(backend_name, "auto") == 0;
@@ -65,9 +84,9 @@ bool IsAutoBackend(const char* backend_name) {
 }
 
 bool UsesNativeDeviceInit(const char* backend_name, const char* /*device_name*/) {
-  // Auto and Pulse: first open via ma_device_init(NULL, ...); device is applied on
-  // the follow-up explicit Pulse reopen (InitContext alone can start silent).
-  return BackendIsAuto(backend_name) || IsExplicitPulseBackend(backend_name);
+  // Auto only: probe backend via ma_device_init(NULL, ...), then reopen if Pulse.
+  // Explicit pulse/alsa/jack use InitContext directly (one stream).
+  return BackendIsAuto(backend_name);
 }
 
 bool InitContext(const char* backend_name, ma_context* context) {
@@ -88,12 +107,19 @@ std::vector<Entry> ListPlayback(const char* backend_name) {
     return out;
   }
 
+  const ma_backend backend = context.backend;
   out.reserve(count);
   for (ma_uint32 i = 0; i < count; ++i) {
     if (infos[i].name[0] == '\0') {
       continue;
     }
-    out.push_back({infos[i].name});
+    Entry entry;
+    entry.name = infos[i].name;
+    const char* id_str = DeviceIdCString(backend, infos[i].id);
+    if (id_str[0] != '\0') {
+      entry.id = id_str;
+    }
+    out.push_back(std::move(entry));
   }
 
   ma_context_uninit(&context);
@@ -114,15 +140,30 @@ bool ResolvePlaybackIdInContext(ma_context* context, const char* saved_name,
     return false;
   }
 
-  bool found = false;
+  const ma_backend backend = context->backend;
+
+  // Prefer Pulse/ALSA sink id (stored in config after device-id fix).
   for (ma_uint32 i = 0; i < count; ++i) {
-    if (NamesEqual(infos[i].name, saved_name)) {
+    if (DeviceIdMatches(backend, infos[i], saved_name)) {
       *out_id = infos[i].id;
-      found = true;
-      break;
+      return true;
     }
   }
-  return found;
+
+  // Legacy configs stored the UI description in AudioDevice=.
+  ma_uint32 name_matches = 0;
+  ma_uint32 name_index = 0;
+  for (ma_uint32 i = 0; i < count; ++i) {
+    if (NamesEqual(infos[i].name, saved_name)) {
+      name_index = i;
+      ++name_matches;
+    }
+  }
+  if (name_matches == 1) {
+    *out_id = infos[name_index].id;
+    return true;
+  }
+  return false;
 }
 
 bool ResolvePlaybackId(const char* backend_name, const char* saved_name,

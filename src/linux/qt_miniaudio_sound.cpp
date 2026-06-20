@@ -10,6 +10,7 @@
 #include "miniaudio.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -59,6 +60,32 @@ void LogAudioOutput(const ma_device& dev, uint sample_rate_hz) {
       dev.playback.name[0] != '\0' ? dev.playback.name : "default";
   std::printf("M88: %s  %s  %u Hz\n", backend_name, device_name, sample_rate_hz);
   std::fflush(stdout);
+}
+
+void ApplyPulseStreamName(ma_device_config* config) {
+  if (!config) {
+    return;
+  }
+  config->pulse.pStreamNamePlayback = "m88-playback";
+}
+
+bool ResolveExplicitPlaybackTarget(ma_context* context, const char* saved_name,
+                                   ma_device_id* out_id, const ma_device_id** out_ptr) {
+  if (!out_ptr) {
+    return false;
+  }
+  *out_ptr = nullptr;
+  if (!saved_name || saved_name[0] == '\0') {
+    return true;
+  }
+  if (!context || !out_id) {
+    return false;
+  }
+  if (!M88MiniaudioDevices::ResolvePlaybackIdInContext(context, saved_name, out_id)) {
+    return false;
+  }
+  *out_ptr = out_id;
+  return true;
 }
 
 }  // namespace
@@ -214,10 +241,14 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     config.dataCallback = QtMiniaudioSoundDataCallback;
     config.pUserData = this;
     config.playback.pDeviceID = nullptr;
+    ApplyPulseStreamName(&config);
 
     const bool native_init = M88MiniaudioDevices::UsesNativeDeviceInit(
         playback_backend_name_, playback_device_name_);
     opened_native = native_init;
+    // Auto may reopen Pulse; do not start the probe device (avoids orphan PA streams).
+    const bool defer_device_start =
+        native_init && M88MiniaudioDevices::IsAutoBackend(playback_backend_name_);
 
     ma_result result = MA_ERROR;
     if (native_init) {
@@ -234,14 +265,16 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
       ma_device_id chosen_id {};
       const ma_device_id* device_id = nullptr;
       if (playback_device_name_[0] != '\0') {
-        if (M88MiniaudioDevices::ResolvePlaybackIdInContext(
-                &device_->context, playback_device_name_, &chosen_id)) {
-          device_id = &chosen_id;
-        } else {
+        if (!ResolveExplicitPlaybackTarget(&device_->context, playback_device_name_,
+                                           &chosen_id, &device_id)) {
           std::fprintf(stderr,
-                       "M88: audio device not found: %s (backend=%s, using default)\n",
+                       "M88: audio device not found: %s (backend=%s)\n",
                        playback_device_name_,
                        playback_backend_name_[0] ? playback_backend_name_ : "auto");
+          ma_context_uninit(&device_->context);
+          device_->context = {};
+          device_->context_active = false;
+          return false;
         }
       }
       config.playback.pDeviceID = device_id;
@@ -290,16 +323,18 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     PrimeSpscSilence(prime_frames > 0 ? prime_frames : target_spsc_frames_);
     ResyncPcmContractAfterRateChange();
 
-    if (ma_device_start(&device_->dev) != MA_SUCCESS) {
-      std::fprintf(stderr, "miniaudio start failed\n");
-      ma_device_uninit(&device_->dev);
-      device_->dev = {};
-      if (device_->context_active) {
-        ma_context_uninit(&device_->context);
-        device_->context = {};
-        device_->context_active = false;
+    if (!defer_device_start) {
+      if (ma_device_start(&device_->dev) != MA_SUCCESS) {
+        std::fprintf(stderr, "miniaudio start failed\n");
+        ma_device_uninit(&device_->dev);
+        device_->dev = {};
+        if (device_->context_active) {
+          ma_context_uninit(&device_->context);
+          device_->context = {};
+          device_->context_active = false;
+        }
+        return false;
       }
-      return false;
     }
 
     device_->active = true;
@@ -317,12 +352,8 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     return false;
   }
 
-  // Pulse via InitContext can start silent (miniaudio/Pulse quirk). Reopen after
-  // native init — same fix for auto→Pulse and backend=pulse (+ optional device).
-  const bool explicit_pulse =
-      M88MiniaudioDevices::IsExplicitPulseBackend(playback_backend_name_);
-  const bool needs_pulse_reopen =
-      explicit_pulse || (opened_native && IsPulseBackend());
+  // Auto→Pulse: native probe (no start) then explicit reopen. Explicit pulse: one stream + warm-up.
+  const bool needs_pulse_reopen = opened_native && IsPulseBackend();
 
   if (needs_pulse_reopen) {
     TeardownPlaybackDevice();
@@ -342,7 +373,7 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     ResyncPcmContractAfterRateChange();
   }
 
-  if (IsPulseBackend()) {
+  if (IsPulseBackend() && playback_device_name_[0] == '\0') {
     WarmPulsePlaybackStream();
   }
 
@@ -386,6 +417,9 @@ void QtMiniaudioSound::TeardownPlaybackDevice() {
   if (!device_) {
     return;
   }
+  const bool was_pulse =
+      device_->active && device_->dev.pContext &&
+      device_->dev.pContext->backend == ma_backend_pulseaudio;
   if (device_->active) {
     device_->dev.pUserData = nullptr;
     ma_device_stop(&device_->dev);
@@ -397,6 +431,10 @@ void QtMiniaudioSound::TeardownPlaybackDevice() {
     ma_context_uninit(&device_->context);
     device_->context = {};
     device_->context_active = false;
+  }
+  if (was_pulse) {
+    // Pulse disconnect is async; avoid overlapping sink-inputs when switching sinks.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }
 
@@ -421,6 +459,7 @@ bool QtMiniaudioSound::OpenExplicitPlayback(const char* backend_name, ma_uint32 
   config.dataCallback = QtMiniaudioSoundDataCallback;
   config.pUserData = this;
   config.playback.pDeviceID = nullptr;
+  ApplyPulseStreamName(&config);
 
   if (!M88MiniaudioDevices::InitContext(backend_name, &device_->context)) {
     std::fprintf(stderr, "M88: explicit context init failed (backend=%s)\n", backend_name);
@@ -431,13 +470,15 @@ bool QtMiniaudioSound::OpenExplicitPlayback(const char* backend_name, ma_uint32 
   ma_device_id chosen_id {};
   const ma_device_id* device_id = nullptr;
   if (playback_device_name_[0] != '\0') {
-    if (M88MiniaudioDevices::ResolvePlaybackIdInContext(
-            &device_->context, playback_device_name_, &chosen_id)) {
-      device_id = &chosen_id;
-    } else {
+    if (!ResolveExplicitPlaybackTarget(&device_->context, playback_device_name_,
+                                       &chosen_id, &device_id)) {
       std::fprintf(stderr,
-                   "M88: audio device not found: %s (backend=%s, using default)\n",
+                   "M88: audio device not found: %s (backend=%s)\n",
                    playback_device_name_, backend_name);
+      ma_context_uninit(&device_->context);
+      device_->context = {};
+      device_->context_active = false;
+      return false;
     }
   }
   config.playback.pDeviceID = device_id;
