@@ -2,11 +2,15 @@
 
 cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.net/cisc/m88/) を、[rururutan/m88](https://github.com/rururutan/m88) から派生させ、Linux (x86_64) 向け Qt 6 フロントエンド **`m88-qt`** として移植したものです。
 
+**版 1.1.0** — [更新履歴](#更新履歴)
+
 ### English
 
 **M88 for Linux (Qt)**
 
 A Linux (x86_64) port of cisc’s Windows PC-8801 emulator [M88](http://retropc.net/cisc/m88/), derived from [rururutan/m88](https://github.com/rururutan/m88), with a Qt 6 frontend **`m88-qt`**.
+
+**Version 1.1.0** — see [Changelog](#更新履歴) (更新履歴).
 
 ## AI の利用について
 
@@ -25,6 +29,20 @@ This project uses [Cursor](https://cursor.com/referral?code=TI3UQLE9PFH3); gener
 3. 上記をフォークし、Linux (x86_64) に移植した本版（`m88-qt`）
 
 Linux 版でメンテナンス対象としているのは **Qt 版のみ** です。SDL2 版 (`m88`) は試作段階で未実装・未解決の部分が多く、CMake でもデフォルトではビルドしません。
+
+## 更新履歴
+
+### 1.1.0 (`linux-port-stable-1.1.0`)
+
+* **UI 日本語化 (i18n)** — Qt UI の日本語翻訳
+* **サウンド周りの修正** — BEEP、CMD SING の出力・同期
+* **V1S モード WAIT 修正** — メモリ WAIT の適用
+
+### English
+
+* **Japanese UI (i18n)** — Qt frontend translations
+* **Sound fixes** — BEEP and CMD SING output / timing
+* **V1S mode WAIT fix** — memory WAIT handling
 
 ## 仕様
 
