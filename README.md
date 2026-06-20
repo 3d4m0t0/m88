@@ -2,9 +2,21 @@
 
 cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.net/cisc/m88/) を、[rururutan/m88](https://github.com/rururutan/m88) から派生させ、Linux (x86_64) 向け Qt 6 フロントエンド **`m88-qt`** として移植したものです。
 
+### English
+
+**M88 for Linux (Qt)**
+
+A Linux (x86_64) port of cisc’s Windows PC-8801 emulator [M88](http://retropc.net/cisc/m88/), derived from [rururutan/m88](https://github.com/rururutan/m88), with a Qt 6 frontend **`m88-qt`**.
+
 ## AI の利用について
 
-本プロジェクトでは [Cursor](https://cursor.com/) を活用し、生成されたコードおよびデザインパターンを取り入れています。生成物はすべて制作者がレビュー・修正・統合しています。
+本プロジェクトでは [Cursor](https://cursor.com/referral?code=TI3UQLE9PFH3) を活用し、生成されたコードおよびデザインパターンを取り入れています。生成物はすべて制作者がレビュー・修正・統合しています。リンクは **紹介リンク** です（登録時に Cursor 側の紹介プログラムが適用される場合がありますが、本プロジェクトの開発・配布とは無関係です）。
+
+### English
+
+This project uses [Cursor](https://cursor.com/referral?code=TI3UQLE9PFH3); generated code and design patterns are incorporated where helpful. All such material is reviewed, revised, and integrated by the maintainer. The link is a **referral link** (Cursor’s referral program may apply when you sign up; it is unrelated to the development or distribution of this project).
+
+## 系譜
 
 系譜は次のとおりです。
 
@@ -24,6 +36,16 @@ Windows 版（rururutan/m88）からの主な差分は次のとおりです。
 * rururutan/m88 版にあった C86CTL 関連は非対応です
 * Tape および Debug 関連も現時点では非対応です
 
+### English
+
+Main differences from the Windows build (rururutan/m88):
+
+* Features have been added and removed compared to the Windows port.
+* **Multi-disk image editor** (Disk → Edit multi-disk image...)
+* **Half-width kana input via IME** (with fcitx-mozc and similar IMEs, confirming kana input produces half-width katakana)
+* C86CTL support from rururutan/m88 is not supported.
+* Tape and debug features are not supported at this time.
+
 ## 動作環境
 
 * Linux (x86_64)
@@ -31,6 +53,32 @@ Windows 版（rururutan/m88）からの主な差分は次のとおりです。
 * X11 または Wayland 上のデスクトップセッション
 * 音声出力可能な環境（miniaudio 経由; PulseAudio / PipeWire / ALSA 等）
 * `pc88.rom` または `n88.rom` 等の ROM データ（所有する PC-8801 本体から吸い出したもの）
+
+### テスト環境
+
+主に以下で `m88-qt` のビルド・動作確認を行っています。
+
+* **OS:** openSUSE Tumbleweed (x86_64)
+* **セッション:** Wayland
+* **Qt:** 6.11 系 (Widgets)
+* **音声:** PipeWire / PulseAudio 互換、ALSA（miniaudio; バックエンド auto / pulse / alsa）
+* **IME:** fcitx-mozc（半角カナ入力）
+
+他のディストリビューションでも動作する想定ですが、上記以外では十分に検証していません。
+
+### English
+
+**Test environment**
+
+Build and runtime checks are mainly performed on:
+
+* **OS:** openSUSE Tumbleweed (x86_64)
+* **Session:** Wayland
+* **Qt:** 6.11.x (Widgets)
+* **Audio:** PipeWire / PulseAudio-compatible stack, ALSA (miniaudio; backends auto / pulse / alsa)
+* **IME:** fcitx-mozc (half-width kana input)
+
+Other distributions may work, but are not extensively tested by the maintainer.
 
 ## 依存ライブラリ
 
