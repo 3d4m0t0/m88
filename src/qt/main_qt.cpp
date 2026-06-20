@@ -5,6 +5,7 @@
 
 #include "../linux/display_scale.h"
 #include "../linux/linux_config.h"
+#include "../linux/linux_ime.h"
 #include "../linux/linux_paths.h"
 #include "../linux/linux_startup_log.h"
 #include "../linux_compat/path.h"
@@ -62,7 +63,11 @@ int main(int argc, char** argv) {
   }
 
   QApplication app(argc, argv);
+  if (!M88QtAppIcon().isNull()) {
+    app.setWindowIcon(M88QtAppIcon());
+  }
   M88InstallTranslations(app);
+  M88QtProbeImeAtStartup();
   qRegisterMetaType<PC8801::Config>("PC8801::Config");
 
   PC8801::Config config;
@@ -72,6 +77,8 @@ int main(int argc, char** argv) {
       &config,
       options.config_file.isEmpty() ? nullptr : options.config_file.toUtf8().constData(),
       ini_path, sizeof(ini_path), &ini_created);
+
+  LinuxIme::SetUserEnabled(M88ImeHalfKanaEnabled());
 
   char canonical_ini[512];
   M88CanonicalConfigPath(ini_path, canonical_ini, sizeof(canonical_ini));

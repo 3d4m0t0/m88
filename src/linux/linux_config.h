@@ -74,3 +74,11 @@ int M88ScreenScaleIniValue();
 int M88ResolveScreenScale(int avail_w, int avail_h, int chrome_w, int chrome_h,
                           int cli_scale, bool cli_explicit);
 void M88PrintScreenScale(int scale, bool cli_explicit);
+
+// m88.ini WaylandIdleInhibit=1 (Wayland idle-inhibit protocol; Qt frontend only).
+bool M88WaylandIdleInhibitEnabled();
+void M88SetWaylandIdleInhibitEnabled(bool enabled);
+
+// m88.ini ImeHalfKana=1 (host IME -> PC-88 half-width kana).
+bool M88ImeHalfKanaEnabled();
+void M88SetImeHalfKanaEnabled(bool enabled);

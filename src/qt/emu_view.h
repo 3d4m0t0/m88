@@ -22,6 +22,7 @@ public:
   void setScale(int scale);
   void setForce480Layout(bool enabled);
   void setSuppressMenu(bool enabled);
+  void setImeInputEnabled(bool enabled);
   void setHostInput(QtHostInput::Host* host_input);
   void setMouseCapture(bool enabled);
 

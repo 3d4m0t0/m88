@@ -1,0 +1,6 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/icons">
+    <file alias="M88.ico">../win32/M88.ico</file>
+  </qresource>
+</RCC>

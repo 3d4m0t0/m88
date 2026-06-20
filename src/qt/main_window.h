@@ -38,12 +38,13 @@ protected:
   bool eventFilter(QObject* watched, QEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void showEvent(QShowEvent* event) override;
+  void hideEvent(QHideEvent* event) override;
   void changeEvent(QEvent* event) override;
 
 private slots:
   void updateControlMenu(int clock, int basicmode, bool n80_supported,
                          bool n80v2_supported, bool cd_supported, bool burst_mode,
-                         bool show_statusbar, bool show_fdc_status,
+                         bool arrow_tenkey, bool show_statusbar, bool show_fdc_status,
                          bool ask_before_reset, bool f12_as_reset, bool suppress_menu);
   bool confirmReset();
   bool confirmExit();
@@ -63,6 +64,8 @@ private:
   void setupMenuBar();
   void applyViewScale(int scale);
   void syncRememberPrefsFromConfig(const PC8801::Config& config);
+  void syncWaylandIdleInhibit();
+  void syncImeKanaInput();
   void applySavedWindowPosition();
   void saveWindowPositionOnExit();
   void applyFullscreenLayout();
@@ -72,6 +75,9 @@ private:
   void noteFullscreenMouseActivity(const QPoint& global_pos);
   void scheduleFullscreenChromeHide();
   void hideFullscreenChrome();
+  bool isSignificantFullscreenMouseMove(const QPoint& global_pos) const;
+  void showFullscreenCursor();
+  void hideFullscreenCursor();
   void connectFullscreenMenuHooks();
   bool isMouseInsideWindow(const QPoint& global_pos) const;
   bool isAnyMenuVisible() const;
@@ -104,7 +110,9 @@ private:
   qint64 last_fullscreen_menubar_show_ms_ = 0;
   QPoint last_fullscreen_mouse_global_;
   bool have_last_fullscreen_mouse_global_ = false;
+  bool fullscreen_cursor_hidden_ = false;
   static constexpr int kFullscreenChromeToggleMs = 250;
+  static constexpr int kFullscreenMouseMoveThresholdPx = 5;
   bool force480_ = false;
   bool sync_to_vsync_ = false;
   QRect windowed_geometry_;
@@ -128,6 +136,7 @@ private:
   QAction* clock_4mhz_ = nullptr;
   QAction* clock_8mhz_ = nullptr;
   QAction* burst_action_ = nullptr;
+  QAction* arrow_tenkey_action_ = nullptr;
   QAction* reset_action_ = nullptr;
   bool ask_before_reset_ = false;
   bool f12_as_reset_ = true;

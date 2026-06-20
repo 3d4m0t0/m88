@@ -1,6 +1,9 @@
 #include "config_dialog.h"
 #include "qt_platform.h"
 
+#include "../linux/linux_config.h"
+#include "../linux/linux_ime.h"
+#include "../linux/m88_wayland_idle_inhibit.h"
 #include "../linux/m88_miniaudio_devices.h"
 #include "../common/misc.h"
 
@@ -52,6 +55,14 @@ void PopulateSoundBackendCombo(QComboBox* combo) {
 void PopulateSoundDeviceCombo(QComboBox* combo, const char* backend_name,
                               const QString& select_device = {}) {
   if (!combo) {
+    return;
+  }
+  const bool auto_backend = M88MiniaudioDevices::IsAutoBackend(backend_name);
+  combo->setEnabled(!auto_backend);
+  if (auto_backend) {
+    combo->clear();
+    combo->addItem(CFG_TR("Default"), QString());
+    combo->setCurrentIndex(0);
     return;
   }
   const QString keep =
@@ -396,7 +407,6 @@ void ConfigDialog::buildUi() {
     }
     func_askreset_ = new QCheckBox(tr("Confirm reset/exit (&E)"), page);
     func_suppressmenu_ = new QCheckBox(tr("Suppress menu via keyboard (&K)"), page);
-    func_arrowten_ = new QCheckBox(tr("Map arrow keys to ten-key (&H)"), page);
     func_enablepad_ = new QCheckBox(tr("Use gamepad (&J)"), page);
     func_swappad_ = new QCheckBox(tr("Swap gamepad buttons (&S)"), page);
     func_resetf12_ = new QCheckBox(tr("F12 as Reset (&F)"), page);
@@ -404,6 +414,13 @@ void ConfigDialog::buildUi() {
     func_mousejoy_ = new QCheckBox(tr("Use bus mouse (&O)"), page);
     func_scrname_ = new QCheckBox(tr("Auto screenshot filename (&C)"), page);
     func_compsnap_ = new QCheckBox(tr("Compress snapshot files (&Z)"), page);
+    func_idle_inhibit_ = new QCheckBox(tr("Inhibit display idle (&I)"), page);
+    func_ime_kana_ = new QCheckBox(tr("Half-width kana via IME (&H)"), page);
+    func_ime_kana_hint_ =
+        new QLabel(tr("Converts host IME text (romaji, hiragana, etc.) into PC-88 "
+                      "half-width kana key strokes."),
+                   page);
+    func_ime_kana_hint_->setWordWrap(true);
 
     auto* sense_row = new QHBoxLayout();
     func_mousesense_ = new QSlider(Qt::Horizontal, page);
@@ -413,11 +430,12 @@ void ConfigDialog::buildUi() {
     sense_row->addWidget(new QLabel(tr("coarse"), page));
 
     for (QCheckBox* cb :
-         {func_savedir_, func_savepos_, func_askreset_, func_suppressmenu_, func_arrowten_,
-          func_enablepad_, func_swappad_, func_resetf12_, func_enablemouse_, func_mousejoy_,
-          func_scrname_, func_compsnap_}) {
+         {func_savedir_, func_savepos_, func_askreset_, func_suppressmenu_, func_enablepad_,
+          func_swappad_, func_resetf12_, func_enablemouse_, func_mousejoy_, func_scrname_,
+          func_compsnap_, func_idle_inhibit_, func_ime_kana_}) {
       v->addWidget(cb);
     }
+    v->addWidget(func_ime_kana_hint_);
     v->addLayout(sense_row);
 
     connect(func_enablepad_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
@@ -506,7 +524,7 @@ void ConfigDialog::buildUi() {
     PopulateSoundBackendCombo(sound_backend_);
     sound_device_ = new QComboBox(page);
     sound_device_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    PopulateSoundDeviceCombo(sound_device_, nullptr);
+    PopulateSoundDeviceCombo(sound_device_, "");
     sound_fmclock_ = new QCheckBox(tr("Use native FM clock for synthesis"), page);
     sound_lpf_ = new QCheckBox(tr("Enable LPF"), page);
     sound_lpffc_ = new QSpinBox(page);
@@ -683,6 +701,7 @@ void ConfigDialog::buildUi() {
     key_layout->addWidget(key106);
     key_layout->addWidget(key101);
     v->addWidget(key_box);
+    connect(keytype_group_, &QButtonGroup::idClicked, this, &ConfigDialog::updateFunctionTab);
     FinishTabPage(v);
     tabs_->addTab(page, tr("Environment"));
   }
@@ -834,7 +853,6 @@ void ConfigDialog::loadFromConfig() {
                            (config_.flag2 & Config::saveposition) != 0);
   func_askreset_->setChecked((config_.flags & Config::askbeforereset) != 0);
   func_suppressmenu_->setChecked((config_.flags & Config::suppressmenu) != 0);
-  func_arrowten_->setChecked((config_.flags & Config::usearrowfor10) != 0);
   func_enablepad_->setChecked((config_.flags & Config::enablepad) != 0);
   func_swappad_->setChecked((config_.flags & Config::swappadbuttons) != 0);
   func_resetf12_->setChecked((config_.flags & Config::disablef12reset) == 0);
@@ -843,6 +861,8 @@ void ConfigDialog::loadFromConfig() {
   func_mousesense_->setValue(static_cast<int>(config_.mousesensibility));
   func_scrname_->setChecked((config_.flag2 & Config::genscrnshotname) != 0);
   func_compsnap_->setChecked((config_.flag2 & Config::compresssnapshot) != 0);
+  func_idle_inhibit_->setChecked(M88WaylandIdleInhibitEnabled());
+  func_ime_kana_->setChecked(M88ImeHalfKanaEnabled());
 
   if (auto* btn = sound_rate_group_->button(config_.sound)) {
     btn->setChecked(true);
@@ -960,12 +980,13 @@ void ConfigDialog::applyToConfig() {
   if (screen_vsync_->isChecked()) config_.flag2 |= Config::synctovsync;
 
   config_.flags &= ~(Config::savedirectory | Config::askbeforereset | Config::suppressmenu |
-                     Config::usearrowfor10 | Config::enablepad | Config::swappadbuttons |
+                     Config::enablepad | Config::swappadbuttons |
                      Config::disablef12reset | Config::enablemouse | Config::mousejoymode);
   if (func_savedir_->isChecked()) config_.flags |= Config::savedirectory;
   if (func_askreset_->isChecked()) config_.flags |= Config::askbeforereset;
-  if (func_suppressmenu_->isChecked()) config_.flags |= Config::suppressmenu;
-  if (func_arrowten_->isChecked()) config_.flags |= Config::usearrowfor10;
+  if (func_suppressmenu_->isEnabled() && func_suppressmenu_->isChecked()) {
+    config_.flags |= Config::suppressmenu;
+  }
   if (func_enablepad_->isChecked()) config_.flags |= Config::enablepad;
   if (func_swappad_->isChecked()) config_.flags |= Config::swappadbuttons;
   if (!func_resetf12_->isChecked()) config_.flags |= Config::disablef12reset;
@@ -978,6 +999,9 @@ void ConfigDialog::applyToConfig() {
   if (func_scrname_->isChecked()) config_.flag2 |= Config::genscrnshotname;
   if (func_compsnap_->isChecked()) config_.flag2 |= Config::compresssnapshot;
   config_.mousesensibility = static_cast<uint>(func_mousesense_->value());
+  M88SetWaylandIdleInhibitEnabled(func_idle_inhibit_->isEnabled() &&
+                                  func_idle_inhibit_->isChecked());
+  M88SetImeHalfKanaEnabled(func_ime_kana_->isEnabled() && func_ime_kana_->isChecked());
 
   config_.sound = sound_rate_group_->checkedId();
   config_.flags &= ~(Config::enableopna | Config::opnona8 | Config::opnaona8);
@@ -1017,10 +1041,15 @@ void ConfigDialog::applyToConfig() {
                  sizeof(config_.audiobackend) - 1);
     config_.audiobackend[sizeof(config_.audiobackend) - 1] = '\0';
 
-    const QString dev = sound_device_->currentData().toString();
-    const QByteArray dev_utf8 = dev.toUtf8();
-    std::strncpy(config_.audiodevice, dev_utf8.constData(), sizeof(config_.audiodevice) - 1);
-    config_.audiodevice[sizeof(config_.audiodevice) - 1] = '\0';
+    if (M88MiniaudioDevices::IsAutoBackend(config_.audiobackend)) {
+      config_.audiodevice[0] = '\0';
+    } else {
+      const QString dev = sound_device_->currentData().toString();
+      const QByteArray dev_utf8 = dev.toUtf8();
+      std::strncpy(config_.audiodevice, dev_utf8.constData(),
+                   sizeof(config_.audiodevice) - 1);
+      config_.audiodevice[sizeof(config_.audiodevice) - 1] = '\0';
+    }
   }
   if (sound_lpf_->isChecked()) config_.flag2 |= Config::lpfenable;
   config_.lpffc =
@@ -1064,9 +1093,24 @@ void ConfigDialog::updateScreenTab() {
 }
 
 void ConfigDialog::updateFunctionTab() {
+  const bool host_at101 =
+      keytype_group_ && keytype_group_->checkedId() == static_cast<int>(Config::AT101);
+  if (host_at101 && func_suppressmenu_->isChecked()) {
+    func_suppressmenu_->blockSignals(true);
+    func_suppressmenu_->setChecked(false);
+    func_suppressmenu_->blockSignals(false);
+  }
+  func_suppressmenu_->setEnabled(!host_at101);
+  if (host_at101) {
+    func_suppressmenu_->setToolTip(
+        tr("Not available with 101/104-key AT keyboard (Alt is not mapped to GRPH)."));
+  } else {
+    func_suppressmenu_->setToolTip(QString());
+  }
+
   func_swappad_->setEnabled(func_enablepad_->isChecked());
   func_mousejoy_->setEnabled(func_enablemouse_->isChecked());
-  if (func_suppressmenu_->isChecked()) {
+  if (func_suppressmenu_->isEnabled() && func_suppressmenu_->isChecked()) {
     func_enablemouse_->setChecked(false);
   }
   if (func_enablepad_->isChecked()) {
@@ -1074,6 +1118,37 @@ void ConfigDialog::updateFunctionTab() {
   }
   if (func_enablemouse_->isChecked()) {
     func_enablepad_->setChecked(false);
-    func_suppressmenu_->setChecked(false);
+    if (func_suppressmenu_->isEnabled()) {
+      func_suppressmenu_->setChecked(false);
+    }
+  }
+
+  const bool idle_ok = M88WaylandIdleInhibitAvailable();
+  if (!idle_ok && func_idle_inhibit_->isChecked()) {
+    func_idle_inhibit_->blockSignals(true);
+    func_idle_inhibit_->setChecked(false);
+    func_idle_inhibit_->blockSignals(false);
+  }
+  func_idle_inhibit_->setEnabled(idle_ok);
+  if (!idle_ok) {
+    func_idle_inhibit_->setToolTip(
+        tr("Requires Wayland with idle-inhibit support (not available in this session)."));
+  } else {
+    func_idle_inhibit_->setToolTip(QString());
+  }
+
+  const bool ime_ok = LinuxIme::HostAvailable();
+  if (!ime_ok && func_ime_kana_->isChecked()) {
+    func_ime_kana_->blockSignals(true);
+    func_ime_kana_->setChecked(false);
+    func_ime_kana_->blockSignals(false);
+  }
+  func_ime_kana_->setEnabled(ime_ok);
+  func_ime_kana_hint_->setEnabled(ime_ok);
+  if (!ime_ok) {
+    func_ime_kana_->setToolTip(
+        tr("No host input method was detected at startup (fcitx, ibus, etc.)."));
+  } else {
+    func_ime_kana_->setToolTip(QString());
   }
 }

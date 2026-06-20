@@ -50,6 +50,7 @@ public slots:
   void setClock(int clock);
   void setBasicMode(int mode);
   void setBurstMode(bool enabled);
+  void setArrowTenkey(bool enabled);
   void setShowStatusBar(bool enabled);
   void setShowFdcStatus(bool enabled);
   void sampleTitleStats();
@@ -72,7 +73,7 @@ signals:
   void frameReady();
   void machineConfigChanged(int clock, int basicmode, bool n80_supported,
                             bool n80v2_supported, bool cd_supported,
-                            bool burst_mode, bool show_statusbar,
+                            bool burst_mode, bool arrow_tenkey, bool show_statusbar,
                             bool show_fdc_status, bool ask_before_reset,
                             bool f12_as_reset, bool suppress_menu);
   void statusUiChanged(bool bar_enabled, bool show_fdc_lamps, int lamp0, int lamp1,

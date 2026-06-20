@@ -68,7 +68,6 @@ private:
   class QCheckBox* func_savepos_ = nullptr;
   class QCheckBox* func_askreset_ = nullptr;
   class QCheckBox* func_suppressmenu_ = nullptr;
-  class QCheckBox* func_arrowten_ = nullptr;
   class QCheckBox* func_enablepad_ = nullptr;
   class QCheckBox* func_swappad_ = nullptr;
   class QCheckBox* func_resetf12_ = nullptr;
@@ -77,6 +76,9 @@ private:
   class QSlider* func_mousesense_ = nullptr;
   class QCheckBox* func_scrname_ = nullptr;
   class QCheckBox* func_compsnap_ = nullptr;
+  class QCheckBox* func_idle_inhibit_ = nullptr;
+  class QCheckBox* func_ime_kana_ = nullptr;
+  class QLabel* func_ime_kana_hint_ = nullptr;
 
   // Sound
   class QButtonGroup* sound_rate_group_ = nullptr;

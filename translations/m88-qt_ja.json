@@ -207,11 +207,6 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "Map arrow keys to ten-key (&H)",
-      "translation": "矢印キーをテンキーに割り当て (&H)"
-    },
-    {
-      "context": "ConfigDialog",
       "source": "Use gamepad (&J)",
       "translation": "ゲームパッドを使用 (&J)"
     },
@@ -1299,6 +1294,116 @@
       "context": "BasicMode",
       "source": "Unknown",
       "translation": "不明"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Not available with 101/104-key AT keyboard (Alt is not mapped to GRPH).",
+      "translation": "101/104-key AT キーボードでは使用できません（Alt は GRPH に割り当てられません）。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Map arrow keys to ten-key (&N)",
+      "translation": "矢印キーをテンキーに割り当て (&N)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys mapped to ten-key",
+      "translation": "矢印キーをテンキーに割り当てました"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "Arrow keys not mapped to ten-key",
+      "translation": "矢印キーのテンキー割り当てを解除しました"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Inhibit display idle (&I)",
+      "translation": "ディスプレイのアイドルを抑制 (&I)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Requires Wayland with idle-inhibit support (not available in this session).",
+      "translation": "Wayland の idle-inhibit 対応が必要です（このセッションでは利用できません）。"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Half-width kana via IME (&H)",
+      "translation": "IME 半角カナ入力 (&H)"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Converts host IME text (romaji, hiragana, etc.) into PC-88 half-width kana key strokes.",
+      "translation": "ホスト IME（ローマ字・ひらがな等）で入力した文字を、PC-88 の半角カナキー入力として送ります。"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "No host input method was detected at startup (fcitx, ibus, etc.).",
+      "translation": "起動時にホスト IME（fcitx、ibus 等）が検出されませんでした。"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "OK",
+      "translation": "OK"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "M88 for Linux (Qt) (rel %1)\nPC-8801 series emulator.\nCopyright (C) 1998, 2003 cisc",
+      "translation": "M88 for Linux (Qt) (rel %1)\nPC-8801 シリーズ エミュレータ\nCopyright (C) 1998, 2003 cisc"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "GitHub:",
+      "translation": "GitHub:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Forked from:",
+      "translation": "フォーク元:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Original:",
+      "translation": "オリジナル:"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "build date: %1",
+      "translation": "build date: %1"
+    },
+    {
+      "context": "AboutDialog",
+      "source": "Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)",
+      "translation": "Credits: FM 音源 (佐藤達之氏 fm.c), N80/SR (arearea)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&Yes",
+      "translation": "はい(&Y)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "&No",
+      "translation": "いいえ(&N)"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset",
+      "translation": "リセット"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Reset the emulated machine?",
+      "translation": "エミュレータをリセットしますか？"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit",
+      "translation": "終了"
+    },
+    {
+      "context": "ConfirmDialog",
+      "source": "Exit M88?",
+      "translation": "M88 を終了しますか？"
     }
   ]
 }

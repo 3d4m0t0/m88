@@ -150,12 +150,16 @@ void QtMiniaudioSound::ApplyConfig(const Config* config) {
   if (!config) {
     return;
   }
-  std::strncpy(playback_device_name_, config->audiodevice,
-               sizeof(playback_device_name_) - 1);
-  playback_device_name_[sizeof(playback_device_name_) - 1] = '\0';
   std::strncpy(playback_backend_name_, config->audiobackend,
                sizeof(playback_backend_name_) - 1);
   playback_backend_name_[sizeof(playback_backend_name_) - 1] = '\0';
+  if (M88MiniaudioDevices::IsAutoBackend(playback_backend_name_)) {
+    playback_device_name_[0] = '\0';
+  } else {
+    std::strncpy(playback_device_name_, config->audiodevice,
+                 sizeof(playback_device_name_) - 1);
+    playback_device_name_[sizeof(playback_device_name_) - 1] = '\0';
+  }
   ChangeRate(config->sound, config->soundbuffer);
   Sound::ApplyConfig(config);
 }
@@ -200,6 +204,7 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
   const ma_uint32 frames_per_buffer =
       static_cast<ma_uint32>(M88AudioPeriodFrames(rate, bufsize));
 
+  bool opened_native = false;
   auto try_open = [&](ma_uint32 open_rate) -> bool {
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
     config.playback.format = ma_format_s16;
@@ -208,38 +213,51 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     config.periodSizeInFrames = frames_per_buffer;
     config.dataCallback = QtMiniaudioSoundDataCallback;
     config.pUserData = this;
+    config.playback.pDeviceID = nullptr;
 
-    ma_device_id chosen_id {};
-    const ma_device_id* device_id = nullptr;
-    if (playback_device_name_[0] != '\0') {
-      if (M88MiniaudioDevices::ResolvePlaybackId(playback_backend_name_,
-                                                   playback_device_name_, &chosen_id)) {
-        device_id = &chosen_id;
-      } else {
-        std::fprintf(stderr,
-                     "M88: audio device not found: %s (backend=%s, using default)\n",
-                     playback_device_name_,
+    const bool native_init = M88MiniaudioDevices::UsesNativeDeviceInit(
+        playback_backend_name_, playback_device_name_);
+    opened_native = native_init;
+
+    ma_result result = MA_ERROR;
+    if (native_init) {
+      device_->context_active = false;
+      result = ma_device_init(nullptr, &config, &device_->dev);
+    } else {
+      if (!M88MiniaudioDevices::InitContext(playback_backend_name_, &device_->context)) {
+        std::fprintf(stderr, "M88: miniaudio context init failed (backend=%s)\n",
                      playback_backend_name_[0] ? playback_backend_name_ : "auto");
+        return false;
       }
-    }
-    config.playback.pDeviceID = device_id;
+      device_->context_active = true;
 
-    if (!M88MiniaudioDevices::InitContext(playback_backend_name_, &device_->context)) {
-      std::fprintf(stderr, "M88: miniaudio context init failed (backend=%s)\n",
-                   playback_backend_name_[0] ? playback_backend_name_ : "auto");
-      return false;
+      ma_device_id chosen_id {};
+      const ma_device_id* device_id = nullptr;
+      if (playback_device_name_[0] != '\0') {
+        if (M88MiniaudioDevices::ResolvePlaybackIdInContext(
+                &device_->context, playback_device_name_, &chosen_id)) {
+          device_id = &chosen_id;
+        } else {
+          std::fprintf(stderr,
+                       "M88: audio device not found: %s (backend=%s, using default)\n",
+                       playback_device_name_,
+                       playback_backend_name_[0] ? playback_backend_name_ : "auto");
+        }
+      }
+      config.playback.pDeviceID = device_id;
+      result = ma_device_init(&device_->context, &config, &device_->dev);
     }
-    device_->context_active = true;
 
-    const ma_result result =
-        ma_device_init(&device_->context, &config, &device_->dev);
     if (result != MA_SUCCESS) {
-      std::fprintf(stderr, "miniaudio open failed (%u Hz, backend=%s): %d\n", open_rate,
+      std::fprintf(stderr, "miniaudio open failed (%u Hz, backend=%s): %d\n",
+                   open_rate,
                    playback_backend_name_[0] ? playback_backend_name_ : "auto",
                    static_cast<int>(result));
-      ma_context_uninit(&device_->context);
-      device_->context = {};
-      device_->context_active = false;
+      if (device_->context_active) {
+        ma_context_uninit(&device_->context);
+        device_->context = {};
+        device_->context_active = false;
+      }
       return false;
     }
 
@@ -255,6 +273,12 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
           (kMixRate * buflen_ms * kSrcRingMultiplier / 1000) & ~15);
       if (!SetRate(device_rate, bufsize)) {
         ma_device_uninit(&device_->dev);
+        device_->dev = {};
+        if (device_->context_active) {
+          ma_context_uninit(&device_->context);
+          device_->context = {};
+          device_->context_active = false;
+        }
         return false;
       }
       ResetSpsc(device_rate, buflen_ms);
@@ -269,6 +293,12 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     if (ma_device_start(&device_->dev) != MA_SUCCESS) {
       std::fprintf(stderr, "miniaudio start failed\n");
       ma_device_uninit(&device_->dev);
+      device_->dev = {};
+      if (device_->context_active) {
+        ma_context_uninit(&device_->context);
+        device_->context = {};
+        device_->context_active = false;
+      }
       return false;
     }
 
@@ -285,6 +315,35 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
   if (!try_open(rate)) {
     SetRate(rate, 0);
     return false;
+  }
+
+  // Pulse via InitContext can start silent (miniaudio/Pulse quirk). Reopen after
+  // native init — same fix for auto→Pulse and backend=pulse (+ optional device).
+  const bool explicit_pulse =
+      M88MiniaudioDevices::IsExplicitPulseBackend(playback_backend_name_);
+  const bool needs_pulse_reopen =
+      explicit_pulse || (opened_native && IsPulseBackend());
+
+  if (needs_pulse_reopen) {
+    TeardownPlaybackDevice();
+    const ma_uint32 reopen_period =
+        static_cast<ma_uint32>(M88AudioPeriodFrames(sample_rate_, bufsize));
+    if (!OpenExplicitPlayback("pulse", sample_rate_, reopen_period)) {
+      std::fprintf(stderr, "M88: explicit Pulse reopen failed\n");
+      SetRate(rate, 0);
+      return false;
+    }
+    std::strncpy(current_device_name_, playback_device_name_,
+                 sizeof(current_device_name_) - 1);
+    current_device_name_[sizeof(current_device_name_) - 1] = '\0';
+    std::strncpy(current_backend_name_, playback_backend_name_,
+                 sizeof(current_backend_name_) - 1);
+    current_backend_name_[sizeof(current_backend_name_) - 1] = '\0';
+    ResyncPcmContractAfterRateChange();
+  }
+
+  if (IsPulseBackend()) {
+    WarmPulsePlaybackStream();
   }
 
   LogAudioOutput(device_->dev, sample_rate_);
@@ -323,23 +382,106 @@ void QtMiniaudioSound::TryRaiseAudioThreadPriority() {
 #endif
 }
 
-void QtMiniaudioSound::CloseDevice() {
+void QtMiniaudioSound::TeardownPlaybackDevice() {
   if (!device_) {
     return;
   }
-  if (!device_->active) {
-    return;
+  if (device_->active) {
+    device_->dev.pUserData = nullptr;
+    ma_device_stop(&device_->dev);
+    ma_device_uninit(&device_->dev);
+    device_->dev = {};
+    device_->active = false;
   }
-  device_->dev.pUserData = nullptr;
-  ma_device_stop(&device_->dev);
-  ma_device_uninit(&device_->dev);
-  device_->dev = {};
-  device_->active = false;
   if (device_->context_active) {
     ma_context_uninit(&device_->context);
     device_->context = {};
     device_->context_active = false;
   }
+}
+
+bool QtMiniaudioSound::IsPulseBackend() const {
+  if (!device_ || !device_->active || !device_->dev.pContext) {
+    return false;
+  }
+  return device_->dev.pContext->backend == ma_backend_pulseaudio;
+}
+
+bool QtMiniaudioSound::OpenExplicitPlayback(const char* backend_name, ma_uint32 open_rate,
+                                            ma_uint32 frames_per_buffer) {
+  if (!backend_name || backend_name[0] == '\0') {
+    return false;
+  }
+
+  ma_device_config config = ma_device_config_init(ma_device_type_playback);
+  config.playback.format = ma_format_s16;
+  config.playback.channels = 2;
+  config.sampleRate = open_rate;
+  config.periodSizeInFrames = frames_per_buffer;
+  config.dataCallback = QtMiniaudioSoundDataCallback;
+  config.pUserData = this;
+  config.playback.pDeviceID = nullptr;
+
+  if (!M88MiniaudioDevices::InitContext(backend_name, &device_->context)) {
+    std::fprintf(stderr, "M88: explicit context init failed (backend=%s)\n", backend_name);
+    return false;
+  }
+  device_->context_active = true;
+
+  ma_device_id chosen_id {};
+  const ma_device_id* device_id = nullptr;
+  if (playback_device_name_[0] != '\0') {
+    if (M88MiniaudioDevices::ResolvePlaybackIdInContext(
+            &device_->context, playback_device_name_, &chosen_id)) {
+      device_id = &chosen_id;
+    } else {
+      std::fprintf(stderr,
+                   "M88: audio device not found: %s (backend=%s, using default)\n",
+                   playback_device_name_, backend_name);
+    }
+  }
+  config.playback.pDeviceID = device_id;
+
+  if (ma_device_init(&device_->context, &config, &device_->dev) != MA_SUCCESS) {
+    ma_context_uninit(&device_->context);
+    device_->context = {};
+    device_->context_active = false;
+    return false;
+  }
+
+  if (ma_device_start(&device_->dev) != MA_SUCCESS) {
+    ma_device_uninit(&device_->dev);
+    device_->dev = {};
+    ma_context_uninit(&device_->context);
+    device_->context = {};
+    device_->context_active = false;
+    return false;
+  }
+
+  device_->active = true;
+  return true;
+}
+
+bool QtMiniaudioSound::WarmPulsePlaybackStream() {
+  if (!device_->active || !IsPulseBackend()) {
+    return false;
+  }
+  if (ma_device_stop(&device_->dev) != MA_SUCCESS) {
+    std::fprintf(stderr, "M88: pulse warm-up stop failed\n");
+    return false;
+  }
+  if (ma_device_start(&device_->dev) != MA_SUCCESS) {
+    std::fprintf(stderr, "M88: pulse warm-up start failed\n");
+    return false;
+  }
+  return true;
+}
+
+void QtMiniaudioSound::CloseDevice() {
+  if (!device_) {
+    return;
+  }
+  TeardownPlaybackDevice();
   current_device_name_[0] = '\0';
   current_backend_name_[0] = '\0';
 }
@@ -397,12 +539,13 @@ void QtMiniaudioSound::MaintainPlaybackHeadroom(int min_frames) {
   SyncContractTicks();
   const int need = min_frames - in_spsc;
   int may_push = ContractFramesDue() - delivered_frames_;
+  bool from_contract = may_push > 0;
   if (may_push <= 0) {
-    // SPSC starved while SRC has audio — do not block on contract when empty.
-    if (in_spsc > 0 || GetRingAvail() < 61) {
+    if (GetRingAvail() < 61) {
       return;
     }
     may_push = std::min(need, period_frames_);
+    from_contract = false;
   } else {
     may_push = std::min(need, may_push);
   }
@@ -410,7 +553,9 @@ void QtMiniaudioSound::MaintainPlaybackHeadroom(int min_frames) {
   if (pushed <= 0) {
     return;
   }
-  delivered_frames_ += pushed;
+  if (from_contract) {
+    delivered_frames_ += pushed;
+  }
 }
 
 int QtMiniaudioSound::DrainFrames(int target_frames) {

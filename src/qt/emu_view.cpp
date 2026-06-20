@@ -89,6 +89,17 @@ void EmuView::setSuppressMenu(bool enabled) {
   QtInput::SetSuppressMenu(enabled);
 }
 
+void EmuView::setImeInputEnabled(bool enabled) {
+  setAttribute(Qt::WA_InputMethodEnabled, enabled);
+  if (!enabled) {
+    ime_preedit_.clear();
+    ime_block_keys_ = false;
+    if (draw_) {
+      draw_->SetImePreedit("");
+    }
+  }
+}
+
 void EmuView::setHostInput(QtHostInput::Host* host_input) {
   host_input_ = host_input;
 }

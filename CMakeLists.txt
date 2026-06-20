@@ -119,9 +119,14 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/main_window.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/config_dialog.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/about_dialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/about_dialog.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/confirm_dialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/confirm_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.qrc
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_icons.qrc
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.cpp
@@ -142,6 +147,8 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_emu_thread.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_config.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_ime.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/m88_wayland_idle_inhibit.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/m88_wayland_idle_inhibit.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/half_kana_ime.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/pc88_key_fixup.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/qt_miniaudio_sound.cpp
@@ -158,6 +165,44 @@ if(M88_BUILD_QT_FRONTEND)
       )
 
       target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets pthread dl m)
+
+      find_package(PkgConfig QUIET)
+      if(PkgConfig_FOUND)
+        pkg_check_modules(M88_WAYLAND_CLIENT QUIET wayland-client)
+      endif()
+      find_program(M88_WAYLAND_SCANNER wayland-scanner)
+      set(M88_IDLE_INHIBIT_XML
+          "${CMAKE_CURRENT_SOURCE_DIR}/third_party/wayland-protocols/idle-inhibit-unstable-v1.xml")
+      if(M88_WAYLAND_CLIENT_FOUND AND M88_WAYLAND_SCANNER AND EXISTS "${M88_IDLE_INHIBIT_XML}")
+        set(M88_IDLE_INHIBIT_CLIENT_H
+            "${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-client-protocol.h")
+        set(M88_IDLE_INHIBIT_PRIVATE_C
+            "${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-private-code.c")
+        add_custom_command(
+          OUTPUT "${M88_IDLE_INHIBIT_CLIENT_H}"
+          COMMAND "${M88_WAYLAND_SCANNER}" client-header
+                  "${M88_IDLE_INHIBIT_XML}" "${M88_IDLE_INHIBIT_CLIENT_H}"
+          DEPENDS "${M88_IDLE_INHIBIT_XML}"
+          VERBATIM)
+        add_custom_command(
+          OUTPUT "${M88_IDLE_INHIBIT_PRIVATE_C}"
+          COMMAND "${M88_WAYLAND_SCANNER}" private-code
+                  "${M88_IDLE_INHIBIT_XML}" "${M88_IDLE_INHIBIT_PRIVATE_C}"
+          DEPENDS "${M88_IDLE_INHIBIT_XML}"
+          VERBATIM)
+        add_custom_target(m88_idle_inhibit_codegen
+          DEPENDS "${M88_IDLE_INHIBIT_CLIENT_H}" "${M88_IDLE_INHIBIT_PRIVATE_C}")
+        add_dependencies(m88-qt m88_idle_inhibit_codegen)
+        target_sources(m88-qt PRIVATE "${M88_IDLE_INHIBIT_PRIVATE_C}")
+        target_include_directories(m88-qt PRIVATE
+          "${CMAKE_CURRENT_BINARY_DIR}"
+          ${M88_WAYLAND_CLIENT_INCLUDE_DIRS})
+        target_link_libraries(m88-qt PRIVATE ${M88_WAYLAND_CLIENT_LIBRARIES})
+        target_compile_definitions(m88-qt PRIVATE M88_HAS_WAYLAND_IDLE_INHIBIT=1)
+        message(STATUS "m88-qt: Wayland idle-inhibit enabled")
+      else()
+        message(STATUS "m88-qt: Wayland idle-inhibit disabled (wayland-client or wayland-scanner missing)")
+      endif()
 
       target_compile_definitions(m88-qt PRIVATE
         M88_LINUX_PORT=1

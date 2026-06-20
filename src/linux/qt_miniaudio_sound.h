@@ -57,6 +57,11 @@ class QtMiniaudioSound : public Sound {
   void MaintainPlaybackHeadroom(int min_frames);
   void RecomputeLatencyTargets(int mix_ring_samples);
   void TryRaiseAudioThreadPriority();
+  bool WarmPulsePlaybackStream();
+  void TeardownPlaybackDevice();
+  bool OpenExplicitPlayback(const char* backend_name, ma_uint32 open_rate,
+                            ma_uint32 frames_per_buffer);
+  bool IsPulseBackend() const;
   int MaxSpscFrames() const { return max_spsc_frames_; }
 
   std::unique_ptr<Device> device_;

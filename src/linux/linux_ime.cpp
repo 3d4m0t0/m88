@@ -16,14 +16,93 @@
 namespace LinuxIme {
 namespace {
 
+bool g_host_available = false;
+bool g_user_enabled = true;
 bool g_enabled = false;
 
-bool EnvEnabled() {
+bool EnvAllows() {
   const char* e = std::getenv("M88_IME_KANA");
   if (!e || !*e) {
-    return true;  // default on; set M88_IME_KANA=0 to disable
+    return true;
   }
   return e[0] != '0';
+}
+
+bool ReadCommandLine(const char* cmd, char* out, size_t out_sz) {
+  if (!cmd || !out || out_sz == 0) {
+    return false;
+  }
+  out[0] = '\0';
+  FILE* fp = popen(cmd, "r");
+  if (!fp) {
+    return false;
+  }
+  if (!fgets(out, out_sz, fp)) {
+    pclose(fp);
+    return false;
+  }
+  pclose(fp);
+  size_t n = std::strlen(out);
+  while (n > 0 && (out[n - 1] == '\n' || out[n - 1] == '\r')) {
+    out[--n] = '\0';
+  }
+  return out[0] != '\0';
+}
+
+bool ProbeEnvImeHints() {
+  const char* qt_im = std::getenv("QT_IM_MODULE");
+  if (qt_im && std::strcmp(qt_im, "none") == 0) {
+    return false;
+  }
+  if (qt_im && qt_im[0] != '\0') {
+    return true;
+  }
+
+  const char* xmod = std::getenv("XMODIFIERS");
+  if (xmod && std::strstr(xmod, "@im=") != nullptr &&
+      std::strcmp(xmod, "@im=none") != 0) {
+    return true;
+  }
+
+  const char* gtk_im = std::getenv("GTK_IM_MODULE");
+  if (gtk_im && gtk_im[0] != '\0' && std::strcmp(gtk_im, "none") != 0) {
+    return true;
+  }
+
+  const char* ibus = std::getenv("IBUS_ADDRESS");
+  if (ibus && ibus[0] != '\0') {
+    return true;
+  }
+
+  return false;
+}
+
+// fcitx5 on Wayland/KDE often omits QT_IM_MODULE; query the daemon directly.
+bool ProbeFcitx5Active() {
+  char name[128];
+  return ReadCommandLine("fcitx5-remote -n 2>/dev/null", name, sizeof(name));
+}
+
+bool ProbeFcitx4Active() {
+  char name[128];
+  return ReadCommandLine("fcitx-remote -n 2>/dev/null", name, sizeof(name));
+}
+
+bool ProbeHostImeAtStartup() {
+  if (ProbeEnvImeHints()) {
+    return true;
+  }
+  if (ProbeFcitx5Active()) {
+    return true;
+  }
+  if (ProbeFcitx4Active()) {
+    return true;
+  }
+  return false;
+}
+
+void RecomputeEnabled() {
+  g_enabled = g_host_available && g_user_enabled && EnvAllows();
 }
 
 bool CommitText(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
@@ -48,11 +127,28 @@ bool CommitText(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config*
 
 }  // namespace
 
-bool Enabled() {
-  return g_enabled;
+bool Enabled() { return g_enabled; }
+
+bool HostAvailable() { return g_host_available; }
+
+bool UserEnabled() { return g_user_enabled; }
+
+void SetUserEnabled(bool enabled) {
+  g_user_enabled = enabled;
+  RecomputeEnabled();
 }
 
-void InitHost() { g_enabled = EnvEnabled(); }
+void ProbeHostAvailability(bool qt_input_method) {
+#ifdef M88_QT_FRONTEND
+  g_host_available = qt_input_method && ProbeHostImeAtStartup();
+#else
+  (void)qt_input_method;
+  g_host_available = ProbeHostImeAtStartup();
+#endif
+  RecomputeEnabled();
+}
+
+void InitHost() { RecomputeEnabled(); }
 
 #ifndef M88_QT_FRONTEND
 void OnWindowShown(LinuxDraw* draw) {

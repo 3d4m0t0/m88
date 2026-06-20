@@ -1,14 +1,19 @@
 #include "main_window.h"
 
 #include "config_dialog.h"
+#include "about_dialog.h"
+#include "confirm_dialog.h"
 #include "multi_disk_editor_dialog.h"
 #include "emu_view.h"
+#include "qt_platform.h"
 #include "../linux/shared_framebuffer_draw.h"
 
 #include "../linux/display_scale.h"
 #include "../linux/linux_config.h"
+#include "../linux/linux_ime.h"
 #include "../linux/linux_paths.h"
 #include "../linux/m88_port_version.h"
+#include "../linux/m88_wayland_idle_inhibit.h"
 #include "../pc88/config.h"
 
 #include <QAction>
@@ -24,12 +29,14 @@
 #include <QMenu>
 #include <QLabel>
 #include <QMenuBar>
+#include <QGuiApplication>
 #include <QMouseEvent>
 #include <QMessageBox>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWindow>
 #include <QShowEvent>
+#include <QHideEvent>
 #include <QStatusBar>
 #include <QThread>
 #include <QTimer>
@@ -175,6 +182,33 @@ void MainWindow::scheduleFullscreenChromeHide() {
   fullscreen_chrome_hide_timer_->start(kFullscreenChromeHideMs);
 }
 
+bool MainWindow::isSignificantFullscreenMouseMove(const QPoint& global_pos) const {
+  if (!have_last_fullscreen_mouse_global_) {
+    return true;
+  }
+  const QPoint delta = global_pos - last_fullscreen_mouse_global_;
+  return (delta.x() * delta.x() + delta.y() * delta.y()) >=
+         kFullscreenMouseMoveThresholdPx * kFullscreenMouseMoveThresholdPx;
+}
+
+void MainWindow::showFullscreenCursor() {
+  if (!fullscreen_cursor_hidden_) {
+    return;
+  }
+  if (QGuiApplication::overrideCursor()) {
+    QGuiApplication::restoreOverrideCursor();
+  }
+  fullscreen_cursor_hidden_ = false;
+}
+
+void MainWindow::hideFullscreenCursor() {
+  if (!fullscreen_ || fullscreen_cursor_hidden_) {
+    return;
+  }
+  QGuiApplication::setOverrideCursor(Qt::BlankCursor);
+  fullscreen_cursor_hidden_ = true;
+}
+
 void MainWindow::ensureMenuBarDocked() {
   QMenuBar* mb = menuBar();
   if (!mb) {
@@ -199,6 +233,7 @@ void MainWindow::noteFullscreenMouseActivity(const QPoint& global_pos) {
   last_fullscreen_mouse_move_ms_ = now;
   last_fullscreen_mouse_global_ = global_pos;
   have_last_fullscreen_mouse_global_ = true;
+  showFullscreenCursor();
 
   QMenuBar* mb = menuBar();
   if (!mb) {
@@ -232,16 +267,13 @@ void MainWindow::hideFullscreenChrome() {
   }
 
   QMenuBar* mb = menuBar();
-  if (!mb || !mb->isVisible()) {
-    if (fullscreen_chrome_hide_timer_) {
-      fullscreen_chrome_hide_timer_->stop();
-    }
-    return;
+  if (mb && mb->isVisible()) {
+    mb->hide();
   }
+  hideFullscreenCursor();
   if (fullscreen_chrome_hide_timer_) {
     fullscreen_chrome_hide_timer_->stop();
   }
-  mb->hide();
 }
 
 bool MainWindow::isMouseInsideWindow(const QPoint& global_pos) const {
@@ -325,11 +357,13 @@ void MainWindow::applyFullscreenLayout() {
   have_last_fullscreen_mouse_global_ = false;
   last_fullscreen_mouse_move_ms_ = 0;
   last_fullscreen_menubar_show_ms_ = 0;
+  showFullscreenCursor();
   if (menuBar()) {
     menuBar()->hide();
   }
   showFullScreen();
   focusEmuView();
+  scheduleFullscreenChromeHide();
 }
 
 void MainWindow::applyWindowedLayout() {
@@ -339,6 +373,7 @@ void MainWindow::applyWindowedLayout() {
   have_last_fullscreen_mouse_global_ = false;
   last_fullscreen_mouse_move_ms_ = 0;
   last_fullscreen_menubar_show_ms_ = 0;
+  showFullscreenCursor();
   ensureMenuBarDocked();
   view_scale_ = windowed_view_scale_;
   if (view_) {
@@ -584,6 +619,8 @@ void MainWindow::openConfigureDialog() {
     syncRememberPrefsFromConfig(config);
     updateDisplayConfig((config.flags & PC8801::Config::force480) != 0,
                         (config.flag2 & PC8801::Config::synctovsync) != 0);
+    syncWaylandIdleInhibit();
+    syncImeKanaInput();
     if (controller_) {
       QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
                                 Q_ARG(PC8801::Config, config));
@@ -594,6 +631,8 @@ void MainWindow::openConfigureDialog() {
   }
   const PC8801::Config config = dlg.config();
   syncRememberPrefsFromConfig(config);
+  syncWaylandIdleInhibit();
+  syncImeKanaInput();
   QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
                             Q_ARG(PC8801::Config, config));
 }
@@ -710,27 +749,22 @@ bool MainWindow::confirmReset() {
   if (!ask_before_reset_) {
     return true;
   }
-  return QMessageBox::question(
-             this, tr("Reset"),
-             tr("Reset the emulated machine?"),
-             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+  return ConfirmDialog::Ask(ConfirmDialog::Kind::Reset, this);
 }
 
 bool MainWindow::confirmExit() {
   if (!ask_before_reset_) {
     return true;
   }
-  return QMessageBox::question(
-             this, tr("Exit"),
-             tr("Exit M88?"),
-             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+  return ConfirmDialog::Ask(ConfirmDialog::Kind::Exit, this);
 }
 
 void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
                                     bool n80v2_supported, bool cd_supported,
-                                    bool burst_mode, bool show_statusbar,
-                                    bool show_fdc_status, bool ask_before_reset,
-                                    bool f12_as_reset, bool suppress_menu) {
+                                    bool burst_mode, bool arrow_tenkey,
+                                    bool show_statusbar, bool show_fdc_status,
+                                    bool ask_before_reset, bool f12_as_reset,
+                                    bool suppress_menu) {
   if (rom_missing_) {
     applyRomMissingUiState();
     return;
@@ -771,6 +805,9 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
   }
   if (burst_action_) {
     burst_action_->setChecked(burst_mode);
+  }
+  if (arrow_tenkey_action_) {
+    arrow_tenkey_action_->setChecked(arrow_tenkey);
   }
   if (show_status_action_) {
     show_status_action_->setChecked(show_statusbar);
@@ -850,6 +887,17 @@ void MainWindow::setupMenuBar() {
   fullscreen_action_->setCheckable(true);
   fullscreen_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Return));
   connect(fullscreen_action_, &QAction::triggered, this, &MainWindow::toggleFullscreen);
+
+  arrow_tenkey_action_ =
+      control_menu_->addAction(tr("Map arrow keys to ten-key (&N)"));
+  arrow_tenkey_action_->setCheckable(true);
+  arrow_tenkey_action_->setShortcut(QKeySequence(Qt::ALT | Qt::Key_N));
+  connect(arrow_tenkey_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setArrowTenkey", Qt::QueuedConnection,
+                                Q_ARG(bool, checked));
+    }
+  });
 
   burst_action_ = control_menu_->addAction(tr("&Burst mode"));
   burst_action_->setCheckable(true);
@@ -970,31 +1018,8 @@ void MainWindow::setupMenuBar() {
     }
   });
   connect(about_action_, &QAction::triggered, this, [this]() {
-    QMessageBox box(this);
-    box.setWindowTitle(tr("About M88"));
-    box.setTextFormat(Qt::RichText);
-    box.setText(
-        tr("<h3>M88 for Linux (Qt)</h3>"
-           "<p>rel %1<br/>"
-           "PC-8801 series emulator / Copyright (C) 1998, 2003 cisc</p>"
-           "<p>Linux port: "
-           "<a href=\"https://github.com/3d4m0t0/m88\">"
-           "https://github.com/3d4m0t0/m88</a></p>"
-           "<p>Original: "
-           "<a href=\"http://www.retropc.net/cisc/m88/\">"
-           "http://www.retropc.net/cisc/m88/</a></p>"
-           "<p>Forked from "
-           "<a href=\"https://github.com/rururutan/m88\">"
-           "https://github.com/rururutan/m88</a></p>"
-           "<p>Credits: FM sound (Tatsuya Sato fm.c), N80/SR (arearea)</p>")
-            .arg(QString::fromLatin1(M88_LINUX_QT_VER_STRING)));
-    box.setStandardButtons(QMessageBox::Ok);
-    for (QLabel* label : box.findChildren<QLabel*>()) {
-      label->setTextFormat(Qt::RichText);
-      label->setOpenExternalLinks(true);
-      label->setTextInteractionFlags(Qt::TextBrowserInteraction);
-    }
-    box.exec();
+    AboutDialog dlg(this);
+    dlg.exec();
   });
 
   if (disk_menu_) {
@@ -1120,6 +1145,9 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
                        const MainWindowStartup& startup, QWidget* parent)
     : QMainWindow(parent) {
   setWindowTitle(QStringLiteral("M88"));
+  if (!M88QtAppIcon().isNull()) {
+    setWindowIcon(M88QtAppIcon());
+  }
   view_scale_ = std::max(1, scale);
   save_position_ = startup.save_position;
   winpos_x_ = startup.winpos_x;
@@ -1230,6 +1258,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     }
   });
   connect(controller_, &EmulatorController::started, this, [this]() {
+    syncImeKanaInput();
     if (!fullscreen_ && statusBar()) {
       statusBar()->showMessage(tr("Emulator running"), 3000);
     }
@@ -1302,10 +1331,25 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
 }
 
 MainWindow::~MainWindow() {
+  M88WaylandIdleInhibitShutdown();
+  showFullscreenCursor();
   if (QApplication* app = qApp) {
     app->removeEventFilter(this);
   }
   stopEmulator();
+}
+
+void MainWindow::syncWaylandIdleInhibit() {
+  const bool want = M88WaylandIdleInhibitEnabled() && isVisible() && !isMinimized();
+  M88WaylandIdleInhibitApply(want ? windowHandle() : nullptr, want);
+}
+
+void MainWindow::syncImeKanaInput() {
+  LinuxIme::SetUserEnabled(M88ImeHalfKanaEnabled());
+  LinuxIme::InitHost();
+  if (view_) {
+    view_->setImeInputEnabled(LinuxIme::Enabled());
+  }
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -1330,15 +1374,19 @@ void MainWindow::showEvent(QShowEvent* event) {
     ensureMenuBarDocked();
   }
   focusEmuView();
+  syncWaylandIdleInhibit();
+}
+
+void MainWindow::hideEvent(QHideEvent* event) {
+  QMainWindow::hideEvent(event);
+  syncWaylandIdleInhibit();
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
   if (fullscreen_ && event->type() == QEvent::MouseMove) {
     const QPoint global =
         static_cast<QMouseEvent*>(event)->globalPosition().toPoint();
-    if (isMouseInsideWindow(global) &&
-        (!have_last_fullscreen_mouse_global_ ||
-         global != last_fullscreen_mouse_global_)) {
+    if (isMouseInsideWindow(global) && isSignificantFullscreenMouseMove(global)) {
       noteFullscreenMouseActivity(global);
     }
   }
@@ -1372,6 +1420,7 @@ void MainWindow::changeEvent(QEvent* event) {
         applyWindowedLayout();
       }
     }
+    syncWaylandIdleInhibit();
   }
   if (event->type() == QEvent::ActivationChange && isActiveWindow()) {
     focusEmuView();

@@ -262,6 +262,7 @@ bool EmulatorController::initialize() {
   impl_->keyif->Activate(true);
   syncHostInputFromConfig();
   syncStatusBarFromConfig();
+  LinuxIme::SetUserEnabled(M88ImeHalfKanaEnabled());
   LinuxIme::InitHost();
   M88LogQtVideoBackend();
   M88LogSound(&impl_->config);
@@ -616,6 +617,7 @@ void EmulatorController::importConfig(PC8801::Config config) {
     M88ApplyConfig(impl_->pc88.get(), &impl_->config);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      impl_->sound->ResetPcmContract();
       updateSequencerAudio();
     }
     resetSequencerPacing();
@@ -625,6 +627,8 @@ void EmulatorController::importConfig(PC8801::Config config) {
     }
     syncStatusBarFromConfig();
     saveConfig();
+    LinuxIme::SetUserEnabled(M88ImeHalfKanaEnabled());
+    LinuxIme::InitHost();
     syncHostInputFromConfig();
   });
   emitMachineConfig();
@@ -850,6 +854,7 @@ void EmulatorController::loadSnapshot(int slot) {
     impl_->keyif->ApplyConfig(&impl_->config);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      impl_->sound->ResetPcmContract();
       updateSequencerAudio();
     }
     syncHostInputFromConfig();
@@ -1048,6 +1053,7 @@ void EmulatorController::emitMachineConfig() {
       impl_->pc88->IsN80Supported(), impl_->pc88->IsN80V2Supported(),
       impl_->pc88->IsCDSupported(),
       (impl_->config.flags & PC8801::Config::cpuburst) != 0,
+      (impl_->config.flags & PC8801::Config::usearrowfor10) != 0,
       (impl_->config.flags & PC8801::Config::showstatusbar) != 0,
       (impl_->config.flags & PC8801::Config::showfdcstatus) != 0,
       (impl_->config.flags & PC8801::Config::askbeforereset) != 0,
@@ -1113,6 +1119,27 @@ void EmulatorController::setBurstMode(bool enabled) {
   resetSequencerPacing();
   emitMachineConfig();
   emit statusMessage(enabled ? tr("Burst mode on") : tr("Burst mode off"), 2000);
+}
+
+void EmulatorController::setArrowTenkey(bool enabled) {
+  if (!impl_ || !impl_->keyif) {
+    return;
+  }
+  const bool was = (impl_->config.flags & PC8801::Config::usearrowfor10) != 0;
+  if (was == enabled) {
+    return;
+  }
+  if (enabled) {
+    impl_->config.flags |= PC8801::Config::usearrowfor10;
+  } else {
+    impl_->config.flags &= ~PC8801::Config::usearrowfor10;
+  }
+  withVmPaused([&]() { impl_->keyif->ApplyConfig(&impl_->config); });
+  saveConfig();
+  emitMachineConfig();
+  emit statusMessage(enabled ? tr("Arrow keys mapped to ten-key")
+                             : tr("Arrow keys not mapped to ten-key"),
+                     2000);
 }
 
 void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basicmode) {
@@ -1216,6 +1243,7 @@ void EmulatorController::setClock(int clock) {
     M88ApplyConfig(impl_->pc88.get(), &impl_->config);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
+      impl_->sound->ResetPcmContract();
       updateSequencerAudio();
     }
     resetSequencerPacing();

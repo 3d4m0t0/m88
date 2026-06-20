@@ -22,6 +22,8 @@ using namespace PC8801;
 bool g_keyfix_enabled = true;
 bool g_screen_scale_auto = true;
 int g_screen_scale = 2;
+bool g_wayland_idle_inhibit = false;
+bool g_ime_half_kana = true;
 
 char g_keyboard_log_source[64] = "(default)";
 namespace {
@@ -194,6 +196,14 @@ bool ParseKeyValueLine(const char* line, Config* cfg) {
     } else {
       cfg->flags &= ~Config::usearrowfor10;
     }
+    return true;
+  }
+  if (std::strcmp(key, "WaylandIdleInhibit") == 0 && ParseIniInt(value, &n)) {
+    g_wayland_idle_inhibit = (n != 0);
+    return true;
+  }
+  if (std::strcmp(key, "ImeHalfKana") == 0 && ParseIniInt(value, &n)) {
+    g_ime_half_kana = (n != 0);
     return true;
   }
   if (std::strcmp(key, "Flags") == 0 && ParseIniInt(value, &n)) {
@@ -451,6 +461,8 @@ void M88SetDefaultConfig(Config* cfg) {
   g_keyfix_enabled = true;
   g_screen_scale_auto = true;
   g_screen_scale = 2;
+  g_wayland_idle_inhibit = false;
+  g_ime_half_kana = true;
 }
 
 int M88ParseKeyboardType(const char* name) {
@@ -620,6 +632,14 @@ bool M88KeyFixEnabled() { return g_keyfix_enabled; }
 bool M88ScreenScaleAuto() { return g_screen_scale_auto; }
 
 int M88ScreenScaleIniValue() { return std::max(1, g_screen_scale); }
+
+bool M88WaylandIdleInhibitEnabled() { return g_wayland_idle_inhibit; }
+
+void M88SetWaylandIdleInhibitEnabled(bool enabled) { g_wayland_idle_inhibit = enabled; }
+
+bool M88ImeHalfKanaEnabled() { return g_ime_half_kana; }
+
+void M88SetImeHalfKanaEnabled(bool enabled) { g_ime_half_kana = enabled; }
 
 int M88ResolveScreenScale(int avail_w, int avail_h, int chrome_w, int chrome_h,
                           int cli_scale, bool cli_explicit) {
@@ -924,6 +944,8 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   std::fprintf(fp, "VolumeRIM=%d\n", cfg->volrim + kVolumeBias);
   std::fprintf(fp, "KeyboardType=%d\n", cfg->keytype);
   std::fprintf(fp, "KeyFix=%d\n", g_keyfix_enabled ? 1 : 0);
+  std::fprintf(fp, "WaylandIdleInhibit=%d\n", g_wayland_idle_inhibit ? 1 : 0);
+  std::fprintf(fp, "ImeHalfKana=%d\n", g_ime_half_kana ? 1 : 0);
   if (g_screen_scale_auto) {
     std::fprintf(fp, "ScreenScale=auto\n");
   } else {

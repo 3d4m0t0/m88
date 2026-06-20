@@ -297,6 +297,8 @@ int main(int argc, char** argv) {
     scale = M88ResolveScreenScale(desktop_w, desktop_h, 0, 0, scale, scale_explicit);
     M88PrintScreenScale(scale, scale_explicit);
   }
+  LinuxIme::ProbeHostAvailability(false);
+  LinuxIme::SetUserEnabled(M88ImeHalfKanaEnabled());
   if (!draw.InitWindow("M88 (Linux)", scale)) {
     std::fprintf(stderr, "Failed to initialize SDL2 window: %s\n", SDL_GetError());
     return 1;

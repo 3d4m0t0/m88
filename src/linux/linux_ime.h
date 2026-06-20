@@ -11,7 +11,17 @@ namespace LinuxIme {
 
 bool Enabled();
 
-// Enable half-kana IME injection (respects M88_IME_KANA). Call once at host startup.
+// Host IME detected once at startup (fcitx/ibus/Qt input method, etc.).
+bool HostAvailable();
+
+// User preference (m88.ini ImeHalfKana=1).
+bool UserEnabled();
+void SetUserEnabled(bool enabled);
+
+// Call once after the GUI toolkit is up; qt_input_method when using Qt.
+void ProbeHostAvailability(bool qt_input_method);
+
+// Recompute Enabled() from host, user pref, and M88_IME_KANA.
 void InitHost();
 
 void OnWindowShown(LinuxDraw* draw);
