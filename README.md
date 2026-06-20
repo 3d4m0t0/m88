@@ -2,7 +2,7 @@
 
 cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.net/cisc/m88/) を、[rururutan/m88](https://github.com/rururutan/m88) から派生させ、Linux (x86_64) 向け Qt 6 フロントエンド **`m88-qt`** として移植したものです。
 
-**版 1.1.0** — [更新履歴](#更新履歴)
+**版 1.1.1** — [更新履歴](#更新履歴)
 
 ### English
 
@@ -10,7 +10,7 @@ cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.ne
 
 A Linux (x86_64) port of cisc’s Windows PC-8801 emulator [M88](http://retropc.net/cisc/m88/), derived from [rururutan/m88](https://github.com/rururutan/m88), with a Qt 6 frontend **`m88-qt`**.
 
-**Version 1.1.0** — see [Changelog](#更新履歴) (更新履歴).
+**Version 1.1.1** — see [Changelog](#更新履歴) (更新履歴).
 
 ## AI の利用について
 
@@ -31,6 +31,20 @@ This project uses [Cursor](https://cursor.com/referral?code=TI3UQLE9PFH3); gener
 Linux 版でメンテナンス対象としているのは **Qt 版のみ** です。SDL2 版 (`m88`) は試作段階で未実装・未解決の部分が多く、CMake でもデフォルトではビルドしません。
 
 ## 更新履歴
+
+### 1.1.1
+
+* **長時間稼働の安定性** — ネストした Pause によるデッドロック回避、シーケンサ時間のオーバーフロー修正
+* **Pulse 音声** — sink ID によるデバイス解決、孤立ストリーム回避
+* **パッケージング** — CMake install（desktop、AppStream、man、翻訳ファイル等）
+* **i18n 拡張** — JSON ファイル読み込み、en/ja 埋め込み、zh-CN / zh-TW / ko / de / fr / es 翻訳
+
+### English
+
+* **Long-run stability** — nested pause deadlock fix and sequencer timing overflow resync
+* **Pulse audio** — resolve devices by sink ID and avoid orphan streams
+* **Packaging** — CMake install rules (desktop, AppStream, man page, translations)
+* **i18n** — JSON locale files with embedded en/ja plus zh-CN, zh-TW, ko, de, fr, and es
 
 ### 1.1.0 (`linux-port-stable-1.1.0`)
 
