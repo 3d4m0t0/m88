@@ -539,13 +539,12 @@ void QtMiniaudioSound::MaintainPlaybackHeadroom(int min_frames) {
   SyncContractTicks();
   const int need = min_frames - in_spsc;
   int may_push = ContractFramesDue() - delivered_frames_;
-  bool from_contract = may_push > 0;
   if (may_push <= 0) {
-    if (GetRingAvail() < 61) {
+    // SPSC starved while SRC has audio — do not block on contract when empty.
+    if (in_spsc > 0 || GetRingAvail() < 61) {
       return;
     }
     may_push = std::min(need, period_frames_);
-    from_contract = false;
   } else {
     may_push = std::min(need, may_push);
   }
@@ -553,9 +552,7 @@ void QtMiniaudioSound::MaintainPlaybackHeadroom(int min_frames) {
   if (pushed <= 0) {
     return;
   }
-  if (from_contract) {
-    delivered_frames_ += pushed;
-  }
+  delivered_frames_ += pushed;
 }
 
 int QtMiniaudioSound::DrainFrames(int target_frames) {
@@ -598,7 +595,7 @@ void QtMiniaudioSound::MixSlice(int emu_ticks) {
   if (backlog > 0) {
     const int headroom = MaxSpscFrames() - static_cast<int>(spsc_.Avail());
     const int push_goal = headroom > 0 ? std::min(backlog, headroom) : 0;
-    const int pushed = push_goal > 0 ? DrainFrames(backlog) : 0;
+    const int pushed = push_goal > 0 ? DrainFrames(push_goal) : 0;
     delivered_frames_ += pushed;
   }
   MaintainPlaybackHeadroom(MinPlaybackHeadroom());
@@ -613,7 +610,7 @@ void QtMiniaudioSound::CatchUpContract() {
   if (backlog > 0) {
     const int headroom = MaxSpscFrames() - static_cast<int>(spsc_.Avail());
     const int push_goal = headroom > 0 ? std::min(backlog, headroom) : 0;
-    const int pushed = push_goal > 0 ? DrainFrames(backlog) : 0;
+    const int pushed = push_goal > 0 ? DrainFrames(push_goal) : 0;
     delivered_frames_ += pushed;
   }
   MaintainPlaybackHeadroom(MinPlaybackHeadroom());
