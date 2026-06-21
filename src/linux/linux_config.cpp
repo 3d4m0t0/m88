@@ -1060,10 +1060,8 @@ void M88ApplyConfig(PC88* pc88, Config* cfg) {
     cfg->flags &= ~Config::specialpalette;
     cfg->flag2 &= ~(Config::mask0 | Config::mask1 | Config::mask2);
   }
-  // Keep sub-CPU running: with subcpucontrol, CPU2 stops after ~200 sub PIO
-  // polls (IsBusy false) and N88 BIOS handshake at boot/mode-switch hangs (black
-  // screen, no sound) while the main CPU spins at a low PC.
-  cfg->flags &= ~Config::subcpucontrol;
+  // Match Windows default: park sub CPU when FDIF is idle (see subcpucontrol).
+  cfg->flags |= Config::subcpucontrol;
 
   pc88->ApplyConfig(cfg);
 }

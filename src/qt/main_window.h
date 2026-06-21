@@ -45,11 +45,13 @@ private slots:
   void updateControlMenu(int clock, int basicmode, bool n80_supported,
                          bool n80v2_supported, bool cd_supported, bool burst_mode,
                          bool arrow_tenkey, bool show_statusbar, bool show_fdc_status,
-                         bool ask_before_reset, bool f12_as_reset, bool suppress_menu);
+                         bool watch_register, bool ask_before_reset, bool f12_as_reset,
+                         bool suppress_menu);
   bool confirmReset();
   bool confirmExit();
   void updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0, int lamp1,
-                      int lamp2, QString message, int message_ms);
+                      int lamp2, QString message, int message_ms, bool watch_register,
+                      QString register_text);
   void updateTitleStats(int fps, int mhz_whole, int mhz_frac);
   void updateDiskMenu(QString drive0Path, int drive0NumDisks, int drive0Current,
                       QStringList drive0Titles, QString drive1Path,
@@ -150,6 +152,9 @@ private:
   QString snapshot_drive0_path_;
   int current_snapshot_slot_ = 0;
   QAction* fdc_status_action_ = nullptr;
+  QAction* watch_register_action_ = nullptr;
+  bool watch_register_enabled_ = false;
+  QLabel* register_label_ = nullptr;
   QLabel* fdc_text_label_ = nullptr;
   QTimer* title_timer_ = nullptr;
   QTimer* fullscreen_chrome_hide_timer_ = nullptr;

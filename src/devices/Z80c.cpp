@@ -326,7 +326,7 @@ int Z80C::ExecSingle(Z80C* first, Z80C* second, int clocks)
 	first->Exec0(base + clocks, base);
 
 	second->execcount = first->execcount;
-	second->clockcount = 0;
+	second->ParkSyncState();
 	currentcpu = nullptr;
 
 	return first->execcount - cbase;

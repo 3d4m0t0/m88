@@ -78,6 +78,7 @@ private:
   class QCheckBox* func_compsnap_ = nullptr;
   class QCheckBox* func_idle_inhibit_ = nullptr;
   class QCheckBox* func_ime_kana_ = nullptr;
+  class QCheckBox* func_watch_register_ = nullptr;
   class QLabel* func_ime_kana_hint_ = nullptr;
 
   // Sound

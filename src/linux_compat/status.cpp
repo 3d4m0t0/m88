@@ -28,9 +28,11 @@ StatusDisplay::StatusDisplay()
       bar_enabled(false),
       message_priority(-1),
       message_expire_ns(0),
+      watch_register(false),
       ui_dirty(false) {
   litstat[0] = litstat[1] = litstat[2] = 0;
   message[0] = '\0';
+  register_line[0] = '\0';
 }
 
 StatusDisplay::~StatusDisplay() = default;
@@ -115,6 +117,31 @@ bool StatusDisplay::Show(int priority, int duration, char* fmt, ...) {
   return true;
 }
 
+void StatusDisplay::UpdateRegisterWatch(bool enabled, const char* fmt, ...) {
+  CriticalSection::Lock lock(cs);
+  if (!enabled || !fmt) {
+    if (watch_register || register_line[0] != '\0') {
+      watch_register = false;
+      register_line[0] = '\0';
+      MarkDirty();
+    }
+    return;
+  }
+
+  char buf[sizeof(register_line)] = {};
+  va_list ap;
+  va_start(ap, fmt);
+  std::vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+
+  watch_register = true;
+  if (std::strcmp(register_line, buf) != 0) {
+    std::strncpy(register_line, buf, sizeof(register_line) - 1);
+    register_line[sizeof(register_line) - 1] = '\0';
+  }
+  MarkDirty();
+}
+
 void StatusDisplay::ExpireMessage() {
   if (message_expire_ns == 0) {
     return;
@@ -161,6 +188,9 @@ bool StatusDisplay::PollUiSnapshot(StatusUiSnapshot* out) {
   } else {
     out->message_duration_ms = 0;
   }
+  out->watch_register = watch_register;
+  std::strncpy(out->register_line, register_line, sizeof(out->register_line) - 1);
+  out->register_line[sizeof(out->register_line) - 1] = '\0';
   ui_dirty = false;
   return true;
 }

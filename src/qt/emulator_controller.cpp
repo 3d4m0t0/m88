@@ -922,7 +922,8 @@ void EmulatorController::pollStatusUi() {
   emit statusUiChanged(snap.bar_enabled, snap.show_fdc_lamps, snap.lamp_level[0],
                        snap.lamp_level[1], snap.lamp_level[2],
                        M88TranslateStatusMessage(QString::fromUtf8(snap.message)),
-                       snap.message_duration_ms);
+                       snap.message_duration_ms, snap.watch_register,
+                       QString::fromUtf8(snap.register_line));
 }
 
 void EmulatorController::run() {
@@ -1063,6 +1064,7 @@ void EmulatorController::emitMachineConfig() {
       (impl_->config.flags & PC8801::Config::usearrowfor10) != 0,
       (impl_->config.flags & PC8801::Config::showstatusbar) != 0,
       (impl_->config.flags & PC8801::Config::showfdcstatus) != 0,
+      (impl_->config.flags & PC8801::Config::watchregister) != 0,
       (impl_->config.flags & PC8801::Config::askbeforereset) != 0,
       (impl_->config.flags & PC8801::Config::disablef12reset) == 0,
       (impl_->config.flags & PC8801::Config::suppressmenu) != 0);
@@ -1107,6 +1109,37 @@ void EmulatorController::setShowFdcStatus(bool enabled) {
   syncStatusBarFromConfig();
   saveConfig();
   emitMachineConfig();
+}
+
+void EmulatorController::setWatchRegister(bool enabled) {
+  if (!impl_) {
+    return;
+  }
+  const bool was = (impl_->config.flags & PC8801::Config::watchregister) != 0;
+  if (was == enabled) {
+    return;
+  }
+  if (enabled) {
+    impl_->config.flags |= PC8801::Config::watchregister;
+  } else {
+    impl_->config.flags &= ~PC8801::Config::watchregister;
+  }
+  withVmPaused([&]() {
+    if (impl_->pc88) {
+      M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+      if (enabled) {
+        Z80C* cpu1 = impl_->pc88->GetCPU1();
+        Z80C* cpu2 = impl_->pc88->GetCPU2();
+        statusdisplay.UpdateRegisterWatch(true, "%.4X(%.2X)/%.4X", cpu1->GetPC(),
+                                          cpu1->GetReg().ireg, cpu2->GetPC());
+      } else {
+        statusdisplay.UpdateRegisterWatch(false);
+      }
+    }
+  });
+  saveConfig();
+  emitMachineConfig();
+  pollStatusUi();
 }
 
 void EmulatorController::setBurstMode(bool enabled) {
@@ -1248,13 +1281,22 @@ void EmulatorController::setClock(int clock) {
   withVmPaused([&]() {
     impl_->keyif->ApplyConfig(&impl_->config);
     M88ApplyConfig(impl_->pc88.get(), &impl_->config);
+    M88UserCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
     if (impl_->sound) {
       impl_->sound->ApplyConfig(&impl_->config);
       impl_->sound->ResetPcmContract();
       updateSequencerAudio();
     }
     resetSequencerPacing();
+    syncHostInputFromConfig();
+    impl_->pc88->UpdateScreen(true);
+    if (draw_) {
+      draw_->InvalidateUiStaging();
+      draw_->StageUiFrame();
+    }
+    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
   });
+  emit frameReady();
   emitMachineConfig();
   saveConfig();
   std::fprintf(stdout, "M88: CPUClock=%d (%.1f MHz)\n", clock, clock / 10.0);

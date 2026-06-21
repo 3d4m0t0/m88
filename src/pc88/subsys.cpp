@@ -29,6 +29,8 @@ SubSystem::SubSystem(const ID& id)
 : Device(id), mm(0), mid(-1), rom(0)
 {
 	cw_m = cw_s = 0x80;
+	main_access_gen = 0;
+	main_fdif_activity = 0;
 }
 
 SubSystem::~SubSystem()
@@ -159,7 +161,12 @@ void IOCALL SubSystem::Reset(uint, uint)
 {
 	piom.Reset();
 	pios.Reset();
+	cw_m = cw_s = 0x80;
 	idlecount = 0;
+	main_access_gen = 0;
+	main_fdif_activity = 0;
+	// Shared main/sub RAM (e.g. 7F16 handshake) must not survive warm reset.
+	memset(ram, 0x00, 0x4000);
 }
 
 // ---------------------------------------------------------------------------
@@ -175,27 +182,27 @@ uint IOCALL SubSystem::IntAck(uint)
 //
 void IOCALL SubSystem::M_Set0(uint, uint data)
 {
-	idlecount = 0;
+	NoteMainAccess();
 	LOG1(".%.2x ", data);
 	piom.SetData(0, data);
 }
 
 void IOCALL SubSystem::M_Set1(uint, uint data)
 {
-	idlecount = 0;
+	NoteMainAccess();
 	LOG1(" %.2x ", data);
 	piom.SetData(1, data);
 }
 
 void IOCALL SubSystem::M_Set2(uint, uint data)
 {
-	idlecount = 0;
+	NoteMainAccess();
 	piom.SetData(2, data);
 }
 
 void IOCALL SubSystem::M_SetCW(uint, uint data)
 {
-	idlecount = 0;
+	NoteMainAccess();
 	if (data == 0x0f)
 		LOG0("\ncmd: ");
 	if (data & 0x80)
@@ -205,7 +212,7 @@ void IOCALL SubSystem::M_SetCW(uint, uint data)
 
 uint IOCALL SubSystem::M_Read0(uint)
 {
-	idlecount = 0;
+	NoteMainAccess();
 	uint d = piom.Read0();
 	LOG1(">%.2x ", d);
 	return d;
@@ -213,7 +220,7 @@ uint IOCALL SubSystem::M_Read0(uint)
 
 uint IOCALL SubSystem::M_Read1(uint)
 {
-	idlecount = 0;
+	NoteMainAccess();
 	uint d = piom.Read1();
 	LOG1(")%.2x ", d);
 	return d;
@@ -222,7 +229,7 @@ uint IOCALL SubSystem::M_Read1(uint)
 uint IOCALL SubSystem::M_Read2(uint)
 {
 	statusdisplay.WaitSubSys();
-	idlecount = 0;
+	NoteMainAccess();
 	return piom.Read2();
 }
 
@@ -292,6 +299,12 @@ bool SubSystem::IsBusy()
 	}
 	statusdisplay.WaitSubSys();
 	return true;
+}
+
+void SubSystem::TickMainFdif()
+{
+	if (main_fdif_activity > 0)
+		main_fdif_activity--;
 }
 
 // ---------------------------------------------------------------------------

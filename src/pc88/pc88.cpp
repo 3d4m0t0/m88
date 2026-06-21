@@ -56,6 +56,7 @@ PC88::PC88()
 	clock = 100;
 	DIAGINIT(&cpu1);
 	dexc = 0;
+	sub_fdif_main_gen = 0;
 }
 
 PC88::~PC88()
@@ -158,8 +159,20 @@ int PC88::Execute(int ticks)
 	LOADBEGIN("Core.CPU");
 	int exc = ticks * clock;
 	int mode = cpumode;
+
+	subsys->TickMainFdif();
+
+	const uint main_gen = subsys->GetMainAccessGen();
+	if (main_gen != sub_fdif_main_gen) {
+		sub_fdif_main_gen = main_gen;
+		cpu2.ParkSyncState();
+	}
+
+	// Upstream: stopwhenidle parks the sub CPU via ExecSingle when FDIF is idle.
+	// idlecount does not advance while the sub is Sync-stalled at ~6061, so also
+	// key off recent main-side PIO (M_*) access instead of IsBusy() alone.
 	const bool run_dual =
-	    !(mode & stopwhenidle) || subsys->IsBusy() || fdc->IsBusy();
+	    !(mode & stopwhenidle) || fdc->IsBusy() || subsys->MainFdifActive();
 	if (run_dual)
 	{
 		if ((cpumode & 1) == ms11)
@@ -196,8 +209,12 @@ int PC88::GetTicks()
 void PC88::VSync()
 {
 	statusdisplay.UpdateDisplay();
-	if (cfgflags & Config::watchregister)
-		statusdisplay.Show(10, 0, "%.4X(%.2X)/%.4X", cpu1.GetPC(), cpu1.GetReg().ireg, cpu2.GetPC());
+	if (cfgflags & Config::watchregister) {
+		statusdisplay.UpdateRegisterWatch(true, "%.4X(%.2X)/%.4X", cpu1.GetPC(),
+		                                 cpu1.GetReg().ireg, cpu2.GetPC());
+	} else {
+		statusdisplay.UpdateRegisterWatch(false);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -258,6 +275,7 @@ void PC88::UpdateScreen(bool refresh)
 void PC88::Reset()
 {
 	dexc = 0;
+	sub_fdif_main_gen = 0;
 
 	bool cd = false;
 	if (IsCDSupported())
@@ -631,13 +649,13 @@ bool PC88::ConnectDevices2()
 	static const IOBus::Connector c_mem2[] =
 	{
 		{ piac2, IOBus::portin, SubSystem::intack },
-		{ 0xfc,  IOBus::portout | IOBus::sync, SubSystem::s_set0 },
-		{ 0xfd,  IOBus::portout | IOBus::sync, SubSystem::s_set1 },
-		{ 0xfe,  IOBus::portout | IOBus::sync, SubSystem::s_set2 },
-		{ 0xff,  IOBus::portout | IOBus::sync, SubSystem::s_setcw },
-		{ 0xfc,  IOBus::portin  | IOBus::sync, SubSystem::s_read0 },
-		{ 0xfd,  IOBus::portin  | IOBus::sync, SubSystem::s_read1 },
-		{ 0xfe,  IOBus::portin  | IOBus::sync, SubSystem::s_read2 },
+		{ 0xfc,  IOBus::portout, SubSystem::s_set0 },
+		{ 0xfd,  IOBus::portout, SubSystem::s_set1 },
+		{ 0xfe,  IOBus::portout, SubSystem::s_set2 },
+		{ 0xff,  IOBus::portout, SubSystem::s_setcw },
+		{ 0xfc,  IOBus::portin,  SubSystem::s_read0 },
+		{ 0xfd,  IOBus::portin,  SubSystem::s_read1 },
+		{ 0xfe,  IOBus::portin,  SubSystem::s_read2 },
 		{ 0, 0, 0 }
 	};
 	if (!subsys || !bus2.Connect(subsys, c_mem2)) return false;

@@ -686,7 +686,8 @@ bool IsFdcStatusMessage(const QString& message) {
 }  // namespace
 
 void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0,
-                                int lamp1, int lamp2, QString message, int message_ms) {
+                                int lamp1, int lamp2, QString message, int message_ms,
+                                bool watch_register, QString register_text) {
   if (fullscreen_) {
     if (statusBar()) {
       statusBar()->hide();
@@ -713,6 +714,15 @@ void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0
     }
     if (fdc_lamp_labels_[2]) {
       fdc_lamp_labels_[2]->setText(LampGlyph(lamp2));
+    }
+  }
+  if (register_label_) {
+    if (watch_register && !register_text.isEmpty()) {
+      register_label_->setText(register_text);
+      register_label_->show();
+    } else {
+      register_label_->clear();
+      register_label_->hide();
     }
   }
   if (!statusBar()) {
@@ -763,8 +773,8 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
                                     bool n80v2_supported, bool cd_supported,
                                     bool burst_mode, bool arrow_tenkey,
                                     bool show_statusbar, bool show_fdc_status,
-                                    bool ask_before_reset, bool f12_as_reset,
-                                    bool suppress_menu) {
+                                    bool watch_register, bool ask_before_reset,
+                                    bool f12_as_reset, bool suppress_menu) {
   if (rom_missing_) {
     applyRomMissingUiState();
     return;
@@ -816,6 +826,11 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
     fdc_status_action_->setEnabled(show_statusbar);
     fdc_status_action_->setChecked(show_fdc_status);
   }
+  if (watch_register_action_) {
+    watch_register_action_->setEnabled(show_statusbar);
+    watch_register_action_->setChecked(watch_register);
+  }
+  watch_register_enabled_ = watch_register;
   (void)clock;
 }
 
@@ -987,7 +1002,17 @@ void MainWindow::setupMenuBar() {
                                 Q_ARG(bool, checked));
     }
   });
-  AddPlaceholder(debug_menu, tr("Show &Register"), true, false);
+  watch_register_action_ = debug_menu->addAction(tr("Show &Register"));
+  watch_register_action_->setCheckable(true);
+  watch_register_action_->setEnabled(false);
+  watch_register_action_->setToolTip(
+      tr("Shows main/sub CPU program counter on the status bar (PC1(I)/PC2)."));
+  connect(watch_register_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setWatchRegister", Qt::QueuedConnection,
+                                Q_ARG(bool, checked));
+    }
+  });
   AddPlaceholder(debug_menu, tr("Show &OPN Register"), true, false);
   AddPlaceholder(debug_menu, tr("Show &Memory"), true, false);
   AddPlaceholder(debug_menu, tr("Show &Code"), true, false);
@@ -1186,6 +1211,12 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     sb->setFocusPolicy(Qt::NoFocus);
     sb->hide();
 
+    register_label_ = new QLabel(sb);
+    register_label_->setFocusPolicy(Qt::NoFocus);
+    register_label_->setContentsMargins(0, 0, 8, 0);
+    register_label_->hide();
+    sb->addPermanentWidget(register_label_, 0);
+
     fdc_text_label_ = new QLabel(sb);
     fdc_text_label_->setFocusPolicy(Qt::NoFocus);
     fdc_text_label_->setContentsMargins(0, 0, 8, 0);
@@ -1252,7 +1283,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   });
   connect(controller_, &EmulatorController::started, this, [this]() {
     syncImeKanaInput();
-    if (!fullscreen_ && statusBar()) {
+    if (!fullscreen_ && statusBar() && !watch_register_enabled_) {
       statusBar()->showMessage(tr("Emulator running"), 3000);
     }
   });
@@ -1300,7 +1331,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   }
   connect(controller_, &EmulatorController::statusMessage, this,
           [this](const QString& msg, int timeoutMs) {
-            if (fullscreen_ || !statusBar()) {
+            if (fullscreen_ || !statusBar() || watch_register_enabled_) {
               return;
             }
             statusBar()->showMessage(msg, timeoutMs);

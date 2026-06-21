@@ -53,6 +53,7 @@ public slots:
   void setArrowTenkey(bool enabled);
   void setShowStatusBar(bool enabled);
   void setShowFdcStatus(bool enabled);
+  void setWatchRegister(bool enabled);
   void sampleTitleStats();
   void pollEmulationIdle();
   void emitFrameReady();
@@ -74,10 +75,11 @@ signals:
   void machineConfigChanged(int clock, int basicmode, bool n80_supported,
                             bool n80v2_supported, bool cd_supported,
                             bool burst_mode, bool arrow_tenkey, bool show_statusbar,
-                            bool show_fdc_status, bool ask_before_reset,
-                            bool f12_as_reset, bool suppress_menu);
+                            bool show_fdc_status, bool watch_register,
+                            bool ask_before_reset, bool f12_as_reset, bool suppress_menu);
   void statusUiChanged(bool bar_enabled, bool show_fdc_lamps, int lamp0, int lamp1,
-                       int lamp2, QString message, int message_ms);
+                       int lamp2, QString message, int message_ms, bool watch_register,
+                       QString register_text);
   void diskConfigurationChanged(QString drive0Path, int drive0NumDisks,
                                 int drive0Current, QStringList drive0Titles,
                                 QString drive1Path, int drive1NumDisks,

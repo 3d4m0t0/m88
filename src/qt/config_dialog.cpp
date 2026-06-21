@@ -427,6 +427,11 @@ void ConfigDialog::buildUi() {
     func_compsnap_ = new QCheckBox(tr("Compress snapshot files (&Z)"), page);
     func_idle_inhibit_ = new QCheckBox(tr("Inhibit display idle (&I)"), page);
     func_ime_kana_ = new QCheckBox(tr("Half-width kana via IME (&H)"), page);
+    func_watch_register_ =
+        new QCheckBox(tr("Watch CPU registers on status bar (&R)"), page);
+    func_watch_register_->setToolTip(
+        tr("Shows main/sub CPU program counter on the status bar (PC1(I)/PC2). "
+           "Enable Tools → Show Status to see the values."));
     func_ime_kana_hint_ =
         new QLabel(tr("Converts host IME text (romaji, hiragana, etc.) into PC-88 "
                       "half-width kana key strokes."),
@@ -443,7 +448,7 @@ void ConfigDialog::buildUi() {
     for (QCheckBox* cb :
          {func_savedir_, func_savepos_, func_askreset_, func_suppressmenu_, func_enablepad_,
           func_swappad_, func_resetf12_, func_enablemouse_, func_mousejoy_, func_scrname_,
-          func_compsnap_, func_idle_inhibit_, func_ime_kana_}) {
+          func_compsnap_, func_idle_inhibit_, func_ime_kana_, func_watch_register_}) {
       v->addWidget(cb);
     }
     v->addWidget(func_ime_kana_hint_);
@@ -874,6 +879,7 @@ void ConfigDialog::loadFromConfig() {
   func_compsnap_->setChecked((config_.flag2 & Config::compresssnapshot) != 0);
   func_idle_inhibit_->setChecked(M88WaylandIdleInhibitEnabled());
   func_ime_kana_->setChecked(M88ImeHalfKanaEnabled());
+  func_watch_register_->setChecked((config_.flags & Config::watchregister) != 0);
 
   if (auto* btn = sound_rate_group_->button(config_.sound)) {
     btn->setChecked(true);
@@ -992,7 +998,8 @@ void ConfigDialog::applyToConfig() {
 
   config_.flags &= ~(Config::savedirectory | Config::askbeforereset | Config::suppressmenu |
                      Config::enablepad | Config::swappadbuttons |
-                     Config::disablef12reset | Config::enablemouse | Config::mousejoymode);
+                     Config::disablef12reset | Config::enablemouse | Config::mousejoymode |
+                     Config::watchregister);
   if (func_savedir_->isChecked()) config_.flags |= Config::savedirectory;
   if (func_askreset_->isChecked()) config_.flags |= Config::askbeforereset;
   if (func_suppressmenu_->isEnabled() && func_suppressmenu_->isChecked()) {
@@ -1003,6 +1010,7 @@ void ConfigDialog::applyToConfig() {
   if (!func_resetf12_->isChecked()) config_.flags |= Config::disablef12reset;
   if (func_enablemouse_->isChecked()) config_.flags |= Config::enablemouse;
   if (func_mousejoy_->isChecked()) config_.flags |= Config::mousejoymode;
+  if (func_watch_register_->isChecked()) config_.flags |= Config::watchregister;
   config_.flag2 &= ~(Config::saveposition | Config::genscrnshotname | Config::compresssnapshot);
   if (func_savepos_->isEnabled() && func_savepos_->isChecked()) {
     config_.flag2 |= Config::saveposition;

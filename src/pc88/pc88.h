@@ -175,6 +175,8 @@ private:
 	int dexc;
 	int eclock;
 
+	uint sub_fdif_main_gen;
+
 	uint cfgflags;
 	uint cfgflag2;
 	bool updated;

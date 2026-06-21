@@ -105,6 +105,12 @@ public:
 	bool IFCALL SaveStatus(uint8* status);
 	bool IFCALL LoadStatus(const uint8* status);
 	
+	void ParkSyncState()
+	{
+		clockcount = 0;
+		syncpq = 0;
+	}
+	
 	uint GetPC();
 	void SetPC(uint newpc);
 	const Z80Reg& GetReg() { return reg; }

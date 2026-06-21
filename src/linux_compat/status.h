@@ -9,6 +9,8 @@ struct StatusUiSnapshot {
   int lamp_level[3] = {0, 0, 0};
   char message[128] = {};
   int message_duration_ms = 0;
+  bool watch_register = false;
+  char register_line[32] = {};
 };
 
 class StatusDisplay {
@@ -28,6 +30,7 @@ public:
   void WaitSubSys();
 
   bool Show(int priority, int duration, char* msg, ...);
+  void UpdateRegisterWatch(bool enabled, const char* fmt = nullptr, ...);
   void Update();
   UINT_PTR GetTimerID() { return timerid; }
 
@@ -51,6 +54,8 @@ private:
   int message_priority;
   char message[128];
   uint64_t message_expire_ns;
+  bool watch_register;
+  char register_line[32];
   bool ui_dirty;
 };
 

@@ -44,6 +44,9 @@ public:
 	uint8* GetROM() { return rom; }
 
 	bool IsBusy();
+	uint GetMainAccessGen() const { return main_access_gen; }
+	bool MainFdifActive() const { return main_fdif_activity > 0; }
+	void TickMainFdif();
 
 	void IOCALL Reset(uint=0, uint=0);
 	uint IOCALL IntAck(uint);
@@ -90,6 +93,16 @@ private:
 	PIO piom, pios;
 	uint cw_m, cw_s;
 	uint idlecount;
+	uint main_access_gen;
+	int main_fdif_activity;
+
+	void NoteMainAccess()
+	{
+		main_access_gen++;
+		idlecount = 0;
+		// Keep dual-CPU running while the main CPU is in FDIF (PIO 0xFC-0xFF).
+		main_fdif_activity = 4096;
+	}
 
 private:
 	static const Descriptor descriptor;

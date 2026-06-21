@@ -1271,6 +1271,11 @@ void Memory::ApplyConfig(const Config* cfg)
 {
 	enablewait = (cfg->flags & Config::enablewait) != 0;
 	neweram = cfg->erambanks;
+	if (bus) {
+		sw31 = bus->In(0x31);
+		const bool high = !(bus->In(0x6e) & 0x80);
+		waitmode = ((sw31 & 0x40) || (n80mode && n80srmode) ? 12 : 0) + (high ? 24 : 0);
+	}
 	if (enablewait)
 		SetWait();
 	else
