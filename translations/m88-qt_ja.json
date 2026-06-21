@@ -867,6 +867,16 @@
     },
     {
       "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "最近のファイルを開く(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "（最近のファイルはありません）"
+    },
+    {
+      "context": "MainWindow",
       "source": "Ta&pe",
       "translation": "テープ(&P)"
     },

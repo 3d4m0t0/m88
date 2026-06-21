@@ -11,6 +11,7 @@
 #include "../linux_compat/path.h"
 #include "../pc88/config.h"
 
+#include <QCoreApplication>
 #include <QApplication>
 #include <QDir>
 #include <QGuiApplication>
@@ -62,6 +63,8 @@ int main(int argc, char** argv) {
     }
   }
 
+  QCoreApplication::setOrganizationName(QStringLiteral("m88"));
+  QCoreApplication::setApplicationName(QStringLiteral("m88-qt"));
   QApplication app(argc, argv);
   if (!M88QtAppIcon().isNull()) {
     app.setWindowIcon(M88QtAppIcon());

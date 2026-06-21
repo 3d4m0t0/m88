@@ -867,6 +867,16 @@
     },
     {
       "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "Open &recent files"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "(No recent files)"
+    },
+    {
+      "context": "MainWindow",
       "source": "Ta&pe",
       "translation": "Ta&pe"
     },

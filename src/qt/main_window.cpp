@@ -3,6 +3,7 @@
 #include "config_dialog.h"
 #include "about_dialog.h"
 #include "confirm_dialog.h"
+#include "disk_recent_files.h"
 #include "multi_disk_editor_dialog.h"
 #include "emu_view.h"
 #include "qt_platform.h"
@@ -644,6 +645,7 @@ void MainWindow::openDiskImageDialog(int drive) {
     return;
   }
   SetWorkingDirectory(QFileInfo(path).absolutePath());
+  DiskRecentFiles::add(path);
   if (controller_) {
     QMetaObject::invokeMethod(controller_, "changeDiskImage", Qt::QueuedConnection,
                               Q_ARG(int, drive), Q_ARG(QString, path));
@@ -657,9 +659,42 @@ void MainWindow::openBothDrivesDialog() {
     return;
   }
   SetWorkingDirectory(QFileInfo(path).absolutePath());
+  DiskRecentFiles::add(path);
   if (controller_) {
     QMetaObject::invokeMethod(controller_, "changeBothDrives", Qt::QueuedConnection,
                               Q_ARG(QString, path));
+  }
+}
+
+void MainWindow::openRecentDiskImage(const QString& path) {
+  if (path.isEmpty()) {
+    return;
+  }
+  SetWorkingDirectory(QFileInfo(path).absolutePath());
+  DiskRecentFiles::add(path);
+  if (controller_) {
+    QMetaObject::invokeMethod(controller_, "changeBothDrives", Qt::QueuedConnection,
+                              Q_ARG(QString, path));
+  }
+}
+
+void MainWindow::rebuildRecentDiskMenu() {
+  if (!recent_disk_submenu_) {
+    return;
+  }
+  recent_disk_submenu_->clear();
+  const QStringList recent = DiskRecentFiles::paths();
+  if (recent.isEmpty()) {
+    QAction* empty = recent_disk_submenu_->addAction(tr("(No recent files)"));
+    empty->setEnabled(false);
+    return;
+  }
+  for (const QString& path : recent) {
+    const QFileInfo info(path);
+    QAction* item = recent_disk_submenu_->addAction(info.fileName());
+    item->setToolTip(path);
+    connect(item, &QAction::triggered, this,
+            [this, path]() { openRecentDiskImage(path); });
   }
 }
 
@@ -933,6 +968,10 @@ void MainWindow::setupMenuBar() {
   disk_menu_->addSeparator();
   change_both_action_ = disk_menu_->addAction(tr("&Change disk image..."));
   change_both_action_->setShortcut(HostShortcut(Qt::Key_O));
+  recent_disk_action_ = disk_menu_->addAction(tr("Open &recent files"));
+  recent_disk_submenu_ = new QMenu(this);
+  recent_disk_action_->setMenu(recent_disk_submenu_);
+  disk_menu_->addSeparator();
   multi_disk_editor_action_ =
       disk_menu_->addAction(tr("&Edit multi-disk image..."));
 
@@ -1042,6 +1081,7 @@ void MainWindow::setupMenuBar() {
 
   if (disk_menu_) {
     connect(disk_menu_, &QMenu::aboutToShow, this, [this]() {
+      rebuildRecentDiskMenu();
       if (controller_) {
         QMetaObject::invokeMethod(controller_, "emitDiskConfiguration",
                                   Qt::QueuedConnection);
@@ -1057,6 +1097,9 @@ void MainWindow::applyRomMissingUiState() {
   }
   if (change_both_action_) {
     change_both_action_->setEnabled(false);
+  }
+  if (recent_disk_action_) {
+    recent_disk_action_->setEnabled(false);
   }
 
   for (QAction* top : menuBar()->actions()) {

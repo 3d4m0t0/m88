@@ -90,6 +90,8 @@ private:
   void openConfigureDialog();
   void openDiskImageDialog(int drive);
   void openBothDrivesDialog();
+  void openRecentDiskImage(const QString& path);
+  void rebuildRecentDiskMenu();
   void openMultiDiskEditorDialog();
   void captureScreen();
   void toggleRecordSound();
@@ -133,6 +135,8 @@ private:
   QMenu* drive_submenus_[2] = {nullptr, nullptr};
   QActionGroup* disk_select_groups_[2] = {nullptr, nullptr};
   QAction* change_both_action_ = nullptr;
+  QAction* recent_disk_action_ = nullptr;
+  QMenu* recent_disk_submenu_ = nullptr;
   QAction* multi_disk_editor_action_ = nullptr;
   QActionGroup* clock_group_ = nullptr;
   QAction* clock_4mhz_ = nullptr;

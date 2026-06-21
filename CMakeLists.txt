@@ -123,6 +123,8 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/about_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/confirm_dialog.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/confirm_dialog.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/disk_recent_files.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/disk_recent_files.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/m88_i18n.qrc
