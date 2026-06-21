@@ -412,11 +412,11 @@ void IOCALL OPNIF::TimeEvent(uint e)
 	if (enable)
 	{
 		LOG3("%.8x:TimeEvent(%d) : diff:%d\n", currenttime, e, diff);
-		
-		if (opn.Count(diff * 10) || e)
-			UpdateTimer();
+
 		if (soundcontrol)
 			soundcontrol->Update(this);
+		if (opn.Count(diff * 10) || e)
+			UpdateTimer();
 	}
 }
 
