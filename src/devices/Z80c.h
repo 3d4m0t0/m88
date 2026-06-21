@@ -166,6 +166,18 @@ private:
 	int waitstate;				// b0:HALT b1:WAIT
 	int eshift;
 	int startcount;
+	int syncpq;		// PQ = INSTWAIT - CLOCKCOUNT (Z80_x86 ebx at Sync entry)
+
+	void SnapPQ() { syncpq = instwait - clockcount; }
+	void RefreshInstWait()
+	{
+		instwait = waittable[(GetPC() >> pagebits) & ((1 << (16 - pagebits)) - 1)];
+	}
+	void FoldClockcount()
+	{
+		execcount += clockcount << eshift;
+		clockcount = 0;
+	}
 	
 	enum index { USEHL, USEIX, USEIY };
 	index index_mode;						/* HL/IX/IY ?????Q????? */
@@ -234,6 +246,7 @@ private:
 	void SetZS(uint8 a), SetZSP(uint8 a);
 	void CPI(), CPD();
 	void CodeCB();
+	void CodeED(uint w);
 
 	uint8 RLC(uint8), RRC(uint8), RL (uint8);
 	uint8 RR (uint8), SLA(uint8), SRA(uint8);

@@ -63,6 +63,7 @@ Z80C::Z80C(const ID& id) : Device(id)
 
 	dumplog = 0;
 	instwait = 0;
+	syncpq = 0;
 	memset(waittable, 0, sizeof(waittable));
 }
 
@@ -307,21 +308,24 @@ int Z80C::Exec(int clocks)
 //
 int Z80C::ExecSingle(Z80C* first, Z80C* second, int clocks)
 {
-	int c = first->GetCount();
-
+	const int base = first->execcount;
+	first->startcount = base;
+	first->eshift = 0;
+	first->delaycount = base;
+	first->clockcount = 0;
+	first->RefreshInstWait();
 	currentcpu = first;
-	first->startcount = first->delaycount = c;
 	first->SingleStep();
 	first->TestIntr();
 
-	cbase = c;
-	first->Exec0(c + clocks, c);
-	
-	c = first->GetCount();
-	second->execcount = c;
-	second->clockcount = 0;
+	cbase = base;
+	first->Exec0(base + clocks, base);
 
-	return c - cbase;
+	second->execcount = first->execcount;
+	second->clockcount = 0;
+	currentcpu = nullptr;
+
+	return first->execcount - cbase;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,25 +333,40 @@ int Z80C::ExecSingle(Z80C* first, Z80C* second, int clocks)
 //
 int Z80C::ExecDual(Z80C* first, Z80C* second, int count)
 {
+	first->startcount = first->execcount;
+
 	currentcpu = second;
-	second->startcount = second->delaycount = first->GetCount();
+	second->eshift = 0;
+	second->delaycount = first->execcount;
+	second->clockcount = 0;
 	second->SingleStep();
 	second->TestIntr();
-	currentcpu = first;
-	first->startcount = first->delaycount = second->GetCount();
-	first->SingleStep();
-	first->TestIntr(); 
-	
-	int c1 = first->GetCount(), c2 = second->GetCount();
-	int delay = c2 - c1;
-	cbase = delay > 0 ? c1 : c2;
-	int stop = cbase + count;
+	second->FoldClockcount();
+	second->startcount = second->execcount;
 
-	while ((stop - first->GetCount() > 0) || (stop - second->GetCount() > 0))
+	currentcpu = first;
+	first->eshift = 0;
+	first->delaycount = second->execcount;
+	first->clockcount = 0;
+	first->RefreshInstWait();
+	first->SingleStep();
+	first->TestIntr();
+	first->FoldClockcount();
+
+	int cbase = second->execcount;
+	if (first->execcount < cbase)
+		cbase = first->execcount;
+	const int stop = cbase + count;
+
+	for (;;)
 	{
-		stop = first->Exec0(stop, second->GetCount());
-		stop = second->Exec0(stop, first->GetCount());
+		if (first->execcount >= stop && second->execcount >= stop)
+			break;
+		if (first->execcount < stop)
+			first->Exec0(stop, second->execcount);
+		second->Exec0(stop, first->execcount);
 	}
+	currentcpu = nullptr;
 	return stop - cbase;
 }
 
@@ -356,25 +375,41 @@ int Z80C::ExecDual(Z80C* first, Z80C* second, int count)
 //
 int Z80C::ExecDual2(Z80C* first, Z80C* second, int count)
 {
+	first->startcount = first->execcount;
+
 	currentcpu = second;
-	second->startcount = second->delaycount = first->GetCount();
+	second->eshift = 1;
+	second->delaycount = first->execcount;
+	second->clockcount = 0;
 	second->SingleStep();
 	second->TestIntr();
-	currentcpu = first;
-	first->startcount = first->delaycount = second->GetCount();
-	first->SingleStep();
-	first->TestIntr(); 
-	
-	int c1 = first->GetCount(), c2 = second->GetCount();
-	int delay = c2 - c1;
-	cbase = delay > 0 ? c1 : c2;
-	int stop = cbase + count;
+	second->execcount += second->clockcount << second->eshift;
+	second->clockcount = 0;
+	second->startcount = second->execcount;
 
-	while ((stop - first->GetCount() > 0) || (stop - second->GetCount() > 0))
+	currentcpu = first;
+	first->eshift = 0;
+	first->delaycount = second->execcount;
+	first->clockcount = 0;
+	first->RefreshInstWait();
+	first->SingleStep();
+	first->TestIntr();
+	first->FoldClockcount();
+
+	int cbase = second->execcount;
+	if (first->execcount < cbase)
+		cbase = first->execcount;
+	const int stop = cbase + count;
+
+	for (;;)
 	{
-		stop = first->Exec0(stop, second->GetCount());
-		stop = second->Exec1(stop, first->GetCount());
+		if (first->execcount >= stop && second->execcount >= stop)
+			break;
+		if (first->execcount < stop)
+			first->Exec0(stop, second->execcount);
+		second->Exec1(stop, first->execcount);
 	}
+	currentcpu = nullptr;
 	return stop - cbase;
 }
 
@@ -384,7 +419,9 @@ int Z80C::ExecDual2(Z80C* first, Z80C* second, int count)
 //
 int Z80C::Exec0(int stop, int other)
 {
-	int clocks = stop - GetCount();
+	if (execcount >= stop)
+		return stop;
+	int clocks = stop - execcount - (clockcount << eshift);
 	if (clocks > 0)
 	{
 		eshift = 0;
@@ -420,7 +457,9 @@ int Z80C::Exec0(int stop, int other)
 //
 int Z80C::Exec1(int stop, int other)
 {
-	int clocks = stop - GetCount();
+	if (execcount >= stop)
+		return stop;
+	int clocks = stop - execcount - (clockcount << eshift);
 	if (clocks > 0)
 	{
 		eshift = 1;
@@ -457,11 +496,11 @@ int Z80C::Exec1(int stop, int other)
 //
 bool Z80C::Sync()
 {
-	// ?????????CPU?????x???????H
-	if (GetCount() - delaycount <= 1)
+	// Z80_x86 Sync: neg PQ (ebx), sal by eshift, compare/add execcount.
+	const int adj = (-syncpq) << eshift;
+	if (delaycount >= execcount + adj)
 		return true;
-	// ?i???????? Exec0 ??????
-	execcount += clockcount << eshift;
+	execcount += adj;
 	clockcount = 0;
 	return false;
 }
@@ -685,38 +724,41 @@ void IOCALL Z80C::NMI(uint,uint)
 //
 void Z80C::TestIntr()
 {
-	if (reg.iff1 && intr)
-	{
-		reg.iff1 = false;
-		reg.iff2 = false;
-		
-		if (waitstate & 1)
-		{
-			waitstate = 0;
-			PCInc(1);
-		}
-		int intno = bus->In(intack);
+	if (!reg.iff1 || !intr)
+		return;
 
-		switch (reg.intmode)
-		{
-		case 0:
-			SingleStep(intno);
-			CLK(13);
-			break;
-		
-		case 1:
-			Push(GetPC());
-			SetPC(0x38);
-			CLK(13);
-			break;
-		
-		case 2:
-			Push(GetPC());
-			SetPC(Read16(reg.ireg*256 + intno));
-			CLK(19);
-			break;
-		}
+	clockcount = 0;
+	reg.iff1 = false;
+	reg.iff2 = false;
+
+	if (waitstate & 1)
+	{
+		waitstate = 0;
+		PCInc(1);
 	}
+	const int intno = bus->In(intack);
+
+	switch (reg.intmode)
+	{
+	case 0:
+		SingleStep(intno);
+		CLK(13);
+		break;
+
+	case 1:
+		Push(GetPC());
+		SetPC(0x38);
+		CLK(13);
+		break;
+
+	case 2:
+		Push(GetPC());
+		SetPC(Read16(reg.ireg*256 + intno));
+		CLK(19);
+		break;
+	}
+	execcount += clockcount;
+	clockcount = 0;
 }
 
 
@@ -1160,6 +1202,7 @@ void Z80C::SingleStep(uint m)
 //	I/O access
 
 	case 0xdb:	// IN A,(n)
+		SnapPQ();
 		w = /*(uint(RegA) << 8) +*/ Fetch8();
 		if (bus->IsSyncPort(w) && !Sync())
 		{
@@ -1171,6 +1214,7 @@ void Z80C::SingleStep(uint m)
 		break;
 
 	case 0xd3:	// OUT (n),A
+		SnapPQ();
 		w = /*(uint(RegA) << 8) + */ Fetch8();
 		if (bus->IsSyncPort(w) && !Sync())
 		{
@@ -1660,10 +1704,23 @@ void Z80C::SingleStep(uint m)
 
 // ED
 	case 0xed:
+		SnapPQ();
 		w = Fetch8();
 		reg.rreg++;
-		switch(w)
-		{
+		CodeED(w);
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------
+//	ED ??? (CODE_ED / O_OUTINTR::insted ??)
+//
+void Z80C::CodeED(uint w)
+{
+	uint b;
+
+	switch(w)
+	{
 
 		// ???o?? ED ?n
 			
@@ -2003,8 +2060,11 @@ void Z80C::SingleStep(uint m)
 			case 0x52: /*DE*/ SBCHL(RegDE); CLK(15); break;
 			case 0x62: /*HL*/ SBCHL(RegHL); CLK(15); break;
 			case 0x72: /*SP*/ SBCHL(RegSP); CLK(15); break;
-		}
-		break;		// 0xed
+
+		default:
+			if (w >= 0x80)
+				CLK(8);
+			break;
 	}
 }
 
@@ -2241,32 +2301,36 @@ void Z80C::SetZSP(uint8 a)
 
 void Z80C::OutTestIntr()
 {
-	if (reg.iff1 && intr)
+	if (!reg.iff1 || !intr)
+		return;
+
+	CLK(4);
+	const uint w = Fetch8();
+	if (w == 0xed)
 	{
-		uint w = Fetch8();
-		if (w == 0xed)
+		const uint sub = Fetch8();
+		if (((sub & 0xc7) == 0x41) || ((sub & 0xe7) == 0xa3))
 		{
-			w = Fetch8();
-			if (((w & 0xc7) == 0x41) || ((w & 0xe7) == 0xa3))
+			SnapPQ();
+			reg.rreg += 2;
+			if (sub >= 0x80)
 			{
-				PCDec(2);
+				CLK(8);
 				return;
 			}
-			else
-			{
-				PCDec(1);
-				SingleStep(0xed);
-			}
-		} 
-		else if (w == 0xd3)
-		{
-			PCDec(1);
+			CodeED(sub);
 			return;
 		}
-		else
-			SingleStep(w);
-		TestIntr();
+		PCDec(2);
+		return;
 	}
+	if (w == 0xd3)
+	{
+		PCDec(1);
+		return;
+	}
+	SingleStep(w);
+	TestIntr();
 }
 
 

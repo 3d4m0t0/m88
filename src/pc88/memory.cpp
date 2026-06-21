@@ -172,6 +172,9 @@ void Memory::Reset(uint, uint newmode)
 		UpdateN80R();
 		UpdateN80G();
 	}
+
+	if (enablewait)
+		SetWait();
 }
 
 // ----------------------------------------------------------------------------
@@ -1323,13 +1326,12 @@ void Memory::ApplyConfig(const Config* cfg)
 
 inline void Memory::SetWaits(uint a, uint s, uint v)
 {
-	if (waits)
-	{
-		uint p = a >> MemoryManager::pagebits;
-		uint t = (a + s + MemoryManager::pagemask) >> MemoryManager::pagebits;
-		for (; p<t; p++)
-			waits[p] = v;
-	}
+	if (!waits)
+		return;
+	uint p = a >> MemoryManager::pagebits;
+	uint t = (a + s + MemoryManager::pagemask) >> MemoryManager::pagebits;
+	for (; p < t; p++)
+		waits[p] = v;
 }
 
 // ---------------------------------------------------------------------------
