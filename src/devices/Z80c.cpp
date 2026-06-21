@@ -98,14 +98,18 @@ Z80C::~Z80C()
 
 
 #define PAGESMASK		((1 << (16-pagebits))-1)
+// Z80_x86: data/fetch wait uses (addr >> (PAGEBITS-2)) & (PAGEMASK << 2).
+#define WAITINDEX_DATA(addr)	(((addr) >> (pagebits - 2)) & (PAGESMASK << 2))
+// Z80_x86 ExecDual bootstrap refreshes INSTWAIT with page >> PAGEBITS.
+#define WAITINDEX_PAGE(addr)	(((addr) >> pagebits) & PAGESMASK)
 
 // ---------------------------------------------------------------------------
 //	PC ??????
 //	
 void Z80C::SetPC(uint newpc)
 {
-	instwait = waittable[(newpc >> pagebits) & PAGESMASK];
-	MemoryPage& page = rdpages[(newpc >> pagebits) & PAGESMASK];
+	instwait = waittable[WAITINDEX_DATA(newpc)];
+	MemoryPage& page = rdpages[WAITINDEX_PAGE(newpc)];
 
 #ifdef PTR_IDBIT
 	if (!(intpointer(page.ptr) & idbit))
@@ -548,14 +552,14 @@ inline uint Z80C::Read8Mem(uint addr)
 inline uint Z80C::Read8(uint addr)
 {
 	addr &= 0xffff;
-	CLK(waittable[(addr >> pagebits) & PAGESMASK]);
+	CLK(waittable[WAITINDEX_DATA(addr)]);
 	return Read8Mem(addr);
 }
 
 inline void Z80C::Write8(uint addr, uint data)
 {
 	addr &= 0xffff;
-	CLK(waittable[(addr >> pagebits) & PAGESMASK]);
+	CLK(waittable[WAITINDEX_DATA(addr)]);
 	MemoryPage& page = wrpages[addr >> pagebits];
 #ifdef PTR_IDBIT
 	if (!(intpointer(page.ptr) & idbit))
@@ -585,7 +589,7 @@ inline uint Z80C::Read16(uint addr)
 #endif
 	{
 		DEBUGCOUNT(13);
-		const int w = waittable[(addr >> pagebits) & PAGESMASK];
+		const int w = waittable[WAITINDEX_DATA(addr)];
 		const uint a = addr & pagemask;
 		if (a < pagemask)
 		{
@@ -609,7 +613,7 @@ inline void Z80C::Write16(uint addr, uint data)
 	if (!page.func)
 #endif
 	{
-		const int w = waittable[(addr >> pagebits) & PAGESMASK];
+		const int w = waittable[WAITINDEX_DATA(addr)];
 		const uint a = addr & pagemask;
 		if (a < pagemask)
 		{
@@ -1844,9 +1848,15 @@ void Z80C::CodeED(uint w)
 				}
 				Write8(RegHL++, Inp(RegBC)); 
 				SetFlags(ZF|NF, --RegB ? NF : NF|ZF);
-				CLK(16);
 				if (RegB)
+				{
+					CLK(20);
 					PCDec(2);
+				}
+				else
+				{
+					CLK(16);
+				}
 				break;
 
 			case 0xba: // INDR
@@ -1857,9 +1867,15 @@ void Z80C::CodeED(uint w)
 				}
 				Write8(RegHL--, Inp(RegBC)); 
 				SetFlags(ZF|NF, --RegB ? NF : NF|ZF);
-				CLK(16);
 				if (RegB)
+				{
+					CLK(20);
 					PCDec(2);
+				}
+				else
+				{
+					CLK(16);
+				}
 				break;
 
 			case 0xb3: // OTIR
@@ -1870,9 +1886,15 @@ void Z80C::CodeED(uint w)
 				}
 				Outp(RegBC, Read8(RegHL++)); 
 				SetFlags(ZF|NF, --RegB ? NF : NF|ZF);
-				CLK(16);
 				if (RegB)
+				{
+					CLK(20);
 					PCDec(2);
+				}
+				else
+				{
+					CLK(16);
+				}
 				OutTestIntr();
 				break;
 
@@ -1884,9 +1906,15 @@ void Z80C::CodeED(uint w)
 				}
 				Outp(RegBC, Read8(RegHL--)); 
 				SetFlags(ZF|NF, --RegB ? NF : NF|ZF);
-				CLK(16);
 				if (RegB)
+				{
+					CLK(20);
 					PCDec(2);
+				}
+				else
+				{
+					CLK(16);
+				}
 				OutTestIntr(); 
 				break;
 
@@ -1945,13 +1973,19 @@ void Z80C::CodeED(uint w)
 			case 0xb1: // CPIR
 				CPI();
 				if (!GetZF() && RegBC)
+				{
+					CLK(4);
 					PCDec(2);
+				}
 				break;
 
 			case 0xb9: // CPDR
 				CPD();
 				if (!GetZF() && RegBC)
+				{
+					CLK(4);
 					PCDec(2);
+				}
 				break;
 
 		// misc

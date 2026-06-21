@@ -159,10 +159,7 @@ void IOCALL SubSystem::Reset(uint, uint)
 {
 	piom.Reset();
 	pios.Reset();
-	cw_m = cw_s = 0x80;
 	idlecount = 0;
-	// Shared main/sub RAM (e.g. 7F16 handshake) must not survive warm reset.
-	memset(ram, 0x00, 0x4000);
 }
 
 // ---------------------------------------------------------------------------

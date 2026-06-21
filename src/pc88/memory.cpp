@@ -102,10 +102,6 @@ bool Memory::Init(MemoryManager* _mm, IOBus* _bus, CRTC* _crtc, int* wt)
 //	
 void Memory::Reset(uint, uint newmode)
 {
-	// Warm reset (F5): restore power-on RAM pattern so disk-boot paths are deterministic.
-	SetRAMPattern(ram, 0x10000);
-	ram[0xff33] = 0;
-
 	sw31 = bus->In(0x31);
 	bool high = !(bus->In(0x6e) & 0x80);
 
@@ -141,21 +137,6 @@ void Memory::Reset(uint, uint newmode)
 	mm->AllocW(mid, 0x8000, 0x8000, ram + 0x8000);
 	if (!n80mode)
 	{
-		// pres runs before PC88::Out(31/32/33/70); drop N-session banking and
-		// text-window state so Update* does not remap ROM/RAM with stale ports.
-		port31 = 0;
-		port32 = 0;
-		port33 = 0;
-		port35 = 0;
-		port71 = 0xff;
-		txtwnd = 0;
-		porte2 = 0;
-		porte3 = 0;
-		port99 = 0;
-		if ((sw31 & 0x40) && tvram) {
-			memset(tvram, 0, 0x1000);
-		}
-		memset(dirty, 1, 0x400);
 		Update00R();
 		Update00W();
 		Update60R();
@@ -172,9 +153,6 @@ void Memory::Reset(uint, uint newmode)
 		UpdateN80R();
 		UpdateN80G();
 	}
-
-	if (enablewait)
-		SetWait();
 }
 
 // ----------------------------------------------------------------------------
@@ -255,12 +233,9 @@ void IOCALL Memory::Out31(uint, uint data)
 {
 	if (!n80mode)
 	{
-		// PC88::Reset Out(0x31,0) must drop ROM bank (bit2) left from N mode; the
-		// change mask (&6) alone skips the write when only bit2 was set before.
-		uint new31 = data ? (data & 6) : 0;
-		if (new31 != port31)
+		if ((data ^ port31) & 6)
 		{
-			port31 = new31;
+			port31 = data & 6;
 			Update00R();
 			Update60R();
 			Update80();
@@ -1296,28 +1271,8 @@ void Memory::ApplyConfig(const Config* cfg)
 {
 	enablewait = (cfg->flags & Config::enablewait) != 0;
 	neweram = cfg->erambanks;
-	if (n80mode) {
-		neweram = Max(1, neweram);
-	}
-	if (erambanks != neweram) {
-		mm->AllocR(mid, 0, 0x8000, ram);
-		mm->AllocW(mid, 0, 0x8000, ram);
-
-		erambanks = 0;
-		delete[] eram;
-		eram = new uint8[0x8000 * neweram];
-		if (eram) {
-			erambanks = neweram;
-			memset(eram, 0, 0x8000 * erambanks);
-		}
-	}
 	if (enablewait)
-	{
-		sw31 = bus->In(0x31);
-		const bool high = !(bus->In(0x6e) & 0x80);
-		waitmode = ((sw31 & 0x40) || (n80mode && n80srmode) ? 12 : 0) + (high ? 24 : 0);
 		SetWait();
-	}
 	else
 		SetWaits(0, 0x10000, 0);
 }
@@ -1326,12 +1281,13 @@ void Memory::ApplyConfig(const Config* cfg)
 
 inline void Memory::SetWaits(uint a, uint s, uint v)
 {
-	if (!waits)
-		return;
-	uint p = a >> MemoryManager::pagebits;
-	uint t = (a + s + MemoryManager::pagemask) >> MemoryManager::pagebits;
-	for (; p < t; p++)
-		waits[p] = v;
+	if (waits)
+	{
+		uint p = a >> MemoryManager::pagebits;
+		uint t = (a + s + MemoryManager::pagemask) >> MemoryManager::pagebits;
+		for (; p < t; p++)
+			waits[p] = v;
+	}
 }
 
 // ---------------------------------------------------------------------------

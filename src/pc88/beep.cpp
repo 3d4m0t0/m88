@@ -14,8 +14,7 @@ using namespace PC8801;
 //	生成・破棄
 //
 Beep::Beep(const ID& id)
-: Device(id), soundcontrol(0), bslice(0), pslice(0), bcount(0), bperiod(0), port40(0),
-  p40mask(0xa0)
+: Device(id), soundcontrol(0)
 {
 }
 
@@ -29,19 +28,9 @@ Beep::~Beep()
 //
 bool Beep::Init()
 {
-	Reset();
-	p40mask = 0xa0;
-	port40 &= p40mask;
-	return true;
-}
-
-void Beep::Reset()
-{
 	port40 = 0;
-	pslice = 0;
-	bslice = 0;
-	bcount = 0;
-	port40 &= p40mask;
+	p40mask = 0xa0;
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -127,14 +116,7 @@ void IFCALL Beep::Mix(int32* dest, int nsamples)
 //
 void IOCALL Beep::Out40(uint, uint data)
 {
-	const uint raw = data;
 	data &= p40mask;
-#ifdef M88_LINUX_PORT
-	// VRTC/calendar writes (bit4 set, no beep latch bits) must not touch beep state.
-	if ((raw & 0x10u) != 0u && (raw & 0xa0u) == 0u) {
-		return;
-	}
-#endif
 	int i = data ^ port40;
 	if (i & 0xa0)
 	{
