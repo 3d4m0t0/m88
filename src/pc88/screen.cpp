@@ -1290,7 +1290,8 @@ void IOCALL Screen::Out32(uint, uint data)
 	if (i & 0x20)
 	{
 		port32 = data;
-		palettechanged = true;
+		if (!color)
+			palettechanged = true;
 	}
 }
 

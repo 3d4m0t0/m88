@@ -594,8 +594,19 @@ bool PC88::ConnectDevices()
 	if (!siomidi || !bus1.Connect(siomidi, c_siom)) return false;
 	if (!siomidi->Init(&bus1, 0, psioreq)) return false;
 
+	static const IOBus::Connector c_joy[] =
+	{
+		{ popnio,	IOBus::portin, JoyPad::getdir },
+		{ popnio2,	IOBus::portin, JoyPad::getbutton },
+		{ vrtc,		IOBus::portout, JoyPad::vsync },
+		{ 0, 0, 0 }
+	};
 	joypad = new PC8801::JoyPad();//DEV_ID('J', 'O', 'Y', ' '));
 	if (!joypad) return false;
+	if (!bus1.Connect(joypad, c_joy)) return false;
+#ifdef M88_LINUX_PORT
+	pad_connected_ = true;
+#endif
 
 	mouse = new PC8801::Mouse(DEV_ID('M', 'O', 'U', 'S'));
 	if (!mouse || !mouse->Init(this)) return false;
@@ -681,18 +692,14 @@ void PC88::ApplyConfig(Config* cfg)
 	opn2->SetOPNMode((cfgflags & Config::opnaona8) != 0);
 	opn2->Enable((cfgflags & (Config::opnaona8 | Config::opnona8)) != 0);
 
-#ifdef M88_LINUX_PORT
-	if (cfg->flags & Config::enablemouse) {
-		SetMouseEnabled(true, cfg);
-		SetPadEnabled(false, cfg);
-	} else if (cfg->flags & Config::enablepad) {
-		SetMouseEnabled(false, cfg);
-		SetPadEnabled(true, cfg);
-	} else {
-		SetMouseEnabled(false, cfg);
-		SetPadEnabled(false, cfg);
+	if (cfg->flags & PC8801::Config::enablepad)
+	{
+		joypad->SetButtonMode(cfg->flags & Config::swappadbuttons ? JoyPad::SWAPPED : JoyPad::NORMAL);
 	}
-#endif
+	else
+	{
+		joypad->SetButtonMode(JoyPad::DISABLED);
+	}
 
 }
 
