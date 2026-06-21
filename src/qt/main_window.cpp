@@ -973,13 +973,6 @@ void MainWindow::setupMenuBar() {
   });
 
   connect(tools_menu_, &QMenu::aboutToShow, this, [this]() {
-    if (record_sound_action_ && controller_) {
-      bool recording = false;
-      QMetaObject::invokeMethod(controller_, "isRecordingSound",
-                                Qt::BlockingQueuedConnection,
-                                Q_RETURN_ARG(bool, recording));
-      record_sound_action_->setChecked(recording);
-    }
     rebuildSnapshotMenu();
   });
   rebuildSnapshotMenu();

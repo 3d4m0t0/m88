@@ -585,10 +585,17 @@ void EmulatorController::withVmPaused(const std::function<void()>& fn) {
     return;
   }
   impl_->emu_thread.Pause();
+  struct ResumeGuard {
+    M88EmuThread* thread = nullptr;
+    ~ResumeGuard() {
+      if (thread) {
+        thread->Resume();
+      }
+    }
+  } guard{&impl_->emu_thread};
   if (fn) {
     fn();
   }
-  impl_->emu_thread.Resume();
 }
 
 void EmulatorController::pollEmulationIdle() {

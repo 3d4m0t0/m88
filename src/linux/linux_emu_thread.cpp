@@ -117,9 +117,18 @@ void M88EmuThread::WaitIfPaused() {
 void M88EmuThread::Pause() {
   const int prev = pause_depth_.fetch_add(1, std::memory_order_acq_rel);
   if (prev > 0) {
+    // Outer pause already requested; wait for the same frame boundary.
+    std::unique_lock<std::mutex> lock(boundary_mutex_);
+    boundary_cv_.wait(lock, [this]() {
+      return at_frame_boundary_.load(std::memory_order_acquire) ||
+             should_stop_.load(std::memory_order_acquire);
+    });
     return;
   }
   active_.store(false, std::memory_order_release);
+  if (params_.vm) {
+    params_.vm->BreakExecution();
+  }
   std::unique_lock<std::mutex> lock(boundary_mutex_);
   boundary_cv_.wait(lock, [this]() {
     return at_frame_boundary_.load(std::memory_order_acquire) ||
@@ -177,6 +186,7 @@ void M88EmuThread::ThreadMain() {
     M88LoadmonFrameBegin();
     const auto stop = [this]() {
       return should_stop_.load(std::memory_order_relaxed) ||
+             !active_.load(std::memory_order_relaxed) ||
              (params_.running &&
               !params_.running->load(std::memory_order_relaxed));
     };
