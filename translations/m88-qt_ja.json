@@ -338,7 +338,7 @@
     {
       "context": "ConfigDialog",
       "source": "Output device:",
-      "translation": "出力ディスデイス:"
+      "translation": "出力デバイス:"
     },
     {
       "context": "ConfigDialog",
