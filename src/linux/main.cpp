@@ -339,7 +339,7 @@ int main(int argc, char** argv) {
 
   M88Sequencer seq;
   M88EmuTimePacer emu_time_pacer;
-  seq.ApplyConfig(config);
+  M88SeqApplyConfig(seq, config);
   seq.ResetPacing();
   emu_time_pacer.Reset();
   // WinUI::InitM88: ApplyConfig() then core.Reset() before the message loop.
@@ -393,20 +393,14 @@ int main(int argc, char** argv) {
 
     if (reset_requested) {
       reset_requested = false;
-      HalfKanaIme::InjectEndSession(&keyif, &config);
-      keyif.FlushGuestKeys();
-      keyif.ApplyConfig(&config);
-      seq.ResetPacing();
-      emu_time_pacer.Reset();
-      M88UserCpuReset(pc88, &seq, config.refreshtiming);
-      pc88.UpdateScreen(true);
-      if (draw.NeedsPresent()) {
-        draw.Present();
-      }
+      PC8801::Config hw = M88ConfigForHardware(config);
+      M88ApplyWinReset(
+          keyif, pc88, seq, &hw, &draw,
+          [&](PC8801::Config* cfg) { sound.ApplyConfig(cfg); });
     }
 
     M88LoadmonFrameBegin();
-    seq.ApplyConfig(config);
+    M88SeqApplyConfig(seq, config);
     struct SdlFrameDrawCtx {
       PC88* pc88;
       LinuxDraw* draw;

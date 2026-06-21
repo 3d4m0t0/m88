@@ -283,7 +283,7 @@ bool EmulatorController::initialize() {
     }
   }
 
-  impl_->seq.ApplyConfig(impl_->config);
+  M88SeqApplyConfig(impl_->seq, impl_->config);
   impl_->seq.ResetPacing();
   impl_->emu_time_pacer.Reset();
   updateSequencerAudio();
@@ -365,9 +365,10 @@ void EmulatorController::processImeCommit(const QString& utf8) {
     if (!LinuxIme::CommitUtf8(bytes.constData(), impl_->keyif.get(), &impl_->config)) {
       return;
     }
-    const uint host_clock = static_cast<uint>(std::max(1, impl_->config.clock));
+    const uint host_clock =
+        static_cast<uint>(std::max(1, M88EffectiveClock(&impl_->config)));
     const uint effclock = static_cast<uint>(std::max<int64_t>(
-        1, impl_->config.clock * (impl_->config.speed / 10) / 100));
+        1, host_clock * (impl_->config.speed / 10) / 100));
     impl_->pc88->TimeSync();
     int guard = 0;
     while (HalfKanaIme::InjectBusy() && guard++ < 8192) {
@@ -550,11 +551,6 @@ void EmulatorController::processDeferredActions() {
   if (!ime_utf8.isEmpty()) {
     processImeCommit(ime_utf8);
   }
-
-  if (reset_requested_.exchange(false, std::memory_order_acq_rel)) {
-    applyUserResetAndRefresh();
-    emit statusMessage(tr("Reset complete"), 2000);
-  }
 }
 
 bool EmulatorController::burstActive() const {
@@ -565,7 +561,7 @@ void EmulatorController::resetSequencerPacing() {
   if (!impl_) {
     return;
   }
-  impl_->seq.ApplyConfig(impl_->config);
+  M88SeqApplyConfig(impl_->seq, impl_->config);
   impl_->seq.ResetPacing();
   impl_->emu_time_pacer.Reset();
   updateSequencerAudio();
@@ -1182,40 +1178,20 @@ void EmulatorController::setArrowTenkey(bool enabled) {
                      2000);
 }
 
-void EmulatorController::applyConfigAndReset(const char* diag_tag, int prev_basicmode) {
-  (void)prev_basicmode;
+void EmulatorController::applyWinReset() {
   if (!impl_ || !impl_->pc88 || !impl_->keyif) {
     return;
   }
   withVmPaused([&]() {
-    HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
-    impl_->keyif->FlushGuestKeys();
-    impl_->keyif->ApplyConfig(&impl_->config);
-    M88ApplyConfig(impl_->pc88.get(), &impl_->config);
-    resetSequencerPacing();
-    M88UserCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
-    if (impl_->sound) {
-      impl_->sound->ApplyConfig(&impl_->config);
-      updateSequencerAudio();
-      impl_->sound->ResetPcmContract();
-    }
-    syncHostInputFromConfig();
-    if (diag_tag && std::strcmp(diag_tag, "mode_switch") == 0) {
-      M88LogMachine(&impl_->config);
-    }
-    impl_->pc88->UpdateScreen(true);
-    if (draw_) {
-      draw_->InvalidateUiStaging();
-      draw_->StageUiFrame();
-    }
-    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
+    PC8801::Config hw = M88ConfigForHardware(impl_->config);
+    M88ApplyWinReset(
+        *impl_->keyif, *impl_->pc88, impl_->seq, &hw, draw_,
+        [&](PC8801::Config* cfg) {
+          if (impl_->sound) {
+            impl_->sound->ApplyConfig(cfg);
+          }
+        });
   });
-  emit frameReady();
-}
-
-void EmulatorController::applyUserResetAndRefresh() {
-  applyConfigAndReset("user_reset");
-  emit statusMessage(tr("Reset complete"), 2000);
 }
 
 void EmulatorController::queueDiskOp(DiskOpType op, int drive, int index,
@@ -1264,7 +1240,7 @@ void EmulatorController::resetMachine() {
     emit statusMessage(tr("Emulator is not ready"));
     return;
   }
-  reset_requested_.store(true, std::memory_order_release);
+  applyWinReset();
 }
 
 void EmulatorController::setClock(int clock) {
@@ -1278,57 +1254,18 @@ void EmulatorController::setClock(int clock) {
     return;
   }
   impl_->config.clock = clock;
-  withVmPaused([&]() {
-    impl_->keyif->ApplyConfig(&impl_->config);
-    M88ApplyConfig(impl_->pc88.get(), &impl_->config);
-    M88UserCpuReset(*impl_->pc88, &impl_->seq, impl_->config.refreshtiming);
-    if (impl_->sound) {
-      impl_->sound->ApplyConfig(&impl_->config);
-      impl_->sound->ResetPcmContract();
-      updateSequencerAudio();
-    }
-    resetSequencerPacing();
-    syncHostInputFromConfig();
-    impl_->pc88->UpdateScreen(true);
-    if (draw_) {
-      draw_->InvalidateUiStaging();
-      draw_->StageUiFrame();
-    }
-    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
-  });
-  emit frameReady();
-  emitMachineConfig();
-  saveConfig();
-  std::fprintf(stdout, "M88: CPUClock=%d (%.1f MHz)\n", clock, clock / 10.0);
-  std::fflush(stdout);
-  emit statusMessage(tr("Clock: %1 MHz").arg(clock / 10), 2000);
+  applyWinReset();
 }
 
 void EmulatorController::setBasicMode(int mode) {
-  if (!impl_ || !impl_->pc88) {
+  if (!impl_ || !impl_->pc88 || !impl_->keyif) {
     return;
   }
   const auto bm = static_cast<PC8801::Config::BASICMode>(mode);
-  if (bm == PC8801::Config::N802 && !impl_->pc88->IsN80Supported()) {
-    return;
-  }
-  if (bm == PC8801::Config::N80V2 && !impl_->pc88->IsN80V2Supported()) {
-    return;
-  }
-  if (bm == PC8801::Config::N88V2CD && !impl_->pc88->IsCDSupported()) {
-    return;
-  }
   if (impl_->config.basicmode == bm) {
     return;
   }
-  const int prev_basicmode = static_cast<int>(impl_->config.basicmode);
   impl_->config.basicmode = bm;
-  if (M88BasicModeFixesClock4MHz(mode)) {
-    impl_->config.clock = 40;
-  }
-  applyConfigAndReset("mode_switch", prev_basicmode);
-  emitMachineConfig();
-  saveConfig();
-  emit statusMessage(tr("Basic mode changed"), 2000);
+  applyWinReset();
 }
 

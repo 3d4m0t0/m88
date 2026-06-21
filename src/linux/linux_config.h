@@ -62,6 +62,14 @@ void M88LoadStartupConfig(PC8801::Config* cfg, const char* explicit_path,
 const char* M88BasicModeName(int basicmode);
 bool M88BasicModeFixesClock4MHz(int basicmode);
 
+// config.clock / INI CPUClock: V2 operating clock (40 or 80). V1/N modes run at
+// 4 MHz without overwriting the stored value.
+int M88EffectiveClock(const PC8801::Config* cfg);
+PC8801::Config M88ConfigForHardware(const PC8801::Config& cfg);
+
+class M88Sequencer;
+void M88SeqApplyConfig(M88Sequencer& seq, const PC8801::Config& cfg);
+
 // Apply Linux-port defaults that should survive partial Windows INI imports.
 void M88FinalizeConfig(PC8801::Config* cfg);
 

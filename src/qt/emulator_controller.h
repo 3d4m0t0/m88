@@ -108,12 +108,11 @@ private:
   void saveConfig();
   void processDeferredActions();
   void withVmPaused(const std::function<void()>& fn);
+  void applyWinReset();
   void applyChangeDiskImage(int drive, const QString& path);
   void applyBothDrives(const QString& path);
   void applySelectDisk(int drive, int index);
   void syncDrive1AfterDrive0Change();
-  void applyConfigAndReset(const char* diag_tag = "reset", int prev_basicmode = -1);
-  void applyUserResetAndRefresh();
   void refreshDisplayAfterDiskChange();
   void processImeCommit(const QString& utf8);
   void proceedFrame(int texec, uint clk, uint effclock);
@@ -125,7 +124,6 @@ private:
   SharedFramebufferDraw* draw_ = nullptr;
   Options options_;
   std::atomic<bool> running_{true};
-  std::atomic<bool> reset_requested_{false};
 
   struct Impl;
   Impl* impl_ = nullptr;

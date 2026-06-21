@@ -4,6 +4,7 @@
 #include "path.h"
 
 #include "display_scale.h"
+#include "linux_sequencer.h"
 #include "pc88_key_fixup.h"
 
 #include "misc.h"
@@ -855,6 +856,28 @@ bool M88BasicModeFixesClock4MHz(int basicmode) {
   }
 }
 
+int M88EffectiveClock(const Config* cfg) {
+  if (!cfg) {
+    return 40;
+  }
+  if (M88BasicModeFixesClock4MHz(static_cast<int>(cfg->basicmode))) {
+    return 40;
+  }
+  return std::max(1, cfg->clock);
+}
+
+Config M88ConfigForHardware(const Config& cfg) {
+  Config hw = cfg;
+  hw.clock = M88EffectiveClock(&cfg);
+  hw.mainsubratio =
+      (hw.clock >= 60 || (hw.flags & Config::fullspeed)) ? 2 : 1;
+  return hw;
+}
+
+void M88SeqApplyConfig(M88Sequencer& seq, const Config& cfg) {
+  seq.ApplyConfig(M88ConfigForHardware(cfg));
+}
+
 const char* M88BasicModeName(int basicmode) {
   switch (basicmode) {
     case Config::N80:
@@ -1053,15 +1076,12 @@ void M88FinalizeConfig(Config* cfg) {
 }
 
 void M88ApplyConfig(PC88* pc88, Config* cfg) {
-  cfg->mainsubratio =
-      (cfg->clock >= 60 || (cfg->flags & Config::fullspeed)) ? 2 : 1;
-
   if (cfg->dipsw != 1) {
     cfg->flags &= ~Config::specialpalette;
     cfg->flag2 &= ~(Config::mask0 | Config::mask1 | Config::mask2);
   }
-  // Match Windows default: park sub CPU when FDIF is idle (see subcpucontrol).
-  cfg->flags |= Config::subcpucontrol;
 
-  pc88->ApplyConfig(cfg);
+  Config hw = M88ConfigForHardware(*cfg);
+  cfg->mainsubratio = hw.mainsubratio;
+  pc88->ApplyConfig(&hw);
 }

@@ -2,6 +2,7 @@
 #include "linux_emu_thread.h"
 
 #include "half_kana_ime.h"
+#include "linux_config.h"
 #include "linux_ime.h"
 #include "loadmon.h"
 #include "pc88/pc88.h"
@@ -177,7 +178,7 @@ void M88EmuThread::ThreadMain() {
 
     at_frame_boundary_ = false;
     if (params_.config) {
-      params_.seq->ApplyConfig(*params_.config);
+      M88SeqApplyConfig(*params_.seq, *params_.config);
     }
 
     const bool force_draw = draw_ctx.post_reset_frames &&
