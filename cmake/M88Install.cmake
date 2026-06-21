@@ -16,6 +16,15 @@ set(M88_QT_LICENSEDIR "${CMAKE_INSTALL_DATADIR}/licenses/m88-qt")
 if(TARGET m88-qt)
   set(M88_QT_DOCDIR_FULL "${CMAKE_INSTALL_PREFIX}/${M88_QT_DOCDIR}")
 
+  # Desktop Entry / AppStream must be UTF-8 (Shift_JIS breaks KDE launcher text).
+  foreach(_M88_UTF8_FILE
+      "${CMAKE_CURRENT_SOURCE_DIR}/data/m88-qt.desktop.in"
+      "${CMAKE_CURRENT_SOURCE_DIR}/data/m88-qt.metainfo.xml.in")
+    file(READ "${_M88_UTF8_FILE}" _M88_UTF8_CONTENT UTF-8)
+  endforeach()
+  unset(_M88_UTF8_FILE)
+  unset(_M88_UTF8_CONTENT)
+
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/data/m88-qt.desktop.in"
     "${CMAKE_CURRENT_BINARY_DIR}/m88-qt.desktop"
