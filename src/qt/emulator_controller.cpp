@@ -1191,7 +1191,15 @@ void EmulatorController::applyWinReset() {
             impl_->sound->ApplyConfig(cfg);
           }
         });
+    impl_->seq.ForceDrawAfterReset(impl_->config.refreshtiming);
+    impl_->pc88->UpdateScreen(true);
+    if (draw_) {
+      draw_->InvalidateUiStaging();
+      draw_->StageUiFrame();
+    }
+    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
   });
+  emit frameReady();
 }
 
 void EmulatorController::queueDiskOp(DiskOpType op, int drive, int index,
