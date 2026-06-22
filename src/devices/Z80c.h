@@ -173,6 +173,10 @@ private:
 	int eshift;
 	int startcount;
 	int syncpq;		// PQ = INSTWAIT - CLOCKCOUNT (Z80_x86 ebx at Sync entry)
+	bool sync_yield_ = false;
+	int sync_stall_count_ = 0;
+
+	static constexpr int kSyncYieldThreshold = 64;
 
 	void SnapPQ() { syncpq = instwait - clockcount; }
 	void RefreshInstWait()

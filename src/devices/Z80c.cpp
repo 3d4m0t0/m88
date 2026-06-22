@@ -362,10 +362,18 @@ int Z80C::ExecDual(Z80C* first, Z80C* second, int count)
 		cbase = first->execcount;
 	const int stop = cbase + count;
 
+	unsigned dual_guard = 0;
 	for (;;)
 	{
 		if (first->execcount >= stop && second->execcount >= stop)
 			break;
+		if (++dual_guard > 1'000'000u) {
+			if (first->execcount < stop)
+				first->execcount = stop;
+			if (second->execcount < stop)
+				second->execcount = stop;
+			break;
+		}
 		if (first->execcount < stop)
 			first->Exec0(stop, second->execcount);
 		second->Exec0(stop, first->execcount);
@@ -405,10 +413,18 @@ int Z80C::ExecDual2(Z80C* first, Z80C* second, int count)
 		cbase = first->execcount;
 	const int stop = cbase + count;
 
+	unsigned dual_guard = 0;
 	for (;;)
 	{
 		if (first->execcount >= stop && second->execcount >= stop)
 			break;
+		if (++dual_guard > 1'000'000u) {
+			if (first->execcount < stop)
+				first->execcount = stop;
+			if (second->execcount < stop)
+				second->execcount = stop;
+			break;
+		}
 		if (first->execcount < stop)
 			first->Exec0(stop, second->execcount);
 		second->Exec1(stop, first->execcount);
@@ -433,6 +449,8 @@ int Z80C::Exec0(int stop, int other)
 		stopcount = stop;
 		delaycount = other;
 		execcount += clockcount + clocks;
+		sync_yield_ = false;
+		sync_stall_count_ = 0;
 
 		if (dumplog)
 		{
@@ -440,12 +458,26 @@ int Z80C::Exec0(int stop, int other)
 			{
 				DumpLog();
 				SingleStep();
+				if (sync_yield_) {
+					execcount = stop;
+					clockcount = 0;
+					sync_yield_ = false;
+					break;
+				}
 			}
 		}
 		else
 		{
 			for (clockcount = -clocks; clockcount < 0; )
+			{
 				SingleStep();
+				if (sync_yield_) {
+					execcount = stop;
+					clockcount = 0;
+					sync_yield_ = false;
+					break;
+				}
+			}
 		}
 		currentcpu = 0;
 		return stopcount;
@@ -471,12 +503,20 @@ int Z80C::Exec1(int stop, int other)
 		stopcount = stop;
 		delaycount = other;
 		execcount += clockcount*2 + clocks;
+		sync_yield_ = false;
+		sync_stall_count_ = 0;
 		if (dumplog)
 		{
 			for (clockcount = -clocks/2; clockcount < 0; )
 			{
 				DumpLog();
 				SingleStep();
+				if (sync_yield_) {
+					execcount = stop;
+					clockcount = 0;
+					sync_yield_ = false;
+					break;
+				}
 			}
 		}
 		else
@@ -484,6 +524,12 @@ int Z80C::Exec1(int stop, int other)
 			for (clockcount = -clocks/2; clockcount < 0; )
 			{
 				SingleStep();
+				if (sync_yield_) {
+					execcount = stop;
+					clockcount = 0;
+					sync_yield_ = false;
+					break;
+				}
 			}
 		}
 		currentcpu = 0;
@@ -500,12 +546,17 @@ int Z80C::Exec1(int stop, int other)
 //
 bool Z80C::Sync()
 {
-	// Z80_x86 Sync: neg PQ (ebx), sal by eshift, compare/add execcount.
+	// Z80_x86: stall when delaycount < execcount+adj (CF=1).  Z80C uses !Sync()
+	// for stall, so return false on stall and true on proceed.
 	const int adj = (-syncpq) << eshift;
-	if (delaycount >= execcount + adj)
+	if (delaycount >= execcount + adj) {
+		sync_stall_count_ = 0;
 		return true;
+	}
 	execcount += adj;
 	clockcount = 0;
+	if (++sync_stall_count_ >= kSyncYieldThreshold)
+		sync_yield_ = true;
 	return false;
 }
 
