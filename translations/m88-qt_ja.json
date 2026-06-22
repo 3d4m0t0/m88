@@ -238,7 +238,7 @@
     {
       "context": "ConfigDialog",
       "source": "Compress snapshot files (&Z)",
-      "translation": "スナップショットを压縮 (&Z)"
+      "translation": "スナップショットを圧縮 (&Z)"
     },
     {
       "context": "ConfigDialog",
