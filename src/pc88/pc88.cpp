@@ -151,6 +151,28 @@ void PC88::BreakExecution()
 	Shorten(1'000'000);
 }
 
+#ifdef M88_LINUX_PORT
+void PC88::FillStallDiag(StallDiag* out) const
+{
+	if (!out) {
+		return;
+	}
+	out->cpumode = cpumode;
+	out->clock = static_cast<uint>(clock);
+	out->eclock = static_cast<uint>(eclock);
+	out->dexc = dexc;
+	const bool fdc_busy = fdc && fdc->IsBusy();
+	const bool main_fdif = subsys && subsys->MainFdifActive();
+	out->fdc_busy = fdc_busy;
+	out->main_fdif_active = main_fdif;
+	out->run_dual = !(cpumode & stopwhenidle) || fdc_busy || main_fdif;
+	if (fdc) {
+		out->fdc_phase = fdc->GetDiagPhase();
+		out->fdc_status = fdc->GetDiagStatus();
+	}
+}
+#endif
+
 // ---------------------------------------------------------------------------
 //	Ŕs
 //

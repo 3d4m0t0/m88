@@ -2,6 +2,7 @@
 
 #include "linux_emu_time_pace.h"
 #include "linux_monotonic.h"
+#include "m88_stall_watchdog.h"
 #include "pc88/config.h"
 #include "pc88/pc88.h"
 
@@ -150,6 +151,7 @@ struct M88Sequencer {
         mix_fn(static_cast<int>(slice));
       }
 #ifdef M88_LINUX_PORT
+      M88StallWatchdogProceedSlice();
       std::this_thread::yield();
 #endif
     }
@@ -202,6 +204,7 @@ struct M88Sequencer {
         drain_audio();
       }
 #ifdef M88_LINUX_PORT
+      M88StallWatchdogProceedSlice();
       std::this_thread::yield();
 #endif
       return true;

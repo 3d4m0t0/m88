@@ -1349,6 +1349,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   title_timer_->setInterval(1000);
   connect(title_timer_, &QTimer::timeout, this, [this]() {
     if (controller_) {
+      controller_->pollExecStallWatchdog();
       QMetaObject::invokeMethod(controller_, "sampleTitleStats",
                                 Qt::QueuedConnection);
     }

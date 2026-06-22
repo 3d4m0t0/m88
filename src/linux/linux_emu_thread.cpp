@@ -5,6 +5,7 @@
 #include "linux_config.h"
 #include "linux_ime.h"
 #include "loadmon.h"
+#include "m88_stall_watchdog.h"
 #include "pc88/pc88.h"
 #include "shared_framebuffer_draw.h"
 
@@ -95,6 +96,16 @@ void M88EmuThread::Join() {
   joined_ = true;
 }
 
+void M88EmuThread::FillWatchdogState(M88StallWatchdogEmuState* out) const {
+  if (!out) {
+    return;
+  }
+  out->thread_active = active_.load(std::memory_order_relaxed);
+  out->should_stop = should_stop_.load(std::memory_order_relaxed);
+  out->pause_depth = pause_depth_.load(std::memory_order_relaxed);
+  out->in_run_frame = false;
+}
+
 void M88EmuThread::SignalFrameBoundary() {
   {
     std::lock_guard<std::mutex> lock(boundary_mutex_);
@@ -151,6 +162,10 @@ void M88EmuThread::Resume() {
 }
 
 void M88EmuThread::ThreadMain() {
+#if defined(__linux__)
+  native_handle_ = pthread_self();
+  M88StallWatchdogSetEmuThread(native_handle_);
+#endif
   if (params_.emu_realtime_priority) {
     TryRaiseRealtimePriority();
   }
@@ -185,6 +200,7 @@ void M88EmuThread::ThreadMain() {
                             draw_ctx.post_reset_frames->load(std::memory_order_relaxed) > 0;
 
     M88LoadmonFrameBegin();
+    M88StallWatchdogFrameBegin();
     const auto stop = [this]() {
       return should_stop_.load(std::memory_order_relaxed) ||
              !active_.load(std::memory_order_relaxed) ||
@@ -198,6 +214,7 @@ void M88EmuThread::ThreadMain() {
     }
     if (!params_.emu_pacer) {
       M88LoadmonFrameEnd();
+      M88StallWatchdogFrameEnd();
       SignalFrameBoundary();
       continue;
     }
@@ -236,8 +253,10 @@ void M88EmuThread::ThreadMain() {
       params_.on_frame(drew);
     }
     M88LoadmonFrameEnd();
+    M88StallWatchdogFrameEnd();
     SignalFrameBoundary();
   }
 
+  M88StallWatchdogFrameEnd();
   SignalFrameBoundary();
 }

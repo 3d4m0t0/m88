@@ -127,6 +127,21 @@ public:
 
 	int  GetFramePeriod();
 
+#ifdef M88_LINUX_PORT
+	struct StallDiag {
+		int cpumode = 0;
+		uint clock = 0;
+		uint eclock = 0;
+		int dexc = 0;
+		bool run_dual = false;
+		bool fdc_busy = false;
+		int fdc_phase = 0;
+		uint fdc_status = 0;
+		bool main_fdif_active = false;
+	};
+	void FillStallDiag(StallDiag* out) const;
+#endif
+
 public:
 	enum SpecialPort
 	{

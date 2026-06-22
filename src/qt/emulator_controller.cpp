@@ -10,6 +10,7 @@
 #include "../linux/linux_emu_thread.h"
 #include "../linux/linux_emu_time_pace.h"
 #include "../linux/linux_sequencer.h"
+#include "../linux/m88_stall_watchdog.h"
 #include "../linux/qt_miniaudio_sound.h"
 #include "../linux/linux_paths.h"
 #include "../linux/linux_startup_log.h"
@@ -899,6 +900,16 @@ void EmulatorController::sampleTitleStats() {
                          static_cast<int>(freq % 100));
 }
 
+void EmulatorController::pollExecStallWatchdog() {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  M88StallWatchdogEmuState emu {};
+  impl_->emu_thread.FillWatchdogState(&emu);
+  M88StallWatchdogPoll(running_.load(std::memory_order_relaxed), emu,
+                       impl_->pc88.get());
+}
+
 void EmulatorController::syncStatusBarFromConfig() {
   if (!impl_) {
     return;
@@ -932,6 +943,8 @@ void EmulatorController::run() {
   }
 
   impl_->hw_reset_done = false;
+
+  M88StallWatchdogInit();
 
   M88EmuThread::Params params;
   params.vm = impl_->pc88.get();
@@ -995,6 +1008,7 @@ void EmulatorController::run() {
   loop.exec();
   stop_poll.stop();
 
+  M88StallWatchdogShutdown();
   impl_->emu_thread.Join();
 
   shutdown();

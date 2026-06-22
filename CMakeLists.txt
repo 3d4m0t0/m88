@@ -74,6 +74,7 @@ add_library(m88_core STATIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/path.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/rom_log.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux_compat/status.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/m88_stall_watchdog.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_startup_log.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/linux_paths.cpp
   ${M88_COMMON_SOURCES}
@@ -89,6 +90,7 @@ target_include_directories(m88_core PUBLIC
 
 target_compile_definitions(m88_core PUBLIC
   M88_LINUX_PORT=1
+  $<$<CONFIG:Debug>:M88_STALL_WATCHDOG=1>
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

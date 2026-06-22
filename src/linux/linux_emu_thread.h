@@ -11,8 +11,14 @@
 #include <mutex>
 #include <thread>
 
+#if defined(__linux__)
+#include <pthread.h>
+#endif
+
 class PC88;
 class SharedFramebufferDraw;
+
+struct M88StallWatchdogEmuState;
 
 namespace PC8801 {
 class WinKeyIF;
@@ -57,6 +63,11 @@ class M88EmuThread {
   void Resume();
   bool IsPaused() const { return !active_.load(std::memory_order_relaxed); }
 
+  void FillWatchdogState(M88StallWatchdogEmuState* out) const;
+#if defined(__linux__)
+  pthread_t NativeHandle() const { return native_handle_; }
+#endif
+
  private:
   void ThreadMain();
   void SignalFrameBoundary();
@@ -74,4 +85,7 @@ class M88EmuThread {
   std::atomic<int> pause_depth_{0};
   std::atomic<bool> should_stop_{false};
   std::atomic<bool> at_frame_boundary_{false};
+#if defined(__linux__)
+  pthread_t native_handle_ = 0;
+#endif
 };

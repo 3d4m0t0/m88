@@ -55,6 +55,7 @@ public slots:
   void setShowFdcStatus(bool enabled);
   void setWatchRegister(bool enabled);
   void sampleTitleStats();
+  void pollExecStallWatchdog();
   void pollEmulationIdle();
   void emitFrameReady();
   PC8801::Config exportConfig();
