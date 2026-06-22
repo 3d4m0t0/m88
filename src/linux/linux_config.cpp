@@ -1080,6 +1080,9 @@ void M88ApplyConfig(PC88* pc88, Config* cfg) {
     cfg->flags &= ~Config::specialpalette;
     cfg->flag2 &= ~(Config::mask0 | Config::mask1 | Config::mask2);
   }
+  if (!M88MouseInputAvailable()) {
+    cfg->flags &= ~(Config::enablemouse | Config::mousejoymode);
+  }
 
   Config hw = M88ConfigForHardware(*cfg);
   cfg->mainsubratio = hw.mainsubratio;

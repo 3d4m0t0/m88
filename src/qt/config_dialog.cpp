@@ -436,9 +436,11 @@ void ConfigDialog::buildUi() {
     auto* sense_row = new QHBoxLayout();
     func_mousesense_ = new QSlider(Qt::Horizontal, page);
     func_mousesense_->setRange(1, 10);
-    sense_row->addWidget(new QLabel(tr("Sensitivity (&P):"), page));
+    func_mousesense_label_ = new QLabel(tr("Sensitivity (&P):"), page);
+    func_mousesense_coarse_label_ = new QLabel(tr("coarse"), page);
+    sense_row->addWidget(func_mousesense_label_);
     sense_row->addWidget(func_mousesense_, 1);
-    sense_row->addWidget(new QLabel(tr("coarse"), page));
+    sense_row->addWidget(func_mousesense_coarse_label_);
 
     for (QCheckBox* cb :
          {func_savedir_, func_savepos_, func_askreset_, func_suppressmenu_, func_enablepad_,
@@ -867,8 +869,10 @@ void ConfigDialog::loadFromConfig() {
   func_enablepad_->setChecked((config_.flags & Config::enablepad) != 0);
   func_swappad_->setChecked((config_.flags & Config::swappadbuttons) != 0);
   func_resetf12_->setChecked((config_.flags & Config::disablef12reset) == 0);
-  func_enablemouse_->setChecked((config_.flags & Config::enablemouse) != 0);
-  func_mousejoy_->setChecked((config_.flags & Config::mousejoymode) != 0);
+  func_enablemouse_->setChecked(M88MouseInputAvailable() &&
+                                (config_.flags & Config::enablemouse) != 0);
+  func_mousejoy_->setChecked(M88MouseInputAvailable() &&
+                             (config_.flags & Config::mousejoymode) != 0);
   func_mousesense_->setValue(static_cast<int>(config_.mousesensibility));
   func_scrname_->setChecked((config_.flag2 & Config::genscrnshotname) != 0);
   func_compsnap_->setChecked((config_.flag2 & Config::compresssnapshot) != 0);
@@ -1001,8 +1005,12 @@ void ConfigDialog::applyToConfig() {
   if (func_enablepad_->isChecked()) config_.flags |= Config::enablepad;
   if (func_swappad_->isChecked()) config_.flags |= Config::swappadbuttons;
   if (!func_resetf12_->isChecked()) config_.flags |= Config::disablef12reset;
-  if (func_enablemouse_->isChecked()) config_.flags |= Config::enablemouse;
-  if (func_mousejoy_->isChecked()) config_.flags |= Config::mousejoymode;
+  if (M88MouseInputAvailable() && func_enablemouse_->isChecked()) {
+    config_.flags |= Config::enablemouse;
+  }
+  if (M88MouseInputAvailable() && func_mousejoy_->isChecked()) {
+    config_.flags |= Config::mousejoymode;
+  }
   config_.flag2 &= ~(Config::saveposition | Config::genscrnshotname | Config::compresssnapshot);
   if (func_savepos_->isEnabled() && func_savepos_->isChecked()) {
     config_.flag2 |= Config::saveposition;
@@ -1120,17 +1128,49 @@ void ConfigDialog::updateFunctionTab() {
   }
 
   func_swappad_->setEnabled(func_enablepad_->isChecked());
-  func_mousejoy_->setEnabled(func_enablemouse_->isChecked());
-  if (func_suppressmenu_->isEnabled() && func_suppressmenu_->isChecked()) {
-    func_enablemouse_->setChecked(false);
+
+  const bool mouse_ok = M88MouseInputAvailable();
+  if (!mouse_ok) {
+    if (func_enablemouse_->isChecked()) {
+      func_enablemouse_->blockSignals(true);
+      func_enablemouse_->setChecked(false);
+      func_enablemouse_->blockSignals(false);
+    }
+    if (func_mousejoy_->isChecked()) {
+      func_mousejoy_->blockSignals(true);
+      func_mousejoy_->setChecked(false);
+      func_mousejoy_->blockSignals(false);
+    }
   }
-  if (func_enablepad_->isChecked()) {
-    func_enablemouse_->setChecked(false);
+  func_enablemouse_->setEnabled(mouse_ok);
+  func_mousejoy_->setEnabled(mouse_ok && func_enablemouse_->isChecked());
+  func_mousesense_->setEnabled(mouse_ok);
+  func_mousesense_label_->setEnabled(mouse_ok);
+  func_mousesense_coarse_label_->setEnabled(mouse_ok);
+  if (!mouse_ok) {
+    const QString mouse_tip =
+        tr("Serial / bus mouse is not verified on the Linux Qt port.");
+    func_enablemouse_->setToolTip(mouse_tip);
+    func_mousejoy_->setToolTip(mouse_tip);
+    func_mousesense_->setToolTip(mouse_tip);
+  } else {
+    func_enablemouse_->setToolTip(QString());
+    func_mousejoy_->setToolTip(QString());
+    func_mousesense_->setToolTip(QString());
   }
-  if (func_enablemouse_->isChecked()) {
-    func_enablepad_->setChecked(false);
-    if (func_suppressmenu_->isEnabled()) {
-      func_suppressmenu_->setChecked(false);
+
+  if (mouse_ok) {
+    if (func_suppressmenu_->isEnabled() && func_suppressmenu_->isChecked()) {
+      func_enablemouse_->setChecked(false);
+    }
+    if (func_enablepad_->isChecked()) {
+      func_enablemouse_->setChecked(false);
+    }
+    if (func_enablemouse_->isChecked()) {
+      func_enablepad_->setChecked(false);
+      if (func_suppressmenu_->isEnabled()) {
+        func_suppressmenu_->setChecked(false);
+      }
     }
   }
 

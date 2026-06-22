@@ -74,6 +74,8 @@ private:
   class QCheckBox* func_enablemouse_ = nullptr;
   class QCheckBox* func_mousejoy_ = nullptr;
   class QSlider* func_mousesense_ = nullptr;
+  class QLabel* func_mousesense_label_ = nullptr;
+  class QLabel* func_mousesense_coarse_label_ = nullptr;
   class QCheckBox* func_scrname_ = nullptr;
   class QCheckBox* func_compsnap_ = nullptr;
   class QCheckBox* func_idle_inhibit_ = nullptr;

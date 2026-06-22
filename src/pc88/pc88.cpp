@@ -735,6 +735,22 @@ void PC88::ApplyConfig(Config* cfg)
 	if (cfg->flags & PC8801::Config::enablepad)
 	{
 		joypad->SetButtonMode(cfg->flags & Config::swappadbuttons ? JoyPad::SWAPPED : JoyPad::NORMAL);
+#ifdef M88_LINUX_PORT
+		if (pad_input_) {
+			joypad->Connect(pad_input_);
+		}
+		if (!pad_connected_) {
+			static const IOBus::Connector c_joy[] = {
+			    {popnio, IOBus::portin, JoyPad::getdir},
+			    {popnio2, IOBus::portin, JoyPad::getbutton},
+			    {vrtc, IOBus::portout, JoyPad::vsync},
+			    {0, 0, 0},
+			};
+			if (bus1.Connect(joypad, c_joy)) {
+				pad_connected_ = true;
+			}
+		}
+#endif
 	}
 	else
 	{

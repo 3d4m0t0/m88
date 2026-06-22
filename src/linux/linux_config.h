@@ -12,6 +12,9 @@ void M88SetDefaultConfig(PC8801::Config* cfg);
 // Applies WinUI::ApplyConfig() core settings, then PC88::ApplyConfig().
 void M88ApplyConfig(PC88* pc88, PC8801::Config* cfg);
 
+// Serial / bus mouse UI is not verified on the Linux Qt port yet.
+inline bool M88MouseInputAvailable() { return false; }
+
 // Parse keyboard layout name: 101/104/at101, 106/at106, 98/pc98. Returns -1 on failure.
 int M88ParseKeyboardType(const char* name);
 
