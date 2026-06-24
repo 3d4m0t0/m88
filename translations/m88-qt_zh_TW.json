@@ -1404,6 +1404,76 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "是否結束 M88？"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "開啟最近檔案(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "（無最近檔案）"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "重設/切換模式時：擷取簡短的 CPU1 記錄（略過閒置迴圈，於重設或偵測到緊密迴圈後停止）。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "重設/切換模式時：擷取簡短的 CPU2 記錄（略過閒置迴圈，於重設或偵測到緊密迴圈後停止）。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2).",
+      "translation": "在狀態列顯示主/副 CPU 的程式計數器 (PC1(I)/PC2)。"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture started → %1",
+      "translation": "已開始擷取 CPU 記錄 → %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture finished (%1)",
+      "translation": "CPU 記錄擷取完成 (%1)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": " [%1]",
+      "translation": " [%1]"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump armed for reset/mode change → %2",
+      "translation": "已啟用 CPU%1 自動傾印（重設/切換模式時 → %2）"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump disarmed",
+      "translation": "已停用 CPU%1 自動傾印"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 loop",
+      "translation": "CPU1 迴圈"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 reset window",
+      "translation": "CPU1 重設視窗"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 loop",
+      "translation": "CPU2 迴圈"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 reset window",
+      "translation": "CPU2 重設視窗"
     }
   ]
 }

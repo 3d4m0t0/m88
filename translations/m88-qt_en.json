@@ -1414,6 +1414,66 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "Exit M88?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2).",
+      "translation": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2)."
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture started → %1",
+      "translation": "CPU log capture started → %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture finished (%1)",
+      "translation": "CPU log capture finished (%1)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": " [%1]",
+      "translation": " [%1]"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump armed for reset/mode change → %2",
+      "translation": "CPU%1 auto-dump armed for reset/mode change → %2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump disarmed",
+      "translation": "CPU%1 auto-dump disarmed"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 loop",
+      "translation": "CPU1 loop"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 reset window",
+      "translation": "CPU1 reset window"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 loop",
+      "translation": "CPU2 loop"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 reset window",
+      "translation": "CPU2 reset window"
     }
   ]
 }

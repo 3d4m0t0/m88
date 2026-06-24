@@ -1404,6 +1404,76 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "M88 beenden?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "Zuletzt verwendete Dateien öffnen(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "(Keine zuletzt verwendeten Dateien)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "Bei Reset/Moduswechsel: kurzes CPU1-Protokoll aufzeichnen (überspringt Leerlaufschleifen, stoppt nach Reset oder enger Schleife)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "Bei Reset/Moduswechsel: kurzes CPU2-Protokoll aufzeichnen (überspringt Leerlaufschleifen, stoppt nach Reset oder enger Schleife)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2).",
+      "translation": "Zeigt den Programmzähler von Haupt-/Sub-CPU in der Statusleiste (PC1(I)/PC2)."
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture started → %1",
+      "translation": "CPU-Protokollerfassung gestartet → %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture finished (%1)",
+      "translation": "CPU-Protokollerfassung abgeschlossen (%1)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": " [%1]",
+      "translation": " [%1]"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump armed for reset/mode change → %2",
+      "translation": "CPU%1 Auto-Protokoll für Reset/Moduswechsel aktiviert → %2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump disarmed",
+      "translation": "CPU%1 Auto-Protokoll deaktiviert"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 loop",
+      "translation": "CPU1-Schleife"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 reset window",
+      "translation": "CPU1-Reset-Fenster"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 loop",
+      "translation": "CPU2-Schleife"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 reset window",
+      "translation": "CPU2-Reset-Fenster"
     }
   ]
 }

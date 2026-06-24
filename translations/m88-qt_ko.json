@@ -1404,6 +1404,76 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "M88을 종료하시겠습니까?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "최근 파일 열기(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "(최근 파일 없음)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "리셋/모드 전환 시: 짧은 CPU1 로그 캡처(유휴 루프 건너뜀, 리셋 또는 tight-loop 감지 후 중지)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "리셋/모드 전환 시: 짧은 CPU2 로그 캡처(유휴 루프 건너뜀, 리셋 또는 tight-loop 감지 후 중지)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2).",
+      "translation": "상태 표시줄에 메인/서브 CPU 프로그램 카운터를 표시합니다 (PC1(I)/PC2)."
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture started → %1",
+      "translation": "CPU 로그 캡처 시작 → %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture finished (%1)",
+      "translation": "CPU 로그 캡처 완료 (%1)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": " [%1]",
+      "translation": " [%1]"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump armed for reset/mode change → %2",
+      "translation": "CPU%1 자동 덤프 활성화(리셋/모드 전환 시 → %2)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump disarmed",
+      "translation": "CPU%1 자동 덤프 비활성화"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 loop",
+      "translation": "CPU1 루프"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 reset window",
+      "translation": "CPU1 리셋 구간"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 loop",
+      "translation": "CPU2 루프"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 reset window",
+      "translation": "CPU2 리셋 구간"
     }
   ]
 }

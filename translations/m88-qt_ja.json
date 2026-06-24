@@ -1414,6 +1414,66 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "M88 を終了しますか？"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "リセット/モード切替時: CPU1 の短いログを取得（アイドルループをスキップし、リセットまたは短いループ検出後に停止）。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "リセット/モード切替時: CPU2 の短いログを取得（アイドルループをスキップし、リセットまたは短いループ検出後に停止）。"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2).",
+      "translation": "ステータスバーにメイン/サブ CPU のプログラムカウンタを表示します (PC1(I)/PC2)。"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture started → %1",
+      "translation": "CPU ログ取得を開始 → %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture finished (%1)",
+      "translation": "CPU ログ取得を完了 (%1)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": " [%1]",
+      "translation": " [%1]"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump armed for reset/mode change → %2",
+      "translation": "CPU%1 自動ダンプを有効化（リセット/モード切替時 → %2）"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump disarmed",
+      "translation": "CPU%1 自動ダンプを無効化"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 loop",
+      "translation": "CPU1 ループ"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 reset window",
+      "translation": "CPU1 リセット直後"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 loop",
+      "translation": "CPU2 ループ"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 reset window",
+      "translation": "CPU2 リセット直後"
     }
   ]
 }

@@ -1404,6 +1404,76 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "¿Salir de M88?"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "Abrir archivos recientes(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "(No hay archivos recientes)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU1 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "Al restablecer/cambiar modo: capturar un registro corto de CPU1 (omite bucles inactivos, se detiene tras reset o bucle estrecho)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "On reset/mode change: capture a short CPU2 log (skips idle loops, stops after reset or tight-loop detection).",
+      "translation": "Al restablecer/cambiar modo: capturar un registro corto de CPU2 (omite bucles inactivos, se detiene tras reset o bucle estrecho)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Shows main/sub CPU program counter on the status bar (PC1(I)/PC2).",
+      "translation": "Muestra el contador de programa de CPU principal/secundaria en la barra de estado (PC1(I)/PC2)."
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture started → %1",
+      "translation": "Captura de registro de CPU iniciada → %1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU log capture finished (%1)",
+      "translation": "Captura de registro de CPU finalizada (%1)"
+    },
+    {
+      "context": "EmulatorController",
+      "source": " [%1]",
+      "translation": " [%1]"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump armed for reset/mode change → %2",
+      "translation": "Volcado automático de CPU%1 activado para reset/cambio de modo → %2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU%1 auto-dump disarmed",
+      "translation": "Volcado automático de CPU%1 desactivado"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 loop",
+      "translation": "Bucle CPU1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU1 reset window",
+      "translation": "Ventana de reset CPU1"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 loop",
+      "translation": "Bucle CPU2"
+    },
+    {
+      "context": "EmulatorController",
+      "source": "CPU2 reset window",
+      "translation": "Ventana de reset CPU2"
     }
   ]
 }
