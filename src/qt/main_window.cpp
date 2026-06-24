@@ -865,6 +865,12 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
     watch_register_action_->setEnabled(show_statusbar);
     watch_register_action_->setChecked(watch_register);
   }
+  if (dump_cpu1_log_action_) {
+    dump_cpu1_log_action_->setEnabled(true);
+  }
+  if (dump_cpu2_log_action_) {
+    dump_cpu2_log_action_->setEnabled(true);
+  }
   watch_register_enabled_ = watch_register;
   (void)clock;
 }
@@ -1059,8 +1065,30 @@ void MainWindow::setupMenuBar() {
   AddPlaceholder(debug_menu, tr("Show Out&port"), true, false);
   AddPlaceholder(debug_menu, tr("&Load Monitor"), true, false);
   debug_menu->addSeparator();
-  AddPlaceholder(debug_menu, tr("Dump CPU&1 Log"), true, false);
-  AddPlaceholder(debug_menu, tr("Dump CPU&2 Log"), true, false);
+  dump_cpu1_log_action_ = debug_menu->addAction(tr("Dump CPU&1 Log"));
+  dump_cpu1_log_action_->setCheckable(true);
+  dump_cpu1_log_action_->setEnabled(false);
+  dump_cpu1_log_action_->setToolTip(
+      tr("On reset/mode change: capture a short CPU1 log (skips idle loops, "
+         "stops after reset or tight-loop detection)."));
+  connect(dump_cpu1_log_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setCpuDumpLog", Qt::QueuedConnection,
+                                Q_ARG(int, 0), Q_ARG(bool, checked));
+    }
+  });
+  dump_cpu2_log_action_ = debug_menu->addAction(tr("Dump CPU&2 Log"));
+  dump_cpu2_log_action_->setCheckable(true);
+  dump_cpu2_log_action_->setEnabled(false);
+  dump_cpu2_log_action_->setToolTip(
+      tr("On reset/mode change: capture a short CPU2 log (skips idle loops, "
+         "stops after reset or tight-loop detection)."));
+  connect(dump_cpu2_log_action_, &QAction::triggered, this, [this](bool checked) {
+    if (controller_) {
+      QMetaObject::invokeMethod(controller_, "setCpuDumpLog", Qt::QueuedConnection,
+                                Q_ARG(int, 1), Q_ARG(bool, checked));
+    }
+  });
 
   help_menu_ = menuBar()->addMenu(tr("&Help"));
   about_action_ = help_menu_->addAction(tr("&About"));

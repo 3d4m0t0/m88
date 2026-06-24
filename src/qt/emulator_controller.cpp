@@ -34,6 +34,7 @@
 #include "pc88/opnif.h"
 #include "pc88/pc88.h"
 #include "pc88/tapemgr.h"
+#include "Z80c.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -113,6 +114,19 @@ void OpenDiskImageStartup(DiskManager& diskmgr, const QString& path) {
 }  // namespace
 
 struct EmulatorController::Impl {
+  struct CpuDumpSchedule {
+    enum class Phase : uint8_t { Idle, PreAction, PostAction };
+    enum class Action : uint8_t { None, Reset, SetClock, SetBasicMode };
+
+    Phase phase = Phase::Idle;
+    int frames_remaining = 0;
+    Action action = Action::None;
+    int pending_clock = 0;
+    PC8801::Config::BASICMode pending_basic_mode = PC8801::Config::N88V1;
+    bool logging_cpu1 = false;
+    bool logging_cpu2 = false;
+  };
+
   PC8801::Config config{};
   std::unique_ptr<DiskManager> diskmgr;
   std::unique_ptr<TapeManager> tapemgr;
@@ -124,6 +138,11 @@ struct EmulatorController::Impl {
   M88EmuThread emu_thread;
   bool hw_reset_done = false;
   std::atomic<int> post_reset_redraw_frames_{0};
+
+  bool cpu_dump_arm_cpu1 = false;
+  bool cpu_dump_arm_cpu2 = false;
+  CpuDumpSchedule cpu_dump_schedule;
+  uint cpu_dump_last_tick_frame = 0;
 
   QString drive_path[2];
   QString pending_ime_utf8;
@@ -596,6 +615,7 @@ void EmulatorController::withVmPaused(const std::function<void()>& fn) {
 }
 
 void EmulatorController::pollEmulationIdle() {
+  tickCpuDumpSchedule();
   processDeferredActions();
   pollStatusUi();
 }
@@ -1121,6 +1141,290 @@ void EmulatorController::setShowFdcStatus(bool enabled) {
   emitMachineConfig();
 }
 
+namespace {
+
+constexpr int kCpuDumpPreFrames = 1;
+constexpr int kCpuDumpPostFrames = 16;
+
+QString CpuDumpFilename(int cpu_index) {
+  return QStringLiteral("CPU%1.dmp").arg(cpu_index + 1);
+}
+
+void SetCpuDumpEnabled(PC88* pc88, M88EmuThread& emu_thread, int cpu_index, bool enabled,
+                       bool wait_for_host_reset = false) {
+  if (!pc88 || (cpu_index != 0 && cpu_index != 1)) {
+    return;
+  }
+  Z80C* cpu = cpu_index == 0 ? pc88->GetCPU1() : pc88->GetCPU2();
+  emu_thread.Pause();
+  cpu->EnableDump(enabled);
+  if (enabled && wait_for_host_reset) {
+    cpu->SetDumpWaitForHostReset(true);
+  }
+  emu_thread.Resume();
+}
+
+void NotifyCpuDumpHostReset(PC88* pc88, M88EmuThread& emu_thread, int cpu_index) {
+  if (!pc88 || (cpu_index != 0 && cpu_index != 1)) {
+    return;
+  }
+  Z80C* cpu = cpu_index == 0 ? pc88->GetCPU1() : pc88->GetCPU2();
+  emu_thread.Pause();
+  if (cpu->GetDumpState()) {
+    cpu->NotifyHostReset();
+  }
+  emu_thread.Resume();
+}
+
+}  // namespace
+
+bool EmulatorController::cpuDumpArmed() const {
+  return impl_ && (impl_->cpu_dump_arm_cpu1 || impl_->cpu_dump_arm_cpu2);
+}
+
+void EmulatorController::stopCpuDumpCapture() {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  auto& s = impl_->cpu_dump_schedule;
+  if (s.logging_cpu1) {
+    SetCpuDumpEnabled(impl_->pc88.get(), impl_->emu_thread, 0, false);
+  }
+  if (s.logging_cpu2) {
+    SetCpuDumpEnabled(impl_->pc88.get(), impl_->emu_thread, 1, false);
+  }
+  s = {};
+}
+
+void EmulatorController::finishCpuDumpCapture() {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  auto& s = impl_->cpu_dump_schedule;
+  if (s.phase == Impl::CpuDumpSchedule::Phase::Idle) {
+    return;
+  }
+
+  const bool had1 = s.logging_cpu1;
+  const bool had2 = s.logging_cpu2;
+  uint8 reason1 = 0;
+  uint8 reason2 = 0;
+  if (had1) {
+    reason1 = static_cast<Z80C*>(impl_->pc88->GetCPU1())->GetDumpAutoStopReason();
+  }
+  if (had2) {
+    reason2 = static_cast<Z80C*>(impl_->pc88->GetCPU2())->GetDumpAutoStopReason();
+  }
+
+  stopCpuDumpCapture();
+
+  QStringList files;
+  QStringList notes;
+  if (had1) {
+    files.push_back(CpuDumpFilename(0));
+    if (reason1 == 1) {
+      notes.push_back(tr("CPU1 loop"));
+    } else if (reason1 == 2) {
+      notes.push_back(tr("CPU1 reset window"));
+    }
+  }
+  if (had2) {
+    files.push_back(CpuDumpFilename(1));
+    if (reason2 == 1) {
+      notes.push_back(tr("CPU2 loop"));
+    } else if (reason2 == 2) {
+      notes.push_back(tr("CPU2 reset window"));
+    }
+  }
+
+  QString msg = tr("CPU log capture finished (%1)").arg(files.join(QStringLiteral(", ")));
+  if (!notes.isEmpty()) {
+    msg += tr(" [%1]").arg(notes.join(QStringLiteral(", ")));
+  }
+  emit statusMessage(msg, 4000);
+}
+
+void EmulatorController::pollCpuDumpAutoStop() {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  const auto& s = impl_->cpu_dump_schedule;
+  if (s.phase != Impl::CpuDumpSchedule::Phase::PostAction) {
+    return;
+  }
+  bool logging = false;
+  if (s.logging_cpu1) {
+    auto* cpu = static_cast<Z80C*>(impl_->pc88->GetCPU1());
+    if (cpu->GetDumpState()) {
+      logging = true;
+    }
+  }
+  if (s.logging_cpu2) {
+    auto* cpu = static_cast<Z80C*>(impl_->pc88->GetCPU2());
+    if (cpu->GetDumpState()) {
+      logging = true;
+    }
+  }
+  if (!logging) {
+    finishCpuDumpCapture();
+  }
+}
+
+void EmulatorController::startCpuDumpCapture(CpuDumpTrigger action) {
+  if (!impl_ || !impl_->pc88) {
+    return;
+  }
+  if (impl_->cpu_dump_schedule.phase != Impl::CpuDumpSchedule::Phase::Idle) {
+    stopCpuDumpCapture();
+  }
+  auto& s = impl_->cpu_dump_schedule;
+  switch (action) {
+    case CpuDumpTrigger::Reset:
+      s.action = Impl::CpuDumpSchedule::Action::Reset;
+      break;
+    case CpuDumpTrigger::SetClock:
+      s.action = Impl::CpuDumpSchedule::Action::SetClock;
+      break;
+    case CpuDumpTrigger::SetBasicMode:
+      s.action = Impl::CpuDumpSchedule::Action::SetBasicMode;
+      break;
+  }
+  s.logging_cpu1 = impl_->cpu_dump_arm_cpu1;
+  s.logging_cpu2 = impl_->cpu_dump_arm_cpu2;
+  s.phase = Impl::CpuDumpSchedule::Phase::PreAction;
+  s.frames_remaining = kCpuDumpPreFrames;
+  impl_->cpu_dump_last_tick_frame =
+      static_cast<uint>(impl_->title_frame_count.load(std::memory_order_relaxed));
+
+  QStringList files;
+  if (s.logging_cpu1) {
+    files.push_back(CpuDumpFilename(0));
+  }
+  if (s.logging_cpu2) {
+    files.push_back(CpuDumpFilename(1));
+  }
+  emit statusMessage(tr("CPU log capture started → %1").arg(files.join(QStringLiteral(", "))),
+                     4000);
+}
+
+void EmulatorController::executeCpuDumpScheduledAction() {
+  if (!impl_ || !impl_->pc88 || !impl_->keyif) {
+    return;
+  }
+  auto& s = impl_->cpu_dump_schedule;
+  withVmPaused([&]() {
+    if (s.logging_cpu1) {
+      auto* cpu = static_cast<Z80C*>(impl_->pc88->GetCPU1());
+      cpu->EnableDump(true);
+      cpu->SetDumpWaitForHostReset(true);
+    }
+    if (s.logging_cpu2) {
+      auto* cpu = static_cast<Z80C*>(impl_->pc88->GetCPU2());
+      cpu->EnableDump(true);
+      cpu->SetDumpWaitForHostReset(true);
+    }
+    PC8801::Config hw = M88ConfigForHardware(impl_->config);
+    switch (s.action) {
+      case Impl::CpuDumpSchedule::Action::Reset:
+        break;
+      case Impl::CpuDumpSchedule::Action::SetClock:
+        impl_->config.clock = s.pending_clock;
+        hw = M88ConfigForHardware(impl_->config);
+        break;
+      case Impl::CpuDumpSchedule::Action::SetBasicMode:
+        impl_->config.basicmode = s.pending_basic_mode;
+        hw = M88ConfigForHardware(impl_->config);
+        break;
+      default:
+        break;
+    }
+    M88ApplyWinReset(
+        *impl_->keyif, *impl_->pc88, impl_->seq, &hw, draw_,
+        [&](PC8801::Config* cfg) {
+          if (impl_->sound) {
+            impl_->sound->ApplyConfig(cfg);
+          }
+        });
+    impl_->seq.ForceDrawAfterReset(impl_->config.refreshtiming);
+    impl_->pc88->UpdateScreen(true);
+    if (draw_) {
+      draw_->InvalidateUiStaging();
+      draw_->StageUiFrame();
+    }
+    impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
+    if (s.logging_cpu1) {
+      static_cast<Z80C*>(impl_->pc88->GetCPU1())->NotifyHostReset();
+    }
+    if (s.logging_cpu2) {
+      static_cast<Z80C*>(impl_->pc88->GetCPU2())->NotifyHostReset();
+    }
+  });
+  if (s.action == Impl::CpuDumpSchedule::Action::SetClock ||
+      s.action == Impl::CpuDumpSchedule::Action::SetBasicMode) {
+    emitMachineConfig();
+  }
+  emit frameReady();
+}
+
+void EmulatorController::tickCpuDumpSchedule() {
+  if (!impl_) {
+    return;
+  }
+  auto& s = impl_->cpu_dump_schedule;
+  if (s.phase == Impl::CpuDumpSchedule::Phase::Idle) {
+    return;
+  }
+  pollCpuDumpAutoStop();
+  if (s.phase == Impl::CpuDumpSchedule::Phase::Idle) {
+    return;
+  }
+  const uint frame =
+      static_cast<uint>(impl_->title_frame_count.load(std::memory_order_relaxed));
+  if (frame == impl_->cpu_dump_last_tick_frame) {
+    return;
+  }
+  impl_->cpu_dump_last_tick_frame = frame;
+  if (--s.frames_remaining > 0) {
+    pollCpuDumpAutoStop();
+    return;
+  }
+  switch (s.phase) {
+    case Impl::CpuDumpSchedule::Phase::PreAction:
+      executeCpuDumpScheduledAction();
+      s.phase = Impl::CpuDumpSchedule::Phase::PostAction;
+      s.frames_remaining = kCpuDumpPostFrames;
+      pollCpuDumpAutoStop();
+      break;
+    case Impl::CpuDumpSchedule::Phase::PostAction:
+      finishCpuDumpCapture();
+      break;
+    default:
+      stopCpuDumpCapture();
+      break;
+  }
+}
+
+void EmulatorController::setCpuDumpLog(int cpu_index, bool enabled) {
+  if (!impl_ || (cpu_index != 0 && cpu_index != 1)) {
+    return;
+  }
+  if (cpu_index == 0) {
+    impl_->cpu_dump_arm_cpu1 = enabled;
+  } else {
+    impl_->cpu_dump_arm_cpu2 = enabled;
+  }
+  const QString filename = CpuDumpFilename(cpu_index);
+  if (enabled) {
+    emit statusMessage(
+        tr("CPU%1 auto-dump armed for reset/mode change → %2")
+            .arg(cpu_index + 1)
+            .arg(filename),
+        4000);
+  } else {
+    emit statusMessage(tr("CPU%1 auto-dump disarmed").arg(cpu_index + 1), 3000);
+  }
+}
+
 void EmulatorController::setWatchRegister(bool enabled) {
   if (!impl_) {
     return;
@@ -1269,6 +1573,10 @@ void EmulatorController::resetMachine() {
     emit statusMessage(tr("Emulator is not ready"));
     return;
   }
+  if (cpuDumpArmed()) {
+    startCpuDumpCapture(CpuDumpTrigger::Reset);
+    return;
+  }
   applyWinReset();
 }
 
@@ -1282,6 +1590,11 @@ void EmulatorController::setClock(int clock) {
   if (impl_->config.clock == clock) {
     return;
   }
+  if (cpuDumpArmed()) {
+    impl_->cpu_dump_schedule.pending_clock = clock;
+    startCpuDumpCapture(CpuDumpTrigger::SetClock);
+    return;
+  }
   impl_->config.clock = clock;
   applyWinReset();
 }
@@ -1292,6 +1605,11 @@ void EmulatorController::setBasicMode(int mode) {
   }
   const auto bm = static_cast<PC8801::Config::BASICMode>(mode);
   if (impl_->config.basicmode == bm) {
+    return;
+  }
+  if (cpuDumpArmed()) {
+    impl_->cpu_dump_schedule.pending_basic_mode = bm;
+    startCpuDumpCapture(CpuDumpTrigger::SetBasicMode);
     return;
   }
   impl_->config.basicmode = bm;

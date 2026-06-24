@@ -2436,6 +2436,124 @@ static inline void ToHex(char** p, uint d)
 //	0123456789012345678901234567890123456789012345678901234567890
 //	0000: 01234567890123456789 @:%%%% h:%%%% d:@@@@ b:@@@@ s:@@@@
 //
+namespace {
+
+constexpr int kDumpPreLoopSkipStreak = 4;
+constexpr int kDumpPostResetMaxLines = 4096;
+constexpr int kDumpPostLoopInsnStop = 128;
+constexpr int kDumpAbsoluteMaxLines = 8192;
+constexpr int kDumpCycleLen = 6;
+constexpr int kDumpCycleRepeatStop = 24;
+
+bool IsKnownTightLoopPc(uint pc) {
+	return (pc >= 0x00ccu && pc <= 0x00d6u) || (pc >= 0x883eu && pc <= 0x884bu) ||
+	       (pc >= 0x210du && pc <= 0x211bu) || (pc >= 0x5307u && pc <= 0x530bu) ||
+	       (pc >= 0x6061u && pc <= 0x6064u);
+}
+
+bool IsCpuResetEdge(uint prev_pc, uint pc) {
+	const bool main_reset = prev_pc >= 0x0700u && pc <= 0x00ffu;
+	const bool sub_reset =
+	    prev_pc >= 0x00c0u && prev_pc <= 0x00ffu && pc >= 0x007eu && pc <= 0x0095u;
+	return main_reset || sub_reset;
+}
+
+}  // namespace
+
+void Z80C::SetDumpWaitForHostReset(bool wait)
+{
+	dump_wait_for_host_reset_ = wait;
+	if (wait) {
+		dump_skip_writes_ = true;
+	}
+}
+
+void Z80C::NotifyHostReset()
+{
+	dump_wait_for_host_reset_ = false;
+	dump_post_reset_ = true;
+	dump_post_lines_ = 0;
+	dump_post_loop_insns_ = 0;
+	dump_skip_writes_ = false;
+	dump_same_pc_streak_ = 0;
+	dump_cycle_len_ = 0;
+	dump_cycle_pos_ = 0;
+	dump_cycle_reps_ = 0;
+}
+
+bool Z80C::UpdateDumpCapture(uint pc)
+{
+	if (!dumplog) {
+		return true;
+	}
+
+	if (dump_wait_for_host_reset_) {
+		dump_prev_pc_ = pc;
+		return true;
+	}
+
+	auto stop_dump = [this, pc](uint8 reason) {
+		dump_auto_stop_reason_ = reason;
+		EnableDump(false);
+		dump_prev_pc_ = pc;
+	};
+
+	if (!dump_post_reset_) {
+		if (dump_prev_pc_ != 0xffffffffu && IsCpuResetEdge(dump_prev_pc_, pc)) {
+			NotifyHostReset();
+		} else if (IsKnownTightLoopPc(pc)) {
+			dump_skip_writes_ = true;
+		} else if (pc == dump_prev_pc_) {
+			if (++dump_same_pc_streak_ >= kDumpPreLoopSkipStreak) {
+				dump_skip_writes_ = true;
+			}
+		} else {
+			dump_same_pc_streak_ = 0;
+			if (dump_skip_writes_ && (pc > dump_prev_pc_ + 0x10u || pc + 0x10u < dump_prev_pc_)) {
+				dump_skip_writes_ = false;
+			}
+		}
+	} else {
+		if (dump_cycle_len_ < kDumpCycleLen) {
+			dump_cycle_pcs_[dump_cycle_len_++] = pc;
+		} else {
+			if (pc == dump_cycle_pcs_[dump_cycle_pos_]) {
+				if (++dump_cycle_pos_ >= kDumpCycleLen) {
+					dump_cycle_pos_ = 0;
+					dump_cycle_reps_++;
+				}
+			} else {
+				dump_cycle_pos_ = 0;
+				dump_cycle_reps_ = 0;
+				for (int i = 0; i < kDumpCycleLen - 1; ++i) {
+					dump_cycle_pcs_[i] = dump_cycle_pcs_[i + 1];
+				}
+				dump_cycle_pcs_[kDumpCycleLen - 1] = pc;
+			}
+		}
+
+		if (IsKnownTightLoopPc(pc)) {
+			dump_post_loop_insns_++;
+			if (dump_post_loop_insns_ >= kDumpPostLoopInsnStop) {
+				stop_dump(1);
+				return true;
+			}
+		}
+		if (dump_cycle_reps_ >= kDumpCycleRepeatStop) {
+			stop_dump(1);
+			return true;
+		}
+		dump_post_lines_++;
+		if (dump_post_lines_ >= kDumpPostResetMaxLines) {
+			stop_dump(2);
+			return true;
+		}
+	}
+
+	dump_prev_pc_ = pc;
+	return dump_skip_writes_;
+}
+
 void Z80C::DumpLog()
 {
 	char buf[64];
@@ -2444,6 +2562,14 @@ void Z80C::DumpLog()
 	// pc
 	char* ptr = buf;
 	uint pc = GetPC();
+	if (UpdateDumpCapture(pc)) {
+		return;
+	}
+	if (++dump_lines_written_ > kDumpAbsoluteMaxLines) {
+		dump_auto_stop_reason_ = 2;
+		EnableDump(false);
+		return;
+	}
 	ToHex(&ptr, pc);
 	buf[4] = ':';
 
@@ -2478,6 +2604,19 @@ bool Z80C::EnableDump(bool dump)
 			*(uint*)buf = GetID();
 			strcpy(buf+4, ".dmp");
 			dumplog = fopen(buf, "w");
+			dump_auto_stop_reason_ = 0;
+			dump_prev_pc_ = 0xffffffffu;
+			dump_post_reset_ = false;
+			dump_wait_for_host_reset_ = false;
+			dump_skip_writes_ = false;
+			dump_same_pc_streak_ = 0;
+			dump_post_lines_ = 0;
+			dump_post_loop_insns_ = 0;
+			dump_lines_written_ = 0;
+			dump_cycle_len_ = 0;
+			dump_cycle_pos_ = 0;
+			dump_cycle_reps_ = 0;
+			memset(dump_cycle_pcs_, 0, sizeof(dump_cycle_pcs_));
 		}
 	}
 	else

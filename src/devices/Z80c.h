@@ -122,6 +122,9 @@ public:
 	bool IsIntr() { return !!intr; }
 	bool EnableDump(bool dump);
 	int GetDumpState() { return !!dumplog; }
+	uint8 GetDumpAutoStopReason() const { return dump_auto_stop_reason_; }
+	void SetDumpWaitForHostReset(bool wait);
+	void NotifyHostReset();
 
 	Statistics* GetStatistics();
 
@@ -149,7 +152,23 @@ private:
 	};
 
 	void DumpLog();
+	bool UpdateDumpCapture(uint pc);
 
+	uint8 dump_auto_stop_reason_ = 0;
+	uint dump_prev_pc_ = 0xffffffffu;
+	bool dump_post_reset_ = false;
+	bool dump_wait_for_host_reset_ = false;
+	bool dump_skip_writes_ = false;
+	int dump_same_pc_streak_ = 0;
+	int dump_post_lines_ = 0;
+	int dump_post_loop_insns_ = 0;
+	int dump_lines_written_ = 0;
+	uint dump_cycle_pcs_[6] = {};
+	int dump_cycle_len_ = 0;
+	int dump_cycle_pos_ = 0;
+	int dump_cycle_reps_ = 0;
+
+	FILE* dumplog;
 	uint8* inst;		// PC ??w??????????|?C???^?C????? PC ???????
 	uint8* instlim;		// inst ??L?????
 	uint8* instbase;	// inst - PC		(PC = inst - instbase)
@@ -201,7 +220,6 @@ private:
 	uint8* ref_l[3];						/* L / YH / YL ??e?[?u?? */
 	Z80Reg::wordreg* ref_hl[3];				/* HL/ IX / IY ??e?[?u?? */
 	uint8* ref_byte[8];						/* BCDEHL A ??e?[?u?? */
-	FILE* dumplog;
 	Z80Diag diag;
 
 	MemoryPage rdpages[0x10000 >> MemoryManager::pagebits];

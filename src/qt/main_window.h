@@ -157,6 +157,8 @@ private:
   int current_snapshot_slot_ = 0;
   QAction* fdc_status_action_ = nullptr;
   QAction* watch_register_action_ = nullptr;
+  QAction* dump_cpu1_log_action_ = nullptr;
+  QAction* dump_cpu2_log_action_ = nullptr;
   bool watch_register_enabled_ = false;
   QLabel* register_label_ = nullptr;
   QLabel* fdc_text_label_ = nullptr;

@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 
@@ -54,6 +55,7 @@ public slots:
   void setShowStatusBar(bool enabled);
   void setShowFdcStatus(bool enabled);
   void setWatchRegister(bool enabled);
+  void setCpuDumpLog(int cpu_index, bool enabled);
   void sampleTitleStats();
   void pollExecStallWatchdog();
   void pollEmulationIdle();
@@ -98,6 +100,7 @@ signals:
 
 private:
   enum class DiskOpType { None, ChangeImage, BothDrives, SelectDisk };
+  enum class CpuDumpTrigger : uint8_t { Reset, SetClock, SetBasicMode };
 
   bool initialize();
   void shutdown();
@@ -110,6 +113,13 @@ private:
   void processDeferredActions();
   void withVmPaused(const std::function<void()>& fn);
   void applyWinReset();
+  bool cpuDumpArmed() const;
+  void startCpuDumpCapture(CpuDumpTrigger action);
+  void stopCpuDumpCapture();
+  void finishCpuDumpCapture();
+  void pollCpuDumpAutoStop();
+  void executeCpuDumpScheduledAction();
+  void tickCpuDumpSchedule();
   void applyChangeDiskImage(int drive, const QString& path);
   void applyBothDrives(const QString& path);
   void applySelectDisk(int drive, int index);
