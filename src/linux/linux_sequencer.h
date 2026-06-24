@@ -56,6 +56,7 @@ struct M88Sequencer {
   long execcount = 0;
 
   void ApplyConfig(const PC8801::Config& cfg) {
+    const bool was_fast = IsFastMode();
     refreshtiming = static_cast<uint>(std::max(1, cfg.refreshtiming));
     speed = std::max(1, cfg.speed / 10);
     if (cfg.flags & PC8801::Config::fullspeed) {
@@ -65,6 +66,25 @@ struct M88Sequencer {
     } else {
       clock = static_cast<int>(std::max(1, cfg.clock));
     }
+    const bool now_fast = IsFastMode();
+    if (was_fast && !now_fast) {
+      LeaveFastMode();
+    } else if (!now_fast) {
+      effclock = 100;
+    }
+  }
+
+  // Burst/fullspeed adaptive throttle is not used in normal mode; reset pacing
+  // state when returning so wall-clock sleep does not stay behind.
+  void LeaveFastMode() {
+    effclock = 100;
+    fast_window_begin = 0;
+    fast_eclk = 0;
+    skippedframe = 0;
+    refreshcount = 0;
+    drawnextframe = true;
+    keeper.Reset();
+    time = keeper.GetTime();
   }
 
   void ResetPacing() {

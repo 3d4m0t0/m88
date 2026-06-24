@@ -192,8 +192,18 @@ void M88EmuThread::ThreadMain() {
     }
 
     at_frame_boundary_ = false;
+    const bool was_fast = params_.seq && params_.seq->IsFastMode();
     if (params_.config) {
       M88SeqApplyConfig(*params_.seq, *params_.config);
+    }
+    const bool now_fast = params_.seq && params_.seq->IsFastMode();
+    if (was_fast && !now_fast) {
+      if (params_.vm) {
+        params_.vm->TimeSync();
+      }
+      if (params_.emu_pacer) {
+        params_.emu_pacer->Reset();
+      }
     }
 
     const bool force_draw = draw_ctx.post_reset_frames &&

@@ -1160,13 +1160,20 @@ void EmulatorController::setBurstMode(bool enabled) {
   if (was == enabled) {
     return;
   }
-  if (enabled) {
-    impl_->config.flags |= PC8801::Config::cpuburst;
-    impl_->config.flags &= ~PC8801::Config::fullspeed;
-  } else {
-    impl_->config.flags &= ~PC8801::Config::cpuburst;
-  }
-  resetSequencerPacing();
+  withVmPaused([&]() {
+    if (enabled) {
+      impl_->config.flags |= PC8801::Config::cpuburst;
+      impl_->config.flags &= ~PC8801::Config::fullspeed;
+    } else {
+      impl_->config.flags &= ~PC8801::Config::cpuburst;
+    }
+    impl_->pc88->TimeSync();
+    resetSequencerPacing();
+    if (!enabled && impl_->sound) {
+      impl_->sound->ResetPcmContract();
+      updateSequencerAudio();
+    }
+  });
   emitMachineConfig();
   emit statusMessage(enabled ? tr("Burst mode on") : tr("Burst mode off"), 2000);
 }
