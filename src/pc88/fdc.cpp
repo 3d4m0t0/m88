@@ -132,16 +132,35 @@ inline void FDC::Intr(bool i)
 void IOCALL FDC::Reset(uint, uint)
 {
 	LOG0("Reset\n");
-	ShiftToIdlePhase();
-	int_requested = false;
-	Intr(false);
+	DelTimer();
 	scheduler->DelEvent(this);
+	seekstate = 0;
+	seektime = 0;
+	command = 0;
+	result = 0;
+	count = 0;
+	bufptr = buffer;
+	prevphase = idlephase;
+	int_requested = false;
+	accepttc = false;
+	ShiftToIdlePhase();
+	Intr(false);
 	DriveControl(0, 0);
-	for (int d=0; d<2; d++)
+	for (int d = 0; d < num_drives; d++) {
+		drive[d].cyrinder = 0;
+		drive[d].result = 0;
 		statusdisplay.FDAccess(d, drive[d].hd != 0, false);
-	fdstat &= ~3;
-	if (pfdstat)
+		if (diskmgr) {
+			FDU* fdu = diskmgr->GetFDU(d);
+			if (fdu) {
+				fdu->Seek(0);
+			}
+		}
+	}
+	fdstat = 0;
+	if (pfdstat) {
 		bus->Out(pfdstat, fdstat);
+	}
 }
 
 // ---------------------------------------------------------------------------
