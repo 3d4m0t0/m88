@@ -12,6 +12,11 @@
     },
     {
       "context": "ConfigDialog",
+      "source": "Standard settings (&D)",
+      "translation": "标准设置 (&D)"
+    },
+    {
+      "context": "ConfigDialog",
       "source": "%1 (not found)",
       "translation": "%1（未找到）"
     },
@@ -34,6 +39,11 @@
       "context": "ConfigDialog",
       "source": "Speed",
       "translation": "速度"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Settings on this tab are saved in snapshot files and restored when a snapshot is loaded, replacing the values shown here.",
+      "translation": "此标签页中的设置会保存在快照文件中。加载快照时，这些设置将被快照内容替换。"
     },
     {
       "context": "ConfigDialog",
@@ -72,8 +82,8 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "2:1",
-      "translation": "2:1"
+      "source": "1:2",
+      "translation": "1:2"
     },
     {
       "context": "ConfigDialog",
@@ -114,6 +124,31 @@
       "context": "ConfigDialog",
       "source": "CPU",
       "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Hardware",
+      "translation": "硬件"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Display hardware",
+      "translation": "显示硬件"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound board",
+      "translation": "声卡"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h):",
+      "translation": "FM ($44h):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h):",
+      "translation": "FM ($A8h):"
     },
     {
       "context": "ConfigDialog",
@@ -179,6 +214,11 @@
       "context": "ConfigDialog",
       "source": "Screen",
       "translation": "画面"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Audio/Video",
+      "translation": "影像/音频"
     },
     {
       "context": "ConfigDialog",
@@ -867,6 +907,16 @@
     },
     {
       "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "打开最近文件(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "（无最近文件）"
+    },
+    {
+      "context": "MainWindow",
       "source": "Ta&pe",
       "translation": "磁带(&P)"
     },
@@ -1404,16 +1454,6 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "是否退出 M88？"
-    },
-    {
-      "context": "MainWindow",
-      "source": "Open &recent files",
-      "translation": "打开最近文件(&R)"
-    },
-    {
-      "context": "MainWindow",
-      "source": "(No recent files)",
-      "translation": "（无最近文件）"
     },
     {
       "context": "MainWindow",

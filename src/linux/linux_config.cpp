@@ -427,8 +427,9 @@ void M88SetDefaultConfig(Config* cfg) {
   std::memset(cfg, 0, sizeof(Config));
 
   // Match Windows 88config.cpp default Flags (subcpucontrol ON).
+  // FM $44h: OPNA (enableopna); FM $A8h: none (no opnona8/opnaona8).
   cfg->flags = Config::subcpucontrol | Config::savedirectory | Config::force480 |
-               Config::enablewait | Config::opnaona8 | Config::precisemixing |
+               Config::enablewait | Config::enableopna | Config::precisemixing |
                Config::mixsoundalways;
   cfg->flags &= ~Config::specialpalette;
 
@@ -464,6 +465,29 @@ void M88SetDefaultConfig(Config* cfg) {
   g_screen_scale = 2;
   g_wayland_idle_inhibit = false;
   g_ime_half_kana = true;
+}
+
+void M88GetDefaultConfig(Config* cfg, bool* wayland_idle, bool* ime_kana) {
+  if (!cfg) {
+    return;
+  }
+  const bool save_keyfix = g_keyfix_enabled;
+  const bool save_scale_auto = g_screen_scale_auto;
+  const int save_scale = g_screen_scale;
+  const bool save_wayland = g_wayland_idle_inhibit;
+  const bool save_ime = g_ime_half_kana;
+  M88SetDefaultConfig(cfg);
+  if (wayland_idle) {
+    *wayland_idle = g_wayland_idle_inhibit;
+  }
+  if (ime_kana) {
+    *ime_kana = g_ime_half_kana;
+  }
+  g_keyfix_enabled = save_keyfix;
+  g_screen_scale_auto = save_scale_auto;
+  g_screen_scale = save_scale;
+  g_wayland_idle_inhibit = save_wayland;
+  g_ime_half_kana = save_ime;
 }
 
 int M88ParseKeyboardType(const char* name) {
@@ -1063,10 +1087,6 @@ void M88ApplyEnvOverrides(Config* cfg) {
 void M88FinalizeConfig(Config* cfg) {
   if (!cfg) {
     return;
-  }
-  // Windows INI often omits a8h board flags; schemus/MUCOM88 needs OPNA on SB2 ($A8).
-  if (!(cfg->flags & (Config::opnaona8 | Config::opnona8))) {
-    cfg->flags |= Config::opnaona8;
   }
   // SDL output is slightly quiet on ADPCM; boost unless VolumeADPCM came from ini.
   if (!g_ini_keys.volumeadpcm) {

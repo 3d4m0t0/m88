@@ -623,7 +623,7 @@ void MainWindow::openConfigureDialog() {
     syncWaylandIdleInhibit();
     syncImeKanaInput();
     if (controller_) {
-      QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
+      QMetaObject::invokeMethod(controller_, "importConfig", Qt::BlockingQueuedConnection,
                                 Q_ARG(PC8801::Config, config));
     }
   });
@@ -634,7 +634,7 @@ void MainWindow::openConfigureDialog() {
   syncRememberPrefsFromConfig(config);
   syncWaylandIdleInhibit();
   syncImeKanaInput();
-  QMetaObject::invokeMethod(controller_, "importConfig", Qt::QueuedConnection,
+  QMetaObject::invokeMethod(controller_, "importConfig", Qt::BlockingQueuedConnection,
                             Q_ARG(PC8801::Config, config));
 }
 

@@ -12,6 +12,11 @@
     },
     {
       "context": "ConfigDialog",
+      "source": "Standard settings (&D)",
+      "translation": "Standard settings (&D)"
+    },
+    {
+      "context": "ConfigDialog",
       "source": "%1 (not found)",
       "translation": "%1 (not found)"
     },
@@ -34,6 +39,11 @@
       "context": "ConfigDialog",
       "source": "Speed",
       "translation": "Speed"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Settings on this tab are saved in snapshot files and restored when a snapshot is loaded, replacing the values shown here.",
+      "translation": "Settings on this tab are saved in snapshot files and restored when a snapshot is loaded, replacing the values shown here."
     },
     {
       "context": "ConfigDialog",
@@ -72,8 +82,8 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "2:1",
-      "translation": "2:1"
+      "source": "1:2",
+      "translation": "1:2"
     },
     {
       "context": "ConfigDialog",
@@ -114,6 +124,31 @@
       "context": "ConfigDialog",
       "source": "CPU",
       "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Hardware",
+      "translation": "Hardware"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Display hardware",
+      "translation": "Display hardware"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound board",
+      "translation": "Sound board"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h):",
+      "translation": "FM ($44h):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h):",
+      "translation": "FM ($A8h):"
     },
     {
       "context": "ConfigDialog",
@@ -179,6 +214,11 @@
       "context": "ConfigDialog",
       "source": "Screen",
       "translation": "Screen"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Audio/Video",
+      "translation": "Audio/Video"
     },
     {
       "context": "ConfigDialog",

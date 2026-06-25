@@ -92,6 +92,54 @@ void PopulateSoundDeviceCombo(QComboBox* combo, const char* backend_name,
   combo->setCurrentIndex(idx >= 0 ? idx : 0);
 }
 
+void PopulateFm44Combo(QComboBox* combo) {
+  if (!combo) {
+    return;
+  }
+  combo->clear();
+  combo->addItem(CFG_TR("OPN"), 0);
+  combo->addItem(CFG_TR("OPNA"), 1);
+  combo->addItem(CFG_TR("None"), 2);
+}
+
+void PopulateFmA8Combo(QComboBox* combo) {
+  if (!combo) {
+    return;
+  }
+  combo->clear();
+  combo->addItem(CFG_TR("OPN (MkII)"), 0);
+  combo->addItem(CFG_TR("OPNA (MkIII)"), 1);
+  combo->addItem(CFG_TR("None"), 2);
+}
+
+int Fm44ModeFromConfig(const Config& cfg) {
+  if (cfg.flag2 & Config::disableopn44) {
+    return 2;
+  }
+  if (cfg.flags & Config::enableopna) {
+    return 1;
+  }
+  return 0;
+}
+
+int FmA8ModeFromConfig(const Config& cfg) {
+  if (cfg.flags & Config::opnaona8) {
+    return 1;
+  }
+  if (cfg.flags & Config::opnona8) {
+    return 0;
+  }
+  return 2;
+}
+
+void SetComboByData(QComboBox* combo, int data) {
+  if (!combo) {
+    return;
+  }
+  const int idx = combo->findData(data);
+  combo->setCurrentIndex(idx >= 0 ? idx : 0);
+}
+
 int LimitInt(int v, int maxv, int minv) { return Limit(v, maxv, minv); }
 
 QSlider* MakeVolumeSlider(int value, QWidget* parent) {
@@ -130,6 +178,16 @@ void ShrinkGroupBox(QGroupBox* box) {
   }
   QSizePolicy policy = box->sizePolicy();
   policy.setVerticalPolicy(QSizePolicy::Maximum);
+  box->setSizePolicy(policy);
+}
+
+void EqualRowGroupBox(QGroupBox* box) {
+  if (!box) {
+    return;
+  }
+  QSizePolicy policy = box->sizePolicy();
+  policy.setHorizontalPolicy(QSizePolicy::Expanding);
+  policy.setVerticalPolicy(QSizePolicy::Expanding);
   box->setSizePolicy(policy);
 }
 
@@ -218,6 +276,7 @@ class TooltipEventFilter : public QObject {
 
 ConfigDialog::ConfigDialog(Config config, QWidget* parent)
     : QDialog(parent), config_(config) {
+  M88GetDefaultConfig(&default_config_, &default_wayland_idle_, &default_ime_kana_);
   setWindowTitle(tr("M88 Configuration"));
   QFont dlg_font = font();
   if (dlg_font.pointSize() > 0) {
@@ -279,48 +338,49 @@ void ConfigDialog::buildUi() {
   }
   layout->addWidget(tabs_);
 
-  // --- CPU ---
+  // --- Hardware (CPU, display hardware, sound board) ---
   {
     auto* page = new QWidget(tabs_);
     auto* v = new QVBoxLayout(page);
     CompactVBox(v);
 
     auto* speed_box = new QGroupBox(tr("Speed"), page);
-    auto* speed_form = new QFormLayout(speed_box);
-    CompactForm(speed_form);
+    auto* speed_layout = new QVBoxLayout(speed_box);
+    CompactGroupBoxLayout(speed_layout);
     cpu_clock_mhz_ = new QSpinBox(speed_box);
     cpu_clock_mhz_->setRange(1, 100);
     cpu_clock_mhz_->setSuffix(tr(" MHz"));
-    speed_form->addRow(tr("CPU clock (&C):"), cpu_clock_mhz_);
+    cpu_nowait_ = new QCheckBox(tr("Full speed (&M)"), speed_box);
+    cpu_burst_ = new QCheckBox(tr("Skip speed limit (&N)"), speed_box);
+    auto* clock_row = new QHBoxLayout();
+    clock_row->setSpacing(8);
+    clock_row->addWidget(new QLabel(tr("CPU clock (&C):"), speed_box));
+    clock_row->addWidget(cpu_clock_mhz_);
+    auto* speed_flags = new QWidget(speed_box);
+    auto* speed_flags_layout = new QHBoxLayout(speed_flags);
+    speed_flags_layout->setContentsMargins(0, 0, 0, 0);
+    speed_flags_layout->setSpacing(8);
+    speed_flags_layout->addWidget(cpu_nowait_, 1);
+    speed_flags_layout->addWidget(cpu_burst_, 1);
+    clock_row->addWidget(speed_flags, 1);
+    speed_layout->addLayout(clock_row);
 
-    auto* speed_row = new QHBoxLayout();
     cpu_speed_ = new QSlider(Qt::Horizontal, speed_box);
     cpu_speed_->setRange(2, 20);
     cpu_speed_label_ = new QLabel(speed_box);
-    speed_row->addWidget(new QLabel(tr("Ratio (&B):"), speed_box));
-    speed_row->addWidget(cpu_speed_, 1);
-    speed_row->addWidget(cpu_speed_label_);
-    speed_form->addRow(speed_row);
-
-    cpu_nowait_ = new QCheckBox(tr("Full speed (&M)"), speed_box);
-    cpu_burst_ = new QCheckBox(tr("Skip speed limit (&N)"), speed_box);
-    speed_form->addRow(cpu_nowait_);
-    speed_form->addRow(cpu_burst_);
+    auto* ratio_row = new QHBoxLayout();
+    ratio_row->setSpacing(4);
+    ratio_row->addWidget(new QLabel(tr("Ratio (&B):"), speed_box));
+    ratio_row->addWidget(cpu_speed_, 1);
+    ratio_row->addWidget(cpu_speed_label_);
+    speed_layout->addLayout(ratio_row);
     v->addWidget(speed_box);
 
-    auto* ms_box = new QGroupBox(tr("Main/sub CPU ratio (&R)"), page);
-    auto* ms_layout = new QHBoxLayout(ms_box);
-    cpu_ms_group_ = new QButtonGroup(ms_box);
-    for (const auto& item : {std::pair{tr("1:1"), Config::ms11},
-                             std::pair{tr("2:1"), Config::ms21},
-                             std::pair{tr("Auto"), Config::msauto}}) {
-      auto* rb = new QRadioButton(item.first, ms_box);
-      cpu_ms_group_->addButton(rb, static_cast<int>(item.second));
-      ms_layout->addWidget(rb);
-    }
-    v->addWidget(ms_box);
+    auto* hw_row = new QHBoxLayout();
+    hw_row->setSpacing(4);
 
     auto* misc_box = new QGroupBox(tr("Misc"), page);
+    misc_box->setProperty("hw_equal_row", true);
     auto* misc_layout = new QVBoxLayout(misc_box);
     misc_layout->setSpacing(2);
     cpu_no_subcpu_ctrl_ = new QCheckBox(tr("Run sub CPU always (&S)"), misc_box);
@@ -329,17 +389,79 @@ void ConfigDialog::buildUi() {
     misc_layout->addWidget(cpu_no_subcpu_ctrl_);
     misc_layout->addWidget(cpu_enable_wait_);
     misc_layout->addWidget(cpu_fdd_wait_);
-    v->addWidget(misc_box);
+    misc_layout->addStretch();
+    hw_row->addWidget(misc_box, 1);
+
+    auto* ms_box = new QGroupBox(tr("Main/sub CPU ratio (&R)"), page);
+    ms_box->setProperty("hw_equal_row", true);
+    auto* ms_layout = new QVBoxLayout(ms_box);
+    ms_layout->setSpacing(2);
+    cpu_ms_group_ = new QButtonGroup(ms_box);
+    const QStringList ms_labels = {tr("1:1"), tr("1:2"), tr("Auto")};
+    for (int i = 0; i < ms_labels.size(); ++i) {
+      auto* rb = new QRadioButton(ms_labels[i], ms_box);
+      cpu_ms_group_->addButton(rb, i);
+      ms_layout->addWidget(rb);
+    }
+    ms_layout->addStretch();
+    hw_row->addWidget(ms_box, 1);
 
     eram_box_ = new QGroupBox(tr("Extended RAM (&E)"), page);
-    auto* eram_box = eram_box_;
-    auto* eram_row = new QHBoxLayout(eram_box);
-    eram_banks_ = new QSpinBox(eram_box);
+    eram_box_->setProperty("hw_equal_row", true);
+    auto* eram_outer = new QVBoxLayout(eram_box_);
+    CompactGroupBoxLayout(eram_outer);
+    eram_banks_ = new QSpinBox(eram_box_);
     eram_banks_->setRange(0, 256);
+    eram_outer->addStretch();
+    auto* eram_row = new QHBoxLayout();
+    eram_row->addStretch(1);
     eram_row->addWidget(eram_banks_);
-    eram_row->addWidget(new QLabel(tr("x 32 KB"), eram_box));
-    eram_row->addStretch();
-    v->addWidget(eram_box);
+    eram_row->addStretch(1);
+    eram_row->addWidget(new QLabel(tr("x 32 KB"), eram_box_));
+    eram_row->addStretch(1);
+    eram_outer->addLayout(eram_row);
+    eram_outer->addStretch();
+    hw_row->addWidget(eram_box_, 1);
+    v->addLayout(hw_row);
+
+    auto* av_row = new QHBoxLayout();
+    av_row->setSpacing(4);
+
+    auto* display_box = new QGroupBox(tr("Display hardware"), page);
+    display_box->setProperty("hw_equal_row", true);
+    auto* display_layout = new QVBoxLayout(display_box);
+    display_layout->setSpacing(2);
+    hw_pcg_ = new QCheckBox(tr("Enable PCG (&P)"), display_box);
+    hw_fv15k_ = new QCheckBox(tr("15KHz monitor mode (&1)"), display_box);
+    hw_digitalpal_ = new QCheckBox(tr("Digital palette mode (&D)"), display_box);
+    display_layout->addWidget(hw_pcg_);
+    display_layout->addWidget(hw_fv15k_);
+    display_layout->addWidget(hw_digitalpal_);
+    display_layout->addStretch();
+    av_row->addWidget(display_box, 1);
+
+    auto* sound_board_box = new QGroupBox(tr("Sound board"), page);
+    sound_board_box->setProperty("hw_equal_row", true);
+    auto* sound_board_outer = new QVBoxLayout(sound_board_box);
+    CompactGroupBoxLayout(sound_board_outer);
+    sound_fm44_ = new QComboBox(sound_board_box);
+    sound_fma8_ = new QComboBox(sound_board_box);
+    PopulateFm44Combo(sound_fm44_);
+    PopulateFmA8Combo(sound_fma8_);
+    sound_board_outer->addStretch();
+    auto* fm44_row = new QHBoxLayout();
+    fm44_row->setSpacing(4);
+    fm44_row->addWidget(new QLabel(tr("FM ($44h):"), sound_board_box));
+    fm44_row->addWidget(sound_fm44_, 1);
+    sound_board_outer->addLayout(fm44_row);
+    auto* fma8_row = new QHBoxLayout();
+    fma8_row->setSpacing(4);
+    fma8_row->addWidget(new QLabel(tr("FM ($A8h):"), sound_board_box));
+    fma8_row->addWidget(sound_fma8_, 1);
+    sound_board_outer->addLayout(fma8_row);
+    sound_board_outer->addStretch();
+    av_row->addWidget(sound_board_box, 1);
+    v->addLayout(av_row);
 
     connect(cpu_speed_, &QSlider::valueChanged, this, [this](int v) {
       cpu_speed_label_->setText(tr("%1%").arg(v * 10));
@@ -359,15 +481,24 @@ void ConfigDialog::buildUi() {
     connect(cpu_nowait_, &QCheckBox::toggled, this, &ConfigDialog::updateCpuTab);
     connect(cpu_burst_, &QCheckBox::toggled, this, &ConfigDialog::updateCpuTab);
 
-    FinishTabPage(v);
-    tabs_->addTab(page, tr("CPU"));
+    v->addStretch(1);
+    auto* hw_snapshot_note = new QLabel(
+        tr("Settings on this tab are saved in snapshot files and restored when a "
+           "snapshot is loaded, replacing the values shown here."),
+        page);
+    hw_snapshot_note->setWordWrap(true);
+    v->addWidget(hw_snapshot_note);
+
+    hardware_page_ = page;
+    tabs_->addTab(page, tr("Hardware"));
   }
 
-  // --- Screen ---
+  // --- Audio/Video (host display + sound output) ---
   {
     auto* page = new QWidget(tabs_);
     auto* v = new QVBoxLayout(page);
     CompactVBox(v);
+
     auto* refresh_box = new QGroupBox(tr("Screen refresh ratio (&R)"), page);
     auto* refresh_layout = new QHBoxLayout(refresh_box);
     refresh_group_ = new QButtonGroup(refresh_box);
@@ -380,90 +511,23 @@ void ConfigDialog::buildUi() {
     }
     v->addWidget(refresh_box);
 
-    screen_pcg_ = new QCheckBox(tr("Enable PCG (&P)"), page);
-    screen_fv15k_ = new QCheckBox(tr("15KHz monitor mode (&1)"), page);
-    screen_digitalpal_ = new QCheckBox(tr("Digital palette mode (&D)"), page);
     screen_force480_ = new QCheckBox(tr("Force 640x480 in fullscreen (&V)"), page);
     screen_lowpriority_ = new QCheckBox(tr("Lower draw priority (&L)"), page);
     screen_fullline_ = new QCheckBox(tr("Show even scanlines (&F)"), page);
     screen_vsync_ = new QCheckBox(tr("Sync to VSync in fullscreen (&S)"), page);
-    v->addWidget(screen_pcg_);
-    v->addWidget(screen_fv15k_);
-    v->addWidget(screen_digitalpal_);
-    v->addWidget(screen_force480_);
-    v->addWidget(screen_lowpriority_);
-    v->addWidget(screen_fullline_);
-    v->addWidget(screen_vsync_);
+    auto* screen_grid = new QGridLayout();
+    CompactGrid(screen_grid);
+    screen_grid->addWidget(screen_force480_, 0, 0);
+    screen_grid->addWidget(screen_lowpriority_, 0, 1);
+    screen_grid->addWidget(screen_vsync_, 1, 0);
+    screen_grid->addWidget(screen_fullline_, 1, 1);
+    screen_grid->setColumnStretch(0, 1);
+    screen_grid->setColumnStretch(1, 1);
+    v->addLayout(screen_grid);
 
     connect(cpu_nowait_, &QCheckBox::toggled, this, &ConfigDialog::updateScreenTab);
     connect(cpu_burst_, &QCheckBox::toggled, this, &ConfigDialog::updateScreenTab);
     connect(cpu_speed_, &QSlider::valueChanged, this, &ConfigDialog::updateScreenTab);
-
-    FinishTabPage(v);
-    tabs_->addTab(page, tr("Screen"));
-  }
-
-  // --- Function ---
-  {
-    auto* page = new QWidget(tabs_);
-    auto* v = new QVBoxLayout(page);
-    CompactVBox(v);
-    func_savedir_ = new QCheckBox(tr("Remember directory on exit (&D)"), page);
-    func_savepos_ = new QCheckBox(tr("Remember window position (&W)"), page);
-    if (M88QtIsWaylandSession()) {
-      func_savepos_->setEnabled(false);
-      func_savepos_->setChecked(false);
-      func_savepos_->setToolTip(
-          tr("Not available on Wayland (the compositor controls window placement)."));
-    }
-    func_askreset_ = new QCheckBox(tr("Confirm reset/exit (&E)"), page);
-    func_suppressmenu_ = new QCheckBox(tr("Suppress menu via keyboard (&K)"), page);
-    func_enablepad_ = new QCheckBox(tr("Use gamepad (&J)"), page);
-    func_swappad_ = new QCheckBox(tr("Swap gamepad buttons (&S)"), page);
-    func_resetf12_ = new QCheckBox(tr("F12 as Reset (&F)"), page);
-    func_enablemouse_ = new QCheckBox(tr("Use serial mouse (&M)"), page);
-    func_mousejoy_ = new QCheckBox(tr("Use bus mouse (&O)"), page);
-    func_scrname_ = new QCheckBox(tr("Auto screenshot filename (&C)"), page);
-    func_compsnap_ = new QCheckBox(tr("Compress snapshot files (&Z)"), page);
-    func_idle_inhibit_ = new QCheckBox(tr("Inhibit display idle (&I)"), page);
-    func_ime_kana_ = new QCheckBox(tr("Half-width kana via IME (&H)"), page);
-    func_ime_kana_hint_ =
-        new QLabel(tr("Converts host IME text (romaji, hiragana, etc.) into PC-88 "
-                      "half-width kana key strokes."),
-                   page);
-    func_ime_kana_hint_->setWordWrap(true);
-
-    auto* sense_row = new QHBoxLayout();
-    func_mousesense_ = new QSlider(Qt::Horizontal, page);
-    func_mousesense_->setRange(1, 10);
-    func_mousesense_label_ = new QLabel(tr("Sensitivity (&P):"), page);
-    func_mousesense_coarse_label_ = new QLabel(tr("coarse"), page);
-    sense_row->addWidget(func_mousesense_label_);
-    sense_row->addWidget(func_mousesense_, 1);
-    sense_row->addWidget(func_mousesense_coarse_label_);
-
-    for (QCheckBox* cb :
-         {func_savedir_, func_savepos_, func_askreset_, func_suppressmenu_, func_enablepad_,
-          func_swappad_, func_resetf12_, func_enablemouse_, func_mousejoy_, func_scrname_,
-          func_compsnap_, func_idle_inhibit_, func_ime_kana_}) {
-      v->addWidget(cb);
-    }
-    v->addWidget(func_ime_kana_hint_);
-    v->addLayout(sense_row);
-
-    connect(func_enablepad_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
-    connect(func_enablemouse_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
-    connect(func_suppressmenu_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
-
-    FinishTabPage(v);
-    tabs_->addTab(page, tr("Other"));
-  }
-
-  // --- Sound ---
-  {
-    auto* page = new QWidget(tabs_);
-    auto* v = new QVBoxLayout(page);
-    CompactVBox(v);
 
     auto* rate_box = new QGroupBox(tr("Sample rate (&M)"), page);
     auto* rate_grid = new QGridLayout(rate_box);
@@ -483,40 +547,6 @@ void ConfigDialog::buildUi() {
       rate_grid->addWidget(rb, i / 4, i % 4);
     }
     v->addWidget(rate_box);
-
-    auto* fm_row = new QHBoxLayout();
-    fm_row->setSpacing(4);
-
-    auto* fm44_box = new QGroupBox(tr("FM ($44h)"), page);
-    auto* fm44_layout = new QVBoxLayout(fm44_box);
-    CompactGroupBoxLayout(fm44_layout);
-    sound44_group_ = new QButtonGroup(fm44_box);
-    auto* opn = new QRadioButton(tr("OPN (&1)"), fm44_box);
-    auto* opna = new QRadioButton(tr("OPNA (&2)"), fm44_box);
-    auto* none44 = new QRadioButton(tr("None"), fm44_box);
-    sound44_group_->addButton(opn, 0);
-    sound44_group_->addButton(opna, 1);
-    sound44_group_->addButton(none44, 2);
-    fm44_layout->addWidget(opn);
-    fm44_layout->addWidget(opna);
-    fm44_layout->addWidget(none44);
-    fm_row->addWidget(fm44_box, 1);
-
-    auto* fma8_box = new QGroupBox(tr("FM ($A8h)"), page);
-    auto* fma8_layout = new QVBoxLayout(fma8_box);
-    CompactGroupBoxLayout(fma8_layout);
-    sounda8_group_ = new QButtonGroup(fma8_box);
-    auto* a8opn = new QRadioButton(tr("OPN (MkII)"), fma8_box);
-    auto* a8opna = new QRadioButton(tr("OPNA (MkIII)"), fma8_box);
-    auto* a8none = new QRadioButton(tr("None"), fma8_box);
-    sounda8_group_->addButton(a8opn, 0);
-    sounda8_group_->addButton(a8opna, 1);
-    sounda8_group_->addButton(a8none, 2);
-    fma8_layout->addWidget(a8opn);
-    fma8_layout->addWidget(a8opna);
-    fma8_layout->addWidget(a8none);
-    fm_row->addWidget(fma8_box, 1);
-    v->addLayout(fm_row);
 
     auto* buf_row = new QHBoxLayout();
     buf_row->setSpacing(4);
@@ -588,7 +618,78 @@ void ConfigDialog::buildUi() {
     connect(sound_lpf_, &QCheckBox::toggled, sound_lpforder_, &QSpinBox::setEnabled);
 
     FinishTabPage(v);
-    tabs_->addTab(page, tr("Sound"));
+    av_page_ = page;
+    tabs_->addTab(page, tr("Audio/Video"));
+  }
+
+  // --- Function ---
+  {
+    auto* page = new QWidget(tabs_);
+    auto* v = new QVBoxLayout(page);
+    CompactVBox(v);
+    func_savedir_ = new QCheckBox(tr("Remember directory on exit (&D)"), page);
+    func_savepos_ = new QCheckBox(tr("Remember window position (&W)"), page);
+    if (M88QtIsWaylandSession()) {
+      func_savepos_->setEnabled(false);
+      func_savepos_->setChecked(false);
+      func_savepos_->setToolTip(
+          tr("Not available on Wayland (the compositor controls window placement)."));
+    }
+    func_askreset_ = new QCheckBox(tr("Confirm reset/exit (&E)"), page);
+    func_suppressmenu_ = new QCheckBox(tr("Suppress menu via keyboard (&K)"), page);
+    func_enablepad_ = new QCheckBox(tr("Use gamepad (&J)"), page);
+    func_swappad_ = new QCheckBox(tr("Swap gamepad buttons (&S)"), page);
+    func_resetf12_ = new QCheckBox(tr("F12 as Reset (&F)"), page);
+    func_enablemouse_ = new QCheckBox(tr("Use serial mouse (&M)"), page);
+    func_mousejoy_ = new QCheckBox(tr("Use bus mouse (&O)"), page);
+    func_scrname_ = new QCheckBox(tr("Auto screenshot filename (&C)"), page);
+    func_compsnap_ = new QCheckBox(tr("Compress snapshot files (&Z)"), page);
+    func_idle_inhibit_ = new QCheckBox(tr("Inhibit display idle (&I)"), page);
+    func_ime_kana_ = new QCheckBox(tr("Half-width kana via IME (&H)"), page);
+    func_ime_kana_hint_ =
+        new QLabel(tr("Converts host IME text (romaji, hiragana, etc.) into PC-88 "
+                      "half-width kana key strokes."),
+                   page);
+    func_ime_kana_hint_->setWordWrap(true);
+
+    auto* sense_row = new QHBoxLayout();
+    func_mousesense_ = new QSlider(Qt::Horizontal, page);
+    func_mousesense_->setRange(1, 10);
+    func_mousesense_label_ = new QLabel(tr("Sensitivity (&P):"), page);
+    func_mousesense_coarse_label_ = new QLabel(tr("coarse"), page);
+    sense_row->addWidget(func_mousesense_label_);
+    sense_row->addWidget(func_mousesense_, 1);
+    sense_row->addWidget(func_mousesense_coarse_label_);
+
+    auto* func_grid = new QGridLayout();
+    CompactGrid(func_grid);
+    for (QCheckBox* cb :
+         {func_savedir_, func_savepos_, func_askreset_, func_suppressmenu_, func_enablepad_,
+          func_swappad_, func_resetf12_, func_enablemouse_, func_mousejoy_, func_scrname_,
+          func_compsnap_, func_idle_inhibit_}) {
+      const int idx = func_grid->count();
+      func_grid->addWidget(cb, idx / 2, idx % 2);
+    }
+    func_grid->setColumnStretch(0, 1);
+    func_grid->setColumnStretch(1, 1);
+    v->addLayout(func_grid);
+    v->addLayout(sense_row);
+
+    auto* ime_box = new QGroupBox(page);
+    ShrinkGroupBox(ime_box);
+    auto* ime_layout = new QVBoxLayout(ime_box);
+    CompactGroupBoxLayout(ime_layout);
+    ime_layout->addWidget(func_ime_kana_);
+    ime_layout->addWidget(func_ime_kana_hint_);
+    v->addWidget(ime_box);
+
+    connect(func_enablepad_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
+    connect(func_enablemouse_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
+    connect(func_suppressmenu_, &QCheckBox::toggled, this, &ConfigDialog::updateFunctionTab);
+
+    FinishTabPage(v);
+    other_page_ = page;
+    tabs_->addTab(page, tr("Other"));
   }
 
   // --- Volume ---
@@ -647,6 +748,7 @@ void ConfigDialog::buildUi() {
 
     outer->addLayout(form);
     FinishTabPage(outer);
+    volume_page_ = page;
     tabs_->addTab(page, tr("Volume"));
   }
 
@@ -687,12 +789,6 @@ void ConfigDialog::buildUi() {
       grid->addWidget(off, i, 1);
       grid->addWidget(on, i, 2);
     }
-    auto* defaults = new QPushButton(tr("Default"), page);
-    connect(defaults, &QPushButton::clicked, this, [this]() {
-      config_.dipsw = 1829;
-      loadFromConfig();
-    });
-    grid->addWidget(defaults, 12, 0, 1, 2);
     outer->addLayout(grid);
     FinishTabPage(outer);
     tabs_->addTab(page, tr("DIP-SW"));
@@ -716,11 +812,16 @@ void ConfigDialog::buildUi() {
     v->addWidget(key_box);
     connect(keytype_group_, &QButtonGroup::idClicked, this, &ConfigDialog::updateFunctionTab);
     FinishTabPage(v);
+    env_page_ = page;
     tabs_->addTab(page, tr("Environment"));
   }
 
   for (QGroupBox* box : findChildren<QGroupBox*>()) {
-    ShrinkGroupBox(box);
+    if (box->property("hw_equal_row").toBool()) {
+      EqualRowGroupBox(box);
+    } else {
+      ShrinkGroupBox(box);
+    }
   }
   for (int i = 0; i < tabs_->count(); ++i) {
     ShrinkTabPage(tabs_->widget(i));
@@ -736,14 +837,22 @@ void ConfigDialog::buildUi() {
     accept();
   });
   connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-  layout->addWidget(buttons);
+
+  auto* button_row = new QHBoxLayout();
+  auto* defaults_button = new QPushButton(tr("Standard settings (&D)"), this);
+  connect(defaults_button, &QPushButton::clicked, this,
+          &ConfigDialog::resetCurrentTabToDefaults);
+  button_row->addWidget(defaults_button);
+  button_row->addStretch();
+  button_row->addWidget(buttons);
+  layout->addLayout(button_row);
 
   connectDirtyTracking();
 }
 
 void ConfigDialog::applyResetRequiredTooltips() {
   // Screen: port40 15KHz bit is refreshed in Base::Reset only.
-  SetResetRequiredTooltip(screen_fv15k_);
+  SetResetRequiredTooltip(hw_fv15k_);
 
   // CPU: ERAM bank count reallocates extended RAM (Windows cfgpage PageChanged).
   SetResetRequiredTooltip(eram_banks_);
@@ -836,75 +945,73 @@ void ConfigDialog::onApply() {
   setApplyEnabled(false);
 }
 
-void ConfigDialog::loadFromConfig() {
-  cpu_clock_mhz_->setValue(config_.clock / 10);
-  cpu_speed_->setValue(config_.speed / 100);
-  cpu_speed_label_->setText(tr("%1%").arg(config_.speed / 10));
-  cpu_nowait_->setChecked((config_.flags & Config::fullspeed) != 0);
-  cpu_burst_->setChecked((config_.flags & Config::cpuburst) != 0);
-  if (auto* btn = cpu_ms_group_->button(config_.cpumode & 3)) {
+void ConfigDialog::loadHardwareTabFromConfig(const Config& cfg) {
+  cpu_clock_mhz_->setValue(cfg.clock / 10);
+  cpu_speed_->setValue(cfg.speed / 100);
+  cpu_speed_label_->setText(tr("%1%").arg(cfg.speed / 10));
+  cpu_nowait_->setChecked((cfg.flags & Config::fullspeed) != 0);
+  cpu_burst_->setChecked((cfg.flags & Config::cpuburst) != 0);
+  if (auto* btn = cpu_ms_group_->button(cfg.cpumode & 3)) {
     btn->setChecked(true);
   }
-  cpu_no_subcpu_ctrl_->setChecked((config_.flags & Config::subcpucontrol) == 0);
-  cpu_enable_wait_->setChecked((config_.flags & Config::enablewait) != 0);
-  cpu_fdd_wait_->setChecked((config_.flag2 & Config::fddnowait) == 0);
-  eram_banks_->setValue(config_.erambanks);
+  cpu_no_subcpu_ctrl_->setChecked((cfg.flags & Config::subcpucontrol) == 0);
+  cpu_enable_wait_->setChecked((cfg.flags & Config::enablewait) != 0);
+  cpu_fdd_wait_->setChecked((cfg.flag2 & Config::fddnowait) == 0);
+  eram_banks_->setValue(cfg.erambanks);
+  hw_pcg_->setChecked((cfg.flags & Config::enablepcg) != 0);
+  hw_fv15k_->setChecked((cfg.flags & Config::fv15k) != 0);
+  hw_digitalpal_->setChecked((cfg.flags & Config::digitalpalette) != 0);
+  SetComboByData(sound_fm44_, Fm44ModeFromConfig(cfg));
+  SetComboByData(sound_fma8_, FmA8ModeFromConfig(cfg));
+  updateCpuTab();
+}
 
-  if (auto* btn = refresh_group_->button(config_.refreshtiming)) {
+void ConfigDialog::loadScreenSectionFromConfig(const Config& cfg) {
+  if (auto* btn = refresh_group_->button(cfg.refreshtiming)) {
     btn->setChecked(true);
   }
-  screen_pcg_->setChecked((config_.flags & Config::enablepcg) != 0);
-  screen_fv15k_->setChecked((config_.flags & Config::fv15k) != 0);
-  screen_digitalpal_->setChecked((config_.flags & Config::digitalpalette) != 0);
-  screen_force480_->setChecked((config_.flags & Config::force480) != 0);
-  screen_lowpriority_->setChecked((config_.flags & Config::drawprioritylow) != 0);
-  screen_fullline_->setChecked((config_.flags & Config::fullline) != 0);
-  screen_vsync_->setChecked((config_.flag2 & Config::synctovsync) != 0);
+  screen_force480_->setChecked((cfg.flags & Config::force480) != 0);
+  screen_lowpriority_->setChecked((cfg.flags & Config::drawprioritylow) != 0);
+  screen_fullline_->setChecked((cfg.flags & Config::fullline) != 0);
+  screen_vsync_->setChecked((cfg.flag2 & Config::synctovsync) != 0);
+  updateScreenTab();
+}
 
-  func_savedir_->setChecked((config_.flags & Config::savedirectory) != 0);
+void ConfigDialog::loadOtherTabFromConfig(const Config& cfg, bool wayland_idle,
+                                          bool ime_kana) {
+  func_savedir_->setChecked((cfg.flags & Config::savedirectory) != 0);
   func_savepos_->setChecked(func_savepos_->isEnabled() &&
-                           (config_.flag2 & Config::saveposition) != 0);
-  func_askreset_->setChecked((config_.flags & Config::askbeforereset) != 0);
-  func_suppressmenu_->setChecked((config_.flags & Config::suppressmenu) != 0);
-  func_enablepad_->setChecked((config_.flags & Config::enablepad) != 0);
-  func_swappad_->setChecked((config_.flags & Config::swappadbuttons) != 0);
-  func_resetf12_->setChecked((config_.flags & Config::disablef12reset) == 0);
+                           (cfg.flag2 & Config::saveposition) != 0);
+  func_askreset_->setChecked((cfg.flags & Config::askbeforereset) != 0);
+  func_suppressmenu_->setChecked((cfg.flags & Config::suppressmenu) != 0);
+  func_enablepad_->setChecked((cfg.flags & Config::enablepad) != 0);
+  func_swappad_->setChecked((cfg.flags & Config::swappadbuttons) != 0);
+  func_resetf12_->setChecked((cfg.flags & Config::disablef12reset) == 0);
   func_enablemouse_->setChecked(M88MouseInputAvailable() &&
-                                (config_.flags & Config::enablemouse) != 0);
+                                (cfg.flags & Config::enablemouse) != 0);
   func_mousejoy_->setChecked(M88MouseInputAvailable() &&
-                             (config_.flags & Config::mousejoymode) != 0);
-  func_mousesense_->setValue(static_cast<int>(config_.mousesensibility));
-  func_scrname_->setChecked((config_.flag2 & Config::genscrnshotname) != 0);
-  func_compsnap_->setChecked((config_.flag2 & Config::compresssnapshot) != 0);
-  func_idle_inhibit_->setChecked(M88WaylandIdleInhibitEnabled());
-  func_ime_kana_->setChecked(M88ImeHalfKanaEnabled());
+                             (cfg.flags & Config::mousejoymode) != 0);
+  func_mousesense_->setValue(static_cast<int>(cfg.mousesensibility));
+  func_scrname_->setChecked((cfg.flag2 & Config::genscrnshotname) != 0);
+  func_compsnap_->setChecked((cfg.flag2 & Config::compresssnapshot) != 0);
+  func_idle_inhibit_->setChecked(wayland_idle);
+  func_ime_kana_->setChecked(ime_kana);
+  updateFunctionTab();
+}
 
-  if (auto* btn = sound_rate_group_->button(config_.sound)) {
+void ConfigDialog::loadSoundSectionFromConfig(const Config& cfg) {
+  if (auto* btn = sound_rate_group_->button(cfg.sound)) {
     btn->setChecked(true);
-  } else if (config_.sound == 0) {
+  } else if (cfg.sound == 0) {
     sound_rate_group_->button(0)->setChecked(true);
   }
-  if (config_.flag2 & Config::disableopn44) {
-    sound44_group_->button(2)->setChecked(true);
-  } else if (config_.flags & Config::enableopna) {
-    sound44_group_->button(1)->setChecked(true);
-  } else {
-    sound44_group_->button(0)->setChecked(true);
-  }
-  if (config_.flags & Config::opnaona8) {
-    sounda8_group_->button(1)->setChecked(true);
-  } else if (config_.flags & Config::opnona8) {
-    sounda8_group_->button(0)->setChecked(true);
-  } else {
-    sounda8_group_->button(2)->setChecked(true);
-  }
-  sound_buffer_->setValue(static_cast<int>(config_.soundbuffer));
-  sound_cmdsing_->setChecked((config_.flags & Config::disablesing) == 0);
-  sound_mixalways_->setChecked((config_.flags & Config::mixsoundalways) != 0);
-  sound_precisemix_->setChecked((config_.flags & Config::precisemixing) != 0);
-  sound_fmclock_->setChecked((config_.flag2 & Config::usefmclock) != 0);
+  sound_buffer_->setValue(static_cast<int>(cfg.soundbuffer));
+  sound_cmdsing_->setChecked((cfg.flags & Config::disablesing) == 0);
+  sound_mixalways_->setChecked((cfg.flags & Config::mixsoundalways) != 0);
+  sound_precisemix_->setChecked((cfg.flags & Config::precisemixing) != 0);
+  sound_fmclock_->setChecked((cfg.flag2 & Config::usefmclock) != 0);
   {
-    const QString saved_backend = QString::fromUtf8(config_.audiobackend);
+    const QString saved_backend = QString::fromUtf8(cfg.audiobackend);
     int backend_idx = sound_backend_->findData(saved_backend);
     if (backend_idx < 0 && !saved_backend.isEmpty()) {
       sound_backend_->addItem(saved_backend, saved_backend);
@@ -912,49 +1019,84 @@ void ConfigDialog::loadFromConfig() {
     }
     sound_backend_->setCurrentIndex(backend_idx >= 0 ? backend_idx : 0);
 
-    const QByteArray backend =
-        sound_backend_->currentData().toString().toUtf8();
-    const QString saved_device = QString::fromUtf8(config_.audiodevice);
+    const QByteArray backend = sound_backend_->currentData().toString().toUtf8();
+    const QString saved_device = QString::fromUtf8(cfg.audiodevice);
     PopulateSoundDeviceCombo(sound_device_, backend.constData(), saved_device);
   }
-  sound_lpf_->setChecked((config_.flag2 & Config::lpfenable) != 0);
-  sound_lpffc_->setValue(static_cast<int>(config_.lpffc / 1000));
-  sound_lpforder_->setValue(static_cast<int>(config_.lpforder));
+  sound_lpf_->setChecked((cfg.flag2 & Config::lpfenable) != 0);
+  sound_lpffc_->setValue(static_cast<int>(cfg.lpffc / 1000));
+  sound_lpforder_->setValue(static_cast<int>(cfg.lpforder));
   sound_lpffc_->setEnabled(sound_lpf_->isChecked());
   sound_lpforder_->setEnabled(sound_lpf_->isChecked());
+}
 
-  auto load_vol = [](VolumeWidgets* w) {
-    w->slider->setValue(*w->field);
-    UpdateVolumeLabel(w->label, *w->field);
+void ConfigDialog::loadAvTabFromConfig(const Config& cfg) {
+  loadScreenSectionFromConfig(cfg);
+  loadSoundSectionFromConfig(cfg);
+}
+
+void ConfigDialog::loadVolumeTabFromConfig(const Config& cfg) {
+  auto load_vol = [&cfg](VolumeWidgets* w, int Config::*field) {
+    const int val = cfg.*field;
+    w->slider->setValue(val);
+    UpdateVolumeLabel(w->label, val);
   };
-  load_vol(&vol_fm_);
-  load_vol(&vol_ssg_);
-  load_vol(&vol_adpcm_);
-  load_vol(&vol_rhythm_);
-  load_vol(&vol_bd_);
-  load_vol(&vol_sd_);
-  load_vol(&vol_top_);
-  load_vol(&vol_hh_);
-  load_vol(&vol_tom_);
-  load_vol(&vol_rim_);
+  load_vol(&vol_fm_, &Config::volfm);
+  load_vol(&vol_ssg_, &Config::volssg);
+  load_vol(&vol_adpcm_, &Config::voladpcm);
+  load_vol(&vol_rhythm_, &Config::volrhythm);
+  load_vol(&vol_bd_, &Config::volbd);
+  load_vol(&vol_sd_, &Config::volsd);
+  load_vol(&vol_top_, &Config::voltop);
+  load_vol(&vol_hh_, &Config::volhh);
+  load_vol(&vol_tom_, &Config::voltom);
+  load_vol(&vol_rim_, &Config::volrim);
+}
 
+void ConfigDialog::loadDipTabFromConfig(const Config& cfg) {
   for (int i = 0; i < 12; ++i) {
-    const bool bit_on = (config_.dipsw & (1 << i)) == 0;
+    const bool bit_on = (cfg.dipsw & (1 << i)) == 0;
     if (auto* btn = dip_groups_[i]->button(bit_on ? 0 : 1)) {
       btn->setChecked(true);
     }
   }
+}
 
-  {
-    const int host_key =
-        config_.keytype == Config::PC98 ? Config::AT106 : config_.keytype;
-    if (auto* btn = keytype_group_->button(host_key)) {
-      btn->setChecked(true);
-    }
+void ConfigDialog::loadEnvTabFromConfig(const Config& cfg) {
+  const int host_key = cfg.keytype == Config::PC98 ? Config::AT106 : cfg.keytype;
+  if (auto* btn = keytype_group_->button(host_key)) {
+    btn->setChecked(true);
   }
-  updateCpuTab();
-  updateScreenTab();
-  updateFunctionTab();
+}
+
+void ConfigDialog::loadFromConfig() {
+  loadHardwareTabFromConfig(config_);
+  loadAvTabFromConfig(config_);
+  loadOtherTabFromConfig(config_, M88WaylandIdleInhibitEnabled(), M88ImeHalfKanaEnabled());
+  loadVolumeTabFromConfig(config_);
+  loadDipTabFromConfig(config_);
+  loadEnvTabFromConfig(config_);
+}
+
+void ConfigDialog::resetCurrentTabToDefaults() {
+  if (!tabs_) {
+    return;
+  }
+  const QWidget* page = tabs_->currentWidget();
+  if (page == hardware_page_) {
+    loadHardwareTabFromConfig(default_config_);
+  } else if (page == av_page_) {
+    loadAvTabFromConfig(default_config_);
+  } else if (page == other_page_) {
+    loadOtherTabFromConfig(default_config_, default_wayland_idle_, default_ime_kana_);
+  } else if (page == volume_page_) {
+    loadVolumeTabFromConfig(default_config_);
+  } else if (page == dip_page_) {
+    loadDipTabFromConfig(default_config_);
+  } else if (page == env_page_) {
+    loadEnvTabFromConfig(default_config_);
+  }
+  markDirty();
 }
 
 void ConfigDialog::applyToConfig() {
@@ -979,15 +1121,40 @@ void ConfigDialog::applyToConfig() {
   if (!cpu_fdd_wait_->isChecked()) {
     config_.flag2 |= Config::fddnowait;
   }
-  config_.cpumode = static_cast<Config::CPUType>(cpu_ms_group_->checkedId());
+  config_.cpumode =
+      static_cast<Config::CPUType>(cpu_ms_group_->checkedId());
   config_.erambanks = eram_banks_->value();
 
+  config_.flags &= ~(Config::enablepcg | Config::fv15k | Config::digitalpalette);
+  if (hw_pcg_->isChecked()) config_.flags |= Config::enablepcg;
+  if (hw_fv15k_->isChecked()) config_.flags |= Config::fv15k;
+  if (hw_digitalpal_->isChecked()) config_.flags |= Config::digitalpalette;
+
+  config_.flags &= ~(Config::enableopna | Config::opnona8 | Config::opnaona8);
+  config_.flag2 &= ~Config::disableopn44;
+  switch (sound_fm44_->currentData().toInt()) {
+    case 1:
+      config_.flags |= Config::enableopna;
+      break;
+    case 2:
+      config_.flag2 |= Config::disableopn44;
+      break;
+    default:
+      break;
+  }
+  switch (sound_fma8_->currentData().toInt()) {
+    case 0:
+      config_.flags |= Config::opnona8;
+      break;
+    case 1:
+      config_.flags |= Config::opnaona8;
+      break;
+    default:
+      break;
+  }
+
   config_.refreshtiming = refresh_group_->checkedId();
-  config_.flags &= ~(Config::enablepcg | Config::fv15k | Config::digitalpalette |
-                     Config::force480 | Config::drawprioritylow | Config::fullline);
-  if (screen_pcg_->isChecked()) config_.flags |= Config::enablepcg;
-  if (screen_fv15k_->isChecked()) config_.flags |= Config::fv15k;
-  if (screen_digitalpal_->isChecked()) config_.flags |= Config::digitalpalette;
+  config_.flags &= ~(Config::force480 | Config::drawprioritylow | Config::fullline);
   if (screen_force480_->isChecked()) config_.flags |= Config::force480;
   if (screen_lowpriority_->isChecked()) config_.flags |= Config::drawprioritylow;
   if (screen_fullline_->isChecked()) config_.flags |= Config::fullline;
@@ -1023,28 +1190,6 @@ void ConfigDialog::applyToConfig() {
   M88SetImeHalfKanaEnabled(func_ime_kana_->isEnabled() && func_ime_kana_->isChecked());
 
   config_.sound = sound_rate_group_->checkedId();
-  config_.flags &= ~(Config::enableopna | Config::opnona8 | Config::opnaona8);
-  config_.flag2 &= ~Config::disableopn44;
-  switch (sound44_group_->checkedId()) {
-    case 1:
-      config_.flags |= Config::enableopna;
-      break;
-    case 2:
-      config_.flag2 |= Config::disableopn44;
-      break;
-    default:
-      break;
-  }
-  switch (sounda8_group_->checkedId()) {
-    case 0:
-      config_.flags |= Config::opnona8;
-      break;
-    case 1:
-      config_.flags |= Config::opnaona8;
-      break;
-    default:
-      break;
-  }
   config_.soundbuffer =
       static_cast<uint>(LimitInt(sound_buffer_->value(), 1000, 50) / 10 * 10);
   config_.flags &= ~(Config::disablesing | Config::mixsoundalways | Config::precisemixing);

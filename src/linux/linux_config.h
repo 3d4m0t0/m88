@@ -9,6 +9,10 @@ class PC88;
 // Defaults from src/win32/88config.cpp (LoadConfig with applydefault=true).
 void M88SetDefaultConfig(PC8801::Config* cfg);
 
+// Snapshot factory defaults without changing the running process globals.
+void M88GetDefaultConfig(PC8801::Config* cfg, bool* wayland_idle = nullptr,
+                         bool* ime_kana = nullptr);
+
 // Applies WinUI::ApplyConfig() core settings, then PC88::ApplyConfig().
 void M88ApplyConfig(PC88* pc88, PC8801::Config* cfg);
 

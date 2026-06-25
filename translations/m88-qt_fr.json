@@ -12,6 +12,11 @@
     },
     {
       "context": "ConfigDialog",
+      "source": "Standard settings (&D)",
+      "translation": "Paramètres standard (&D)"
+    },
+    {
+      "context": "ConfigDialog",
       "source": "%1 (not found)",
       "translation": "%1 (introuvable)"
     },
@@ -34,6 +39,11 @@
       "context": "ConfigDialog",
       "source": "Speed",
       "translation": "Vitesse"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Settings on this tab are saved in snapshot files and restored when a snapshot is loaded, replacing the values shown here.",
+      "translation": "Les paramètres de cet onglet sont enregistrés dans les snapshots et restaurés lors du chargement d'un snapshot, remplaçant les valeurs affichées ici."
     },
     {
       "context": "ConfigDialog",
@@ -72,8 +82,8 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "2:1",
-      "translation": "2:1"
+      "source": "1:2",
+      "translation": "1:2"
     },
     {
       "context": "ConfigDialog",
@@ -114,6 +124,31 @@
       "context": "ConfigDialog",
       "source": "CPU",
       "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Hardware",
+      "translation": "Matériel"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Display hardware",
+      "translation": "Matériel d'affichage"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound board",
+      "translation": "Carte son"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h):",
+      "translation": "FM ($44h) :"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h):",
+      "translation": "FM ($A8h) :"
     },
     {
       "context": "ConfigDialog",
@@ -179,6 +214,11 @@
       "context": "ConfigDialog",
       "source": "Screen",
       "translation": "Écran"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Audio/Video",
+      "translation": "Audio/Vidéo"
     },
     {
       "context": "ConfigDialog",
@@ -867,6 +907,16 @@
     },
     {
       "context": "MainWindow",
+      "source": "Open &recent files",
+      "translation": "Ouvrir les fichiers récents(&R)"
+    },
+    {
+      "context": "MainWindow",
+      "source": "(No recent files)",
+      "translation": "(Aucun fichier récent)"
+    },
+    {
+      "context": "MainWindow",
       "source": "Ta&pe",
       "translation": "Bande (&P)"
     },
@@ -1404,16 +1454,6 @@
       "context": "ConfirmDialog",
       "source": "Exit M88?",
       "translation": "Quitter M88 ?"
-    },
-    {
-      "context": "MainWindow",
-      "source": "Open &recent files",
-      "translation": "Ouvrir les fichiers récents(&R)"
-    },
-    {
-      "context": "MainWindow",
-      "source": "(No recent files)",
-      "translation": "(Aucun fichier récent)"
     },
     {
       "context": "MainWindow",

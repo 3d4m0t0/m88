@@ -12,6 +12,11 @@
     },
     {
       "context": "ConfigDialog",
+      "source": "Standard settings (&D)",
+      "translation": "標準設定(&D)"
+    },
+    {
+      "context": "ConfigDialog",
       "source": "%1 (not found)",
       "translation": "%1 (見つかりません)"
     },
@@ -34,6 +39,11 @@
       "context": "ConfigDialog",
       "source": "Speed",
       "translation": "速度"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Settings on this tab are saved in snapshot files and restored when a snapshot is loaded, replacing the values shown here.",
+      "translation": "このタブの設定はスナップショットに保存されます。スナップショットを読み込むと、ここに表示されている設定がスナップショットの内容で置き換えられます。"
     },
     {
       "context": "ConfigDialog",
@@ -72,8 +82,8 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "2:1",
-      "translation": "2:1"
+      "source": "1:2",
+      "translation": "1:2"
     },
     {
       "context": "ConfigDialog",
@@ -114,6 +124,31 @@
       "context": "ConfigDialog",
       "source": "CPU",
       "translation": "CPU"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Hardware",
+      "translation": "ハードウェア"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Display hardware",
+      "translation": "表示ハードウェア"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Sound board",
+      "translation": "サウンドボード"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($44h):",
+      "translation": "FM ($44h):"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "FM ($A8h):",
+      "translation": "FM ($A8h):"
     },
     {
       "context": "ConfigDialog",
@@ -179,6 +214,11 @@
       "context": "ConfigDialog",
       "source": "Screen",
       "translation": "画面"
+    },
+    {
+      "context": "ConfigDialog",
+      "source": "Audio/Video",
+      "translation": "映像・音声"
     },
     {
       "context": "ConfigDialog",

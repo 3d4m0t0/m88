@@ -22,11 +22,20 @@ signals:
 private slots:
   void markDirty();
   void onApply();
+  void resetCurrentTabToDefaults();
 
 private:
   void buildUi();
   void applyFixedDialogSize();
   void loadFromConfig();
+  void loadHardwareTabFromConfig(const PC8801::Config& cfg);
+  void loadAvTabFromConfig(const PC8801::Config& cfg);
+  void loadOtherTabFromConfig(const PC8801::Config& cfg, bool wayland_idle, bool ime_kana);
+  void loadScreenSectionFromConfig(const PC8801::Config& cfg);
+  void loadSoundSectionFromConfig(const PC8801::Config& cfg);
+  void loadVolumeTabFromConfig(const PC8801::Config& cfg);
+  void loadDipTabFromConfig(const PC8801::Config& cfg);
+  void loadEnvTabFromConfig(const PC8801::Config& cfg);
   void applyToConfig();
   void connectDirtyTracking();
   void applyResetRequiredTooltips();
@@ -37,9 +46,17 @@ private:
   void updateFunctionTab();
 
   PC8801::Config config_;
+  PC8801::Config default_config_;
+  bool default_wayland_idle_ = false;
+  bool default_ime_kana_ = true;
   QTabWidget* tabs_ = nullptr;
   class QPushButton* apply_button_ = nullptr;
   QObject* tooltip_filter_ = nullptr;
+
+  QWidget* hardware_page_ = nullptr;
+  QWidget* av_page_ = nullptr;
+  QWidget* other_page_ = nullptr;
+  QWidget* volume_page_ = nullptr;
 
   // CPU
   class QSpinBox* cpu_clock_mhz_ = nullptr;
@@ -52,12 +69,14 @@ private:
   class QCheckBox* cpu_enable_wait_ = nullptr;
   class QCheckBox* cpu_fdd_wait_ = nullptr;
   class QSpinBox* eram_banks_ = nullptr;
+  class QCheckBox* hw_pcg_ = nullptr;
+  class QCheckBox* hw_fv15k_ = nullptr;
+  class QCheckBox* hw_digitalpal_ = nullptr;
+  class QComboBox* sound_fm44_ = nullptr;
+  class QComboBox* sound_fma8_ = nullptr;
 
-  // Screen
+  // Screen (host display)
   class QButtonGroup* refresh_group_ = nullptr;
-  class QCheckBox* screen_pcg_ = nullptr;
-  class QCheckBox* screen_fv15k_ = nullptr;
-  class QCheckBox* screen_digitalpal_ = nullptr;
   class QCheckBox* screen_force480_ = nullptr;
   class QCheckBox* screen_lowpriority_ = nullptr;
   class QCheckBox* screen_fullline_ = nullptr;
@@ -84,8 +103,6 @@ private:
 
   // Sound
   class QButtonGroup* sound_rate_group_ = nullptr;
-  class QButtonGroup* sound44_group_ = nullptr;
-  class QButtonGroup* sounda8_group_ = nullptr;
   class QSpinBox* sound_buffer_ = nullptr;
   class QCheckBox* sound_cmdsing_ = nullptr;
   class QCheckBox* sound_mixalways_ = nullptr;
@@ -121,4 +138,5 @@ private:
 
   // Env
   class QButtonGroup* keytype_group_ = nullptr;
+  QWidget* env_page_ = nullptr;
 };
