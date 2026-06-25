@@ -138,6 +138,8 @@ public:
 		int fdc_phase = 0;
 		uint fdc_status = 0;
 		bool main_fdif_active = false;
+		bool sub_isbusy = false;
+		uint sub_idlecount = 0;
 	};
 	void FillStallDiag(StallDiag* out) const;
 #endif
@@ -195,6 +197,9 @@ private:
 	uint cfgflags;
 	uint cfgflag2;
 	bool updated;
+	bool cold_start_on_reset_{false};
+	bool basicmode_initialized_{false};
+	uint8 prev_basicmode_{0};
 	
 	PC8801::Memory* mem1;
 	PC8801::KanjiROM* knj1;

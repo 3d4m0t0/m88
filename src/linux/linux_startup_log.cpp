@@ -40,6 +40,16 @@ void M88LogMachine(const PC8801::Config* config) {
                (config->flags & PC8801::Config::subcpucontrol) ? "on" : "off");
 }
 
+void M88LogBasicModeChange(int prev_mode, int new_mode, bool cold_start) {
+  std::fprintf(stderr, "M88: BASICMode=%d (%s) <- %d (%s), %s start\n", new_mode,
+               M88BasicModeName(new_mode), prev_mode, M88BasicModeName(prev_mode),
+               cold_start ? "cold" : "warm");
+}
+
+void M88LogSoftReset() {
+  std::fprintf(stderr, "M88: soft reset (RAM preserved)\n");
+}
+
 void M88LogFrameTiming(int texec, int config_speed) {
   if (texec <= 0 || config_speed <= 0) {
     return;

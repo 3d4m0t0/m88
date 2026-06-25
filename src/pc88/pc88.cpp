@@ -11,6 +11,7 @@
 #include "headers.h"
 #ifdef M88_LINUX_PORT
 #include "rom_log.h"
+#include "linux/linux_startup_log.h"
 #endif
 #include "pc88/pc88.h"
 #include "pc88/config.h"
@@ -29,6 +30,18 @@
 #include "pc88/tapemgr.h"
 #include "pc88/beep.h"
 #include "pc88/joypad.h"
+#include "Z80C.h"
+
+namespace {
+
+// Disk ROM FDIF boot: sub waits on IN FE / BIT 3 (see CPU2.dmp ~00CC).
+bool IsSubCpuFdifBootWait(const Z80C& cpu)
+{
+	const uint pc = cpu.GetPC();
+	return pc >= 0x00b5 && pc <= 0x00ea;
+}
+
+}  // namespace
 #include "pc88/mouse.h"
 #include "if/ifui.h"
 #include "if/ifguid.h"
@@ -165,6 +178,8 @@ void PC88::FillStallDiag(StallDiag* out) const
 	const bool main_fdif = subsys && subsys->MainFdifActive();
 	out->fdc_busy = fdc_busy;
 	out->main_fdif_active = main_fdif;
+	out->sub_isbusy = subsys && subsys->IsBusy();
+	out->sub_idlecount = subsys ? subsys->GetIdleCount() : 0;
 	out->run_dual = !(cpumode & stopwhenidle) || fdc_busy || main_fdif;
 	if (fdc) {
 		out->fdc_phase = fdc->GetDiagPhase();
@@ -194,7 +209,8 @@ int PC88::Execute(int ticks)
 	// idlecount does not advance while the sub is Sync-stalled at ~6061, so also
 	// key off recent main-side PIO (M_*) access instead of IsBusy() alone.
 	const bool run_dual =
-	    !(mode & stopwhenidle) || fdc->IsBusy() || subsys->MainFdifActive();
+	    !(mode & stopwhenidle) || fdc->IsBusy() || subsys->MainFdifActive() ||
+	    IsSubCpuFdifBootWait(cpu2);
 	if (run_dual)
 	{
 		if ((cpumode & 1) == ms11)
@@ -299,6 +315,19 @@ void PC88::Reset()
 	dexc = 0;
 	sub_fdif_main_gen = 0;
 
+	bool n88_soft_reset = false;
+	if (cold_start_on_reset_) {
+		if (mem1) {
+			mem1->ClearMainRAM();
+			mem1->ClearTVRAM();
+		}
+		cold_start_on_reset_ = false;
+	} else if (mem1 && Config::IsN88Family(
+	               static_cast<Config::BASICMode>(base->GetBasicMode()))) {
+		mem1->SanitizeN88WarmBoot();
+		n88_soft_reset = true;
+	}
+
 	bool cd = false;
 	if (IsCDSupported())
 		cd = (base->GetBasicMode() & 0x40) != 0;
@@ -344,6 +373,12 @@ void PC88::Reset()
 	bus1.Out(0xe6, 0);
 	bus1.Out(0xf1, 1);
 	bus2.Out(pres2, 0);
+
+	Z80::LinkDualAfterReset(&cpu1, &cpu2);
+	if (subsys) {
+		sub_fdif_main_gen = subsys->GetMainAccessGen();
+		subsys->KickMainFdifForReset(n88_soft_reset ? 65536 : 4096);
+	}
 
 //	statusdisplay.Show(10, 1000, "CPUMode = %d", cpumode);
 }
@@ -708,6 +743,21 @@ void PC88::ApplyConfig(Config* cfg)
 {
 	cfgflags = cfg->flags;
 	cfgflag2 = cfg->flag2;
+
+	if (basicmode_initialized_) {
+		const auto prev = static_cast<Config::BASICMode>(prev_basicmode_);
+		if (cfg->basicmode != prev) {
+			cold_start_on_reset_ = true;
+#ifdef M88_LINUX_PORT
+			M88LogBasicModeChange(static_cast<int>(prev),
+			                      static_cast<int>(cfg->basicmode),
+			                      true);
+#endif
+		}
+	} else {
+		basicmode_initialized_ = true;
+	}
+	prev_basicmode_ = static_cast<uint8>(cfg->basicmode);
 	
 	base->SetSwitch(cfg);
 	scrn->ApplyConfig(cfg);

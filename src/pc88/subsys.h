@@ -44,9 +44,11 @@ public:
 	uint8* GetROM() { return rom; }
 
 	bool IsBusy();
+	uint GetIdleCount() const { return idlecount; }
 	uint GetMainAccessGen() const { return main_access_gen; }
 	bool MainFdifActive() const { return main_fdif_activity > 0; }
 	void TickMainFdif();
+	void KickMainFdifForReset(int activity = 4096);
 
 	void IOCALL Reset(uint=0, uint=0);
 	uint IOCALL IntAck(uint);

@@ -70,6 +70,9 @@ public:
 	bool IsCDBIOSReady() { return !!cdbios; }
 
 	bool Init(MemoryManager* mgr, IOBus* bus, CRTC* crtc, int* waittbl);
+	void ClearMainRAM();
+	void ClearTVRAM();
+	void SanitizeN88WarmBoot();
 	void IOCALL Reset(uint, uint);
 	void IOCALL Out31(uint, uint data);
 	void IOCALL Out32(uint, uint data);

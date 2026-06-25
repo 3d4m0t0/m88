@@ -2,7 +2,7 @@
 //	M88 - PC-88 emulator
 //	Copyright (C) cisc 1998.
 // ----------------------------------------------------------------------------
-//	Z80 エミュレーションパッケージ比較実行用クラス
+//	Z80 ?G?~?????[?V?????p?b?P?[?W??r???s?p?N???X
 //	$Id: Z80Test.cpp,v 1.6 1999/08/14 14:45:06 cisc Exp $
 
 #include "headers.h"
@@ -14,7 +14,7 @@ Z80Test* Z80Test::currentcpu=0;
 // ----------------------------------------------------------------------------
 
 Z80Test::Z80Test(const ID& id)
-: Device(id), cpu1('cpur'), cpu2('cpur')
+: Device(id), cpu1('cpur'), cpu2('cpur'), mm1pid(-1), mm2pid(-1), error_count(0)
 {
 	char buf[] = "    .dmp";
 	buf[0] = (id >> 24) & 0xff; buf[1] = (id >> 16) & 0xff;
@@ -31,29 +31,39 @@ Z80Test::~Z80Test()
 
 // ----------------------------------------------------------------------------
 
-bool Z80Test::Init(Bus* bus_, int iack)
+bool Z80Test::Init(uint8* host_ram_, int iack)
 {
-	bus = bus_;
-	if (!bus1.Init(0x120, 0x10000 >> MemoryBus::pagebits, cpu1.GetPages()))
+	host_ram = host_ram_;
+
+	MemoryPage *rd1, *wr1, *rd2, *wr2;
+	if (!cpu1.GetPages(&rd1, &wr1) || !cpu2.GetPages(&rd2, &wr2))
 		return false;
-	if (!bus2.Init(0x120, 0x10000 >> MemoryBus::pagebits, cpu2.GetPages()))
+	if (!mm1.Init(0x10000, rd1, wr1) || !mm2.Init(0x10000, rd2, wr2))
 		return false;
-	if (!cpu1.Init(&bus1, iack))
+	if (!iobus1.Init(0x120) || !iobus2.Init(0x120))
 		return false;
-	if (!cpu2.Init(&bus2, iack))
+	if (!cpu1.Init(&mm1, &iobus1, iack) || !cpu2.Init(&mm2, &iobus2, iack))
 		return false;
 
-	bus1.SetFuncs(0, 0x10000, this, S_Read8R, S_Write8R);
-	bus2.SetFuncs(0, 0x10000, this, S_Read8T, S_Write8T);
+	mm1pid = mm1.Connect(this);
+	mm2pid = mm2.Connect(this);
+	if (mm1pid < 0 || mm2pid < 0)
+		return false;
+	if (!mm1.AllocR(mm1pid, 0, 0x10000, S_Read8R) || !mm1.AllocW(mm1pid, 0, 0x10000, S_Write8R))
+		return false;
+	if (!mm2.AllocR(mm2pid, 0, 0x10000, S_Read8T) || !mm2.AllocW(mm2pid, 0, 0x10000, S_Write8T))
+		return false;
+
 	for (int p=0; p<0x120; p++)
 	{
-		bus1.ConnectIn (p, this, STATIC_CAST(InFuncPtr, &Z80Test::InR));
-		bus1.ConnectOut(p, this, STATIC_CAST(OutFuncPtr, &Z80Test::OutR));
-		bus2.ConnectIn (p, this, STATIC_CAST(InFuncPtr, &Z80Test::InT));
-		bus2.ConnectOut(p, this, STATIC_CAST(OutFuncPtr, &Z80Test::OutT));
+		iobus1.ConnectIn (p, this, STATIC_CAST(Device::InFuncPtr, &Z80Test::InR));
+		iobus1.ConnectOut(p, this, STATIC_CAST(Device::OutFuncPtr, &Z80Test::OutR));
+		iobus2.ConnectIn (p, this, STATIC_CAST(Device::InFuncPtr, &Z80Test::InT));
+		iobus2.ConnectOut(p, this, STATIC_CAST(Device::OutFuncPtr, &Z80Test::OutT));
 	}
 
 	execcount = 0;
+	error_count = 0;
 
 	return true;
 }
@@ -100,7 +110,7 @@ int Z80Test::Exec(int step)
 }
 
 // ---------------------------------------------------------------------------
-//	Exec を途中で中断
+//	Exec ??r??????f
 //
 void Z80Test::Stop(int count)
 {
@@ -112,29 +122,29 @@ void Z80Test::Stop(int count)
 
 void Z80Test::Test()
 {
-	Z80Reg& reg1 = cpu1.GetReg();
-	Z80Reg& reg2 = cpu2.GetReg();
+	Z80Reg reg1 = cpu1.GetReg();
+	Z80Reg reg2 = cpu2.GetReg();
 
-	// 初期化
+	// ??????
 	readcount = writecount = readcountt = writecountt = codesize = 0;
-	reg = reg2 = reg1;					// レジスタを一致させる
+	reg = reg2 = reg1;					// ???W?X?^????v??????
 
 	pc = reg1.pc;
 	cpu2.SetPC(pc);
 	intr = cpu1.IsIntr() + 2 * cpu2.IsIntr();
 
-	// 実行
+	// ???s
 	clockcount += cpu1.ExecOne();
 	cpu2.ExecOne();
 
-	// フラグの一致を確認
+	// ?t???O???v???m?F
 	if ((reg1.r.b.flags & 0xd7) != (reg2.r.b.flags & 0xd7))
 	{
-		Error("フラグの不一致");
+		Error("?t???O??s??v");
 		return;
 	}
 
-	// レジスタの一致確認
+	// ???W?X?^???v?m?F
 	if (((reg1.r.b.a ^ reg2.r.b.a)
 		| (reg1.r.w.bc ^ reg2.r.w.bc)
 		| (reg1.r.w.de ^ reg2.r.w.de)
@@ -145,26 +155,26 @@ void Z80Test::Test()
 		| (!reg1.iff1 ^ !reg2.iff1)
 		) & 0xffff)
 	{
-		Error("レジスタの不一致");
+		Error("???W?X?^??s??v");
 		return;
 	}
 
 	if (readcount != readcountt)
 	{
-		Error("読み込み回数の不一致");
+		Error("?????????s??v");
 		return;
 	}
 
 	if (writecount != writecountt)
 	{
-		Error("書き込み回数の不一致");
+		Error("???????????s??v");
 		return;
 	}
 
-	// PC の一致確認
+	// PC ???v?m?F
 	if (cpu1.GetPC() != cpu2.GetPC())
 	{
-		Error("PC の不一致");
+		Error("PC ??s??v");
 		return;
 	}
 }
@@ -173,6 +183,8 @@ void Z80Test::Test()
 
 void Z80Test::Error(const char* errtxt)
 {
+	error_count++;
+	fprintf(stderr, "Z80Test: %s at PC %.4x\n", errtxt, pc);
 	if (fp)
 	{
 		if (code[0] == 0xfb)		// special case
@@ -186,8 +198,8 @@ void Z80Test::Error(const char* errtxt)
 			fprintf(fp, (i>codesize ? "   " : "%.2x "), code[i]);
 		}
 
-		Z80Reg& reg1 = cpu1.GetReg();
-		Z80Reg& reg2 = cpu2.GetReg();
+		Z80Reg reg1 = cpu1.GetReg();
+		Z80Reg reg2 = cpu2.GetReg();
 
 		fprintf(fp,	"%s  reads:ref=%d target=%d writes:ref=%d target=%d\n", errtxt, readcount, readcountt, writecount, writecountt);
 		for (i=0; i<readcount; i++)
@@ -222,20 +234,20 @@ inline uint Z80Test::Read8R(uint a)
 	if (fcount < 4)
 	{
 		codesize = (fcount > codesize) ? fcount : codesize;
-		return code[fcount] = bus->Read8(a);
+		return code[fcount] = host_ram[a];
 	}
 
 	if (readcount < 8)
 	{
-		uint data = bus->Read8(a);
+		uint data = host_ram[a];
 		readptr[readcount] = a;
 		readdat[readcount] = data;
 		readcount++;
 		return data;
 	}
 	fprintf(fp, "%x %x\n", a, pc);
-	Error("１命令中に８バイトを超えるデータの読み込み");
-	return bus->Read8(a);
+	Error("?P???????W?o?C?g??????f?[?^???????");
+	return host_ram[a];
 }
 
 // ----------------------------------------------------------------------------
@@ -254,7 +266,7 @@ inline uint Z80Test::Read8T(uint a)
 	}
 
 	char buf[128];
-	sprintf(buf, "読み込みアドレスの不一致: %.4x", a);
+	sprintf(buf, "??????A?h???X??s??v: %.4x", a);
 	Error(buf);
 	return 0;
 }
@@ -269,10 +281,10 @@ inline void Z80Test::Write8R(uint a, uint d)
 		writeptr[writecount] = a;
 		writedat[writecount] = d;
 		writecount ++;
-		bus->Write8(a, d);
+		host_ram[a] = static_cast<uint8>(d);
 		return;
 	}
-	Error("１命令中に８バイトを超えるデータの書き込み");
+	Error("?P???????W?o?C?g??????f?[?^?????????");
 }
 
 inline void Z80Test::Write8T(uint a, uint d)
@@ -286,14 +298,14 @@ inline void Z80Test::Write8T(uint a, uint d)
 			if (writedat[i] != d)
 			{
 				char buf[128];
-				sprintf(buf, "書き込みデータの不一致 at %.4x:%.2x %.2x", a, writedat[i], d);
+				sprintf(buf, "????????f?[?^??s??v at %.4x:%.2x %.2x", a, writedat[i], d);
 				Error(buf);
 			}
 			return;
 		}
 	}
 	char buf[128];
-	sprintf(buf, "書き込みアドレスの不一致: %.4x", a);
+	sprintf(buf, "????????A?h???X??s??v: %.4x", a);
 	Error(buf);
 }
 
@@ -301,7 +313,7 @@ inline void Z80Test::Write8T(uint a, uint d)
 
 uint Z80Test::InR(uint a)
 {
-	uint data = bus->In(a);
+	uint data = 0xff;
 	inptr = a, indat = data;
 	return data;
 }
@@ -310,7 +322,7 @@ uint Z80Test::InT(uint a)
 {
 	if (inptr == a)
 		return indat;
-	Error("入力ポートの不一致");
+	Error("????|?[?g??s??v");
 	return 0;
 }
 
@@ -319,7 +331,6 @@ uint Z80Test::InT(uint a)
 void Z80Test::OutR(uint a, uint d)
 {
 	outptr = a, outdat = d;
-	bus->Out(a, d);
 }
 
 void Z80Test::OutT(uint a, uint d)
@@ -327,10 +338,10 @@ void Z80Test::OutT(uint a, uint d)
 	if (outptr == a)
 	{
 		if (outdat != d)
-			Error("出力データの不一致");
+			Error("?o??f?[?^??s??v");
 		return;
 	}
-	Error("出力ポートの不一致");
+	Error("?o??|?[?g??s??v");
 }
 
 // ----------------------------------------------------------------------------
@@ -347,7 +358,11 @@ void Z80Test::IRQ(uint, uint d)
 	cpu2.IRQ(0, d);
 }
 
-void Z80Test::NMI(uint, uint d)
+void Z80Test::NMI(uint, uint)
+{
+}
+
+void Z80Test::Wait(bool)
 {
 }
 
@@ -383,7 +398,7 @@ const Device::Descriptor Z80Test::descriptor =
 
 const Device::OutFuncPtr Z80Test::outdef[] =
 {
-	STATIC_CAST(Device::OutFuncPtr, Reset),
-	STATIC_CAST(Device::OutFuncPtr, IRQ),
-	STATIC_CAST(Device::OutFuncPtr, NMI),
+	STATIC_CAST(Device::OutFuncPtr, &Z80Test::Reset),
+	STATIC_CAST(Device::OutFuncPtr, &Z80Test::IRQ),
+	STATIC_CAST(Device::OutFuncPtr, &Z80Test::NMI),
 };

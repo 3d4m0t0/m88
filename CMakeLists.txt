@@ -30,6 +30,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(M88_BUILD_CORE_ONLY "Build portable emulation core library" ON)
 option(M88_BUILD_QT_FRONTEND "Build Qt6 frontend executable (m88-qt)" ON)
 option(M88_BUILD_LINUX_FRONTEND "Build experimental SDL2 frontend (m88); incomplete" OFF)
+option(M88_BUILD_Z80TEST "Build Z80 instruction comparison test harness (z80test)" ON)
 option(M88_NATIVE_ARCH "Tune for host CPU (-march=native, GCC/Clang only)" OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -266,6 +267,32 @@ if(M88_BUILD_LINUX_FRONTEND)
 
     message(STATUS "Configured m88 (experimental SDL2 frontend)")
   endif()
+endif()
+
+if(M88_BUILD_Z80TEST)
+  set(M88_Z80TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/z80test_main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/devices/Z80Test.cpp
+  )
+  if(MSVC AND NOT M88_LINUX_PORT)
+    list(APPEND M88_Z80TEST_SOURCES
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/devices/Z80_x86.cpp
+    )
+  endif()
+
+  add_executable(z80test ${M88_Z80TEST_SOURCES})
+  target_include_directories(z80test PRIVATE ${M88_CORE_INCLUDE_DIRS})
+  target_link_libraries(z80test PRIVATE m88_core)
+  target_compile_definitions(z80test PRIVATE M88_LINUX_PORT=1)
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(z80test PRIVATE -fpermissive)
+    if(M88_NATIVE_ARCH)
+      target_compile_options(z80test PRIVATE -march=native)
+    endif()
+  endif()
+
+  message(STATUS "Configured z80test (Z80 engine harness)")
 endif()
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/M88Install.cmake")

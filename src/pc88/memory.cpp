@@ -105,7 +105,14 @@ void Memory::Reset(uint, uint newmode)
 	sw31 = bus->In(0x31);
 	bool high = !(bus->In(0x6e) & 0x80);
 
-//	port33 = 0;
+	// Warm reset / mode change: match PC88::Reset port latches before ROM map.
+	porte2 = 0;
+	porte3 = 0;
+	if (newmode & 2) {
+		port33 = (newmode == Config::N80V2) ? 0x82 : 0x02;
+	} else {
+		port33 = 0x02;
+	}
 
 	n80mode = (newmode & 2) && (port33 & 0x80 ? n80v2rom : n80rom);
 	n80srmode = (newmode == Config::N80V2);
@@ -1193,6 +1200,40 @@ bool Memory::LoadROMImage(uint8* dest, const char* filename, int size, bool requ
 	M88RomLogLoaded(path, detail);
 #endif
 	return true;
+}
+
+// ----------------------------------------------------------------------------
+//	メイン RAM を起動直後と同じパターンで初期化
+//
+void Memory::ClearMainRAM()
+{
+	if (!ram) {
+		return;
+	}
+	SetRAMPattern(ram, 0x10000);
+	ram[0xff33] = 0;
+	// 54D8/55B2: SR pattern reads as a valid workspace list after RAM init.
+	memset(ram + 0xeac0, 0, 0xeb20 - 0xeac0);
+}
+
+void Memory::ClearTVRAM()
+{
+	if (tvram) {
+		memset(tvram, 0, 0x1000);
+	}
+}
+
+void Memory::SanitizeN88WarmBoot()
+{
+	if (!ram) {
+		return;
+	}
+	// SubSystem::Reset clears sub-side 0x4000-0x7fff; main RAM 0x7Fxx must match
+	// or CPU2 hangs at FDIF (IN FE / BIT 3) after a soft reset.
+	memset(ram + 0x7f00, 0, 0x100);
+	// IRQ / system workspace (0E6xx-0EFxx; CPU1 loops on 0EFFC if stale).
+	memset(ram + 0xe600, 0, 0xa00);
+	memset(ram + 0xeac0, 0, 0xeb20 - 0xeac0);
 }
 
 // ----------------------------------------------------------------------------

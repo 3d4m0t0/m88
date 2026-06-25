@@ -110,6 +110,9 @@ public:
 		clockcount = 0;
 		syncpq = 0;
 	}
+
+	// After host bus reset: align sub CPU scheduler state to main.
+	static void LinkDualAfterReset(Z80C* main_cpu, Z80C* sub_cpu);
 	
 	uint GetPC();
 	void SetPC(uint newpc);

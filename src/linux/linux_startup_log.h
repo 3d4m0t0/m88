@@ -7,6 +7,8 @@ struct Config;
 void M88LogConfigPath(const char* path, bool created);
 void M88LogWorkingDirectory();
 void M88LogMachine(const PC8801::Config* config);
+void M88LogBasicModeChange(int prev_mode, int new_mode, bool cold_start);
+void M88LogSoftReset();
 void M88LogFrameTiming(int texec, int config_speed);
 void M88LogSound(const PC8801::Config* config);
 void M88LogFdd(const PC8801::Config* config);

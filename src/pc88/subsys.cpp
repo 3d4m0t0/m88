@@ -307,6 +307,15 @@ void SubSystem::TickMainFdif()
 		main_fdif_activity--;
 }
 
+void SubSystem::KickMainFdifForReset(int activity)
+{
+	// After reset the main CPU may still be in a long RAM scan (0C80) before
+	// 77F7/FDIF; the sub reaches IN FE / BIT 3 first. stopwhenidle uses
+	// ExecSingle unless main_fdif_activity is set, so keep dual-CPU sync alive.
+	main_access_gen++;
+	main_fdif_activity = activity;
+}
+
 // ---------------------------------------------------------------------------
 //	状態保存
 //

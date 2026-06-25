@@ -132,7 +132,8 @@ void DumpVmState(PC88* vm, uint64_t stalled_ns) {
   std::fprintf(stderr, "  fdc: busy=%d phase=%s(%d) status=0x%02X\n", diag.fdc_busy ? 1 : 0,
                FdcPhaseName(diag.fdc_phase), diag.fdc_phase,
                static_cast<unsigned>(diag.fdc_status));
-  std::fprintf(stderr, "  subsys: main_fdif_active=%d\n", diag.main_fdif_active ? 1 : 0);
+  std::fprintf(stderr, "  subsys: main_fdif_active=%d isbusy=%d idlecount=%u\n",
+               diag.main_fdif_active ? 1 : 0, diag.sub_isbusy ? 1 : 0, diag.sub_idlecount);
   std::fprintf(stderr, "  host: clock=%u eclock=%u dexc=%d\n", diag.clock, diag.eclock,
                diag.dexc);
   std::fflush(stderr);

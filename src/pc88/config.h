@@ -27,6 +27,10 @@ public:
 		N88V1 = 0x20, N88V1H = 0x21, N88V2 = 0x31, 
 		N88V2CD = 0x71,
 	};
+
+	// bit5: N88 (V1/V2) vs N80 family
+	static bool IsN88Family(BASICMode m) { return (static_cast<uint8>(m) & 0x20) != 0; }
+
 	enum KeyType
 	{
 		AT106=0, PC98=1, AT101=2

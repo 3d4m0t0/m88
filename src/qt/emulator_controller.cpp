@@ -1577,6 +1577,7 @@ void EmulatorController::resetMachine() {
     startCpuDumpCapture(CpuDumpTrigger::Reset);
     return;
   }
+  M88LogSoftReset();
   applyWinReset();
 }
 

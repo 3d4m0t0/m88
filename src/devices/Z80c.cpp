@@ -760,6 +760,31 @@ void IOCALL Z80C::Reset(uint, uint)
 	waitstate = 0;
 	intr = false;			// ??????N???A
 	execcount = 0;
+	delaycount = 0;
+	eshift = 0;
+	clockcount = 0;
+	syncpq = 0;
+	sync_stall_count_ = 0;
+	sync_yield_ = false;
+	stopcount = 0;
+	startcount = 0;
+}
+
+void Z80C::LinkDualAfterReset(Z80C* main_cpu, Z80C* sub_cpu)
+{
+	if (!main_cpu || !sub_cpu) {
+		return;
+	}
+	sub_cpu->execcount = main_cpu->execcount;
+	sub_cpu->delaycount = main_cpu->execcount;
+	sub_cpu->eshift = 0;
+	sub_cpu->ParkSyncState();
+	main_cpu->delaycount = main_cpu->execcount;
+	main_cpu->eshift = 0;
+	main_cpu->clockcount = 0;
+	main_cpu->syncpq = 0;
+	main_cpu->sync_stall_count_ = 0;
+	main_cpu->sync_yield_ = false;
 }
 
 // ---------------------------------------------------------------------------
