@@ -1514,6 +1514,66 @@
       "context": "EmulatorController",
       "source": "CPU2 reset window",
       "translation": "CPU2 리셋 구간"
+    },
+    {
+      "context": "MainWindow",
+      "source": "カナON",
+      "translation": "가나 ON"
+    },
+    {
+      "context": "MainWindow",
+      "source": "カナOFF",
+      "translation": "가나 OFF"
+    },
+    {
+      "context": "MainWindow",
+      "source": "Half-width kana via host IME (Settings > Other).",
+      "translation": "호스트 IME 반각 가나 (설정 > 기타)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Mode: %1",
+      "translation": "모드: %1"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "closed",
+      "translation": "종료"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "inactive",
+      "translation": "비활성"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "active",
+      "translation": "활성"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "unknown",
+      "translation": "알 수 없음"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "(none)",
+      "translation": "(없음)"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "Host IM: %1",
+      "translation": "호스트 IM: %1"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "Host IM: %1 (direct)",
+      "translation": "호스트 IM: %1 (직접)"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "fcitx CurrentInputMethod (global D-Bus)\nIM: %1\nState: %2",
+      "translation": "fcitx CurrentInputMethod (global D-Bus)\nIM: %1\n상태: %2"
     }
   ]
 }

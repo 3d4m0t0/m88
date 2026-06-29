@@ -1514,6 +1514,66 @@
       "context": "EmulatorController",
       "source": "CPU2 reset window",
       "translation": "Ventana de reset CPU2"
+    },
+    {
+      "context": "MainWindow",
+      "source": "カナON",
+      "translation": "Kana ACT."
+    },
+    {
+      "context": "MainWindow",
+      "source": "カナOFF",
+      "translation": "Kana DES."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Half-width kana via host IME (Settings > Other).",
+      "translation": "Kana de ancho medio mediante IME del host (Configuración > Otro)."
+    },
+    {
+      "context": "MainWindow",
+      "source": "Mode: %1",
+      "translation": "Modo: %1"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "closed",
+      "translation": "cerrado"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "inactive",
+      "translation": "inactivo"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "active",
+      "translation": "activo"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "unknown",
+      "translation": "desconocido"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "(none)",
+      "translation": "(ninguno)"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "Host IM: %1",
+      "translation": "IME del host: %1"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "Host IM: %1 (direct)",
+      "translation": "IME del host: %1 (directo)"
+    },
+    {
+      "context": "FcitxStatus",
+      "source": "fcitx CurrentInputMethod (global D-Bus)\nIM: %1\nState: %2",
+      "translation": "fcitx CurrentInputMethod (D-Bus global)\nIM: %1\nEstado: %2"
     }
   ]
 }
