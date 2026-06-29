@@ -1382,8 +1382,8 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "Converts host IME text (romaji, hiragana, etc.) into PC-88 half-width kana key strokes.",
-      "translation": "Convertit le texte IME hôte (romaji, hiragana, etc.) en frappes kana demi-chasse PC-88."
+      "source": "Half-width kana input for PC-8801: committed host IME text is sent as half-width kana key strokes.\nRequires a Japanese input engine on the desktop (Mozc, SKK, Anthy, etc.; usually via fcitx).\nWhen fcitx is running, IME on/off is synchronized via D-Bus from your usual desktop IME controls.",
+      "translation": "Saisie kana demi-chasse pour PC-8801 : le texte IME hôte validé est envoyé comme frappes kana demi-chasse.\nNécessite un moteur de saisie japonais (Mozc, SKK, Anthy, etc. ; en général via fcitx).\nAvec fcitx actif, marche/arrêt est synchronisé par D-Bus selon vos contrôles IME habituels."
     },
     {
       "context": "ConfigDialog",

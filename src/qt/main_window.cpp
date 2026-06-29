@@ -6,6 +6,7 @@
 #include "disk_recent_files.h"
 #include "multi_disk_editor_dialog.h"
 #include "emu_view.h"
+#include "fcitx_status.h"
 #include "qt_platform.h"
 #include "../linux/shared_framebuffer_draw.h"
 
@@ -718,6 +719,25 @@ bool IsFdcStatusMessage(const QString& message) {
          message.startsWith(QStringLiteral("ReadDiagnostic"));
 }
 
+QString BasicModeShortName(int basicmode) {
+  switch (basicmode) {
+    case PC8801::Config::N88V1:
+      return QStringLiteral("N88V1(S)");
+    case PC8801::Config::N88V1H:
+      return QStringLiteral("N88V1(H)");
+    case PC8801::Config::N88V2:
+      return QStringLiteral("N88V2");
+    case PC8801::Config::N88V2CD:
+      return QStringLiteral("N88V2(C&D)");
+    case PC8801::Config::N802:
+      return QStringLiteral("N80II");
+    case PC8801::Config::N80V2:
+      return QStringLiteral("N80V2");
+    default:
+      return QStringLiteral("N88");
+  }
+}
+
 }  // namespace
 
 void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0,
@@ -760,6 +780,7 @@ void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0
       register_label_->hide();
     }
   }
+  updateKanaStatusLabel();
   if (!statusBar()) {
     return;
   }
@@ -773,10 +794,10 @@ void MainWindow::updateStatusUi(bool bar_enabled, bool show_fdc_lamps, int lamp0
     }
   }
   if (message.isEmpty() || (show_fdc_lamps && IsFdcStatusMessage(message))) {
-    statusBar()->clearMessage();
+    showStatusMessage(QString());
     return;
   }
-  statusBar()->showMessage(message, message_ms > 0 ? message_ms : 0);
+  showStatusMessage(message, message_ms);
 }
 
 void MainWindow::updateTitleStats(int fps, int mhz_whole, int mhz_frac) {
@@ -814,6 +835,7 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
     applyRomMissingUiState();
     return;
   }
+  current_basicmode_ = basicmode;
   ask_before_reset_ = ask_before_reset;
   f12_as_reset_ = f12_as_reset;
   if (view_) {
@@ -872,6 +894,7 @@ void MainWindow::updateControlMenu(int clock, int basicmode, bool n80_supported,
     dump_cpu2_log_action_->setEnabled(true);
   }
   watch_register_enabled_ = watch_register;
+  updateKanaStatusLabel();
   (void)clock;
 }
 
@@ -1163,10 +1186,10 @@ void MainWindow::onRequiredRomMissing() {
     applySavedWindowPosition();
   }
   statusBar()->show();
-  statusBar()->showMessage(
+  showStatusMessage(
       tr("Required ROM not found (pc88.rom or n88.rom). Place ROM files in the "
-         "roms directory and restart."),
-      0);
+         "roms directory and restart."));
+  updateKanaStatusLabel();
   applyRomMissingUiState();
 }
 
@@ -1261,6 +1284,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   view_->setScale(view_scale_);
   view_->setHostInput(&host_input_);
   view_->installEventFilter(this);
+  qApp->installEventFilter(this);
   layout->addWidget(view_, 1);
   setCentralWidget(central);
 
@@ -1281,6 +1305,36 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     sb->setPalette(app_pal);
     sb->setFocusPolicy(Qt::NoFocus);
     sb->hide();
+
+    // QStatusBar reserves a built-in QLabel for showMessage(); collapse it before adding ours.
+    for (QLabel* label : sb->findChildren<QLabel*>(QString(), Qt::FindDirectChildrenOnly)) {
+      label->hide();
+      label->setMaximumSize(0, 0);
+    }
+
+    kana_status_label_ = new QLabel(sb);
+    kana_status_label_->setFocusPolicy(Qt::NoFocus);
+    kana_status_label_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
+    kana_status_label_->setContentsMargins(0, 0, 12, 0);
+    kana_status_label_->hide();
+    sb->addWidget(kana_status_label_, 0);
+
+    status_message_label_ = new QLabel(sb);
+    status_message_label_->setFocusPolicy(Qt::NoFocus);
+    status_message_label_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    status_message_label_->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    status_message_label_->setContentsMargins(0, 0, 8, 0);
+    status_message_label_->hide();
+    sb->addWidget(status_message_label_, 1);
+
+    status_message_timer_ = new QTimer(this);
+    status_message_timer_->setSingleShot(true);
+    connect(status_message_timer_, &QTimer::timeout, this, [this]() {
+      if (status_message_label_) {
+        status_message_label_->clear();
+        status_message_label_->hide();
+      }
+    });
 
     register_label_ = new QLabel(sb);
     register_label_->setFocusPolicy(Qt::NoFocus);
@@ -1310,6 +1364,12 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
     sb->addPermanentWidget(fdc_lamp_panel_, 0);
   }
 
+  fcitx_status_ = new FcitxStatus(this);
+  view_->setFcitxStatus(fcitx_status_);
+  fcitx_poll_timer_ = new QTimer(this);
+  fcitx_poll_timer_->setInterval(300);
+  connect(fcitx_poll_timer_, &QTimer::timeout, this, &MainWindow::syncHostImeFromFcitx);
+
   EmulatorController::Options emu_options = options;
   emu_options.host_input = &host_input_;
   controller_ = new EmulatorController(draw_, emu_options);
@@ -1337,6 +1397,14 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
           Qt::QueuedConnection);
   connect(view_, &EmuView::imeCommit, controller_, &EmulatorController::commitImeText,
           Qt::QueuedConnection);
+  connect(view_, &EmuView::emuFocusReceived, this, &MainWindow::syncHostImeFromFcitx);
+  connect(view_, &EmuView::hostImeHotkeyPressed, this, [this]() {
+    QTimer::singleShot(0, this, &MainWindow::syncHostImeFromFcitx);
+    QTimer::singleShot(80, this, &MainWindow::syncHostImeFromFcitx);
+  });
+  connect(view_, &EmuView::imeSessionChanged, this, [this](bool /*active*/) {
+    updateKanaStatusLabel();
+  });
   connect(controller_, &EmulatorController::requiredRomMissing, this,
           &MainWindow::onRequiredRomMissing);
   connect(controller_, &EmulatorController::failed, this, [this](const QString& msg) {
@@ -1349,13 +1417,13 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
       applySavedWindowPosition();
     }
     if (!fullscreen_ && statusBar()) {
-      statusBar()->showMessage(msg, 0);
+      showStatusMessage(msg);
     }
   });
   connect(controller_, &EmulatorController::started, this, [this]() {
     syncImeKanaInput();
     if (!fullscreen_ && statusBar() && !watch_register_enabled_) {
-      statusBar()->showMessage(tr("Emulator running"), 3000);
+      showStatusMessage(tr("Emulator running"), 3000);
     }
   });
   connect(controller_, &EmulatorController::mouseCaptureChanged, view_,
@@ -1406,7 +1474,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
             if (fullscreen_ || !statusBar() || watch_register_enabled_) {
               return;
             }
-            statusBar()->showMessage(msg, timeoutMs);
+            showStatusMessage(msg, timeoutMs);
           });
 
   // Keys go to WinKeyIF pending queue (thread-safe); applied on matrix In(), not frame order.
@@ -1444,8 +1512,80 @@ void MainWindow::syncImeKanaInput() {
   LinuxIme::SetUserEnabled(M88ImeHalfKanaEnabled());
   LinuxIme::InitHost();
   if (view_) {
-    view_->setImeInputEnabled(LinuxIme::Enabled());
+    view_->setImeKanaAvailable(LinuxIme::Enabled());
   }
+  if (fcitx_poll_timer_) {
+    if (LinuxIme::Enabled() && fcitx_status_) {
+      fcitx_poll_timer_->start();
+    } else {
+      fcitx_poll_timer_->stop();
+    }
+  }
+  syncHostImeFromFcitx();
+}
+
+void MainWindow::syncHostImeFromFcitx() {
+  if (!fcitx_status_ || !view_) {
+    return;
+  }
+  fcitx_status_->refresh();
+  updateKanaStatusLabel();
+  if (!LinuxIme::Enabled()) {
+    return;
+  }
+  // TODO(ibus): When QT_IM_MODULE=ibus, poll ibus global engine/active state and call
+  // syncImeSessionFromHost() the same way (read-only; do not drive ibus from the app).
+  view_->syncImeSessionFromHost(fcitx_status_->hostKanaInputActive());
+}
+
+void MainWindow::showStatusMessage(const QString& message, int message_ms) {
+  if (!status_message_label_ || fullscreen_ || !statusBar() || !statusBar()->isVisible()) {
+    return;
+  }
+  if (status_message_timer_) {
+    status_message_timer_->stop();
+  }
+  if (message.isEmpty()) {
+    status_message_label_->clear();
+    status_message_label_->hide();
+    return;
+  }
+  status_message_label_->setText(message);
+  status_message_label_->show();
+  const int ms = message_ms > 0 ? message_ms : kDefaultStatusMessageMs;
+  if (status_message_timer_) {
+    status_message_timer_->start(ms);
+  }
+}
+
+void MainWindow::updateKanaStatusLabel() {
+  if (!kana_status_label_) {
+    return;
+  }
+  if (fullscreen_ || !statusBar() || !statusBar()->isVisible() || !LinuxIme::Enabled()) {
+    kana_status_label_->hide();
+    return;
+  }
+  const bool kana_on = view_ && view_->imeSessionActive();
+  if (kana_on) {
+    kana_status_label_->setText(tr("カナON"));
+  } else {
+    kana_status_label_->setText(tr("カナOFF"));
+  }
+  QString tip = tr("Half-width kana via host IME (Settings > Other).");
+  if (kana_on) {
+    tip += QStringLiteral("\n") +
+           tr("Mode: %1").arg(BasicModeShortName(current_basicmode_));
+  }
+  if (fcitx_status_ && fcitx_status_->available()) {
+    tip = fcitx_status_->toolTipText();
+    if (kana_on) {
+      tip += QStringLiteral("\n") +
+             tr("Mode: %1").arg(BasicModeShortName(current_basicmode_));
+    }
+  }
+  kana_status_label_->setToolTip(tip);
+  kana_status_label_->show();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -1471,6 +1611,7 @@ void MainWindow::showEvent(QShowEvent* event) {
   }
   focusEmuView();
   syncWaylandIdleInhibit();
+  syncHostImeFromFcitx();
 }
 
 void MainWindow::hideEvent(QHideEvent* event) {
@@ -1487,11 +1628,29 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     }
   }
 
+  const bool key_event =
+      event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease;
+  if (key_event && isActiveWindow() && view_ && view_->hasFocus()) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    if (view_->consumeHostImeHotkey(key)) {
+      return true;
+    }
+  }
+
   if (watched == view_ && event->type() == QEvent::KeyPress) {
     auto* key = static_cast<QKeyEvent*>(event);
     if (!key->isAutoRepeat() && key->modifiers().testFlag(Qt::AltModifier) &&
         (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)) {
       toggleFullscreen();
+      return true;
+    }
+    if (view_->handleGuestKeyPress(key)) {
+      return true;
+    }
+  }
+  if (watched == view_ && event->type() == QEvent::KeyRelease) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    if (view_->handleGuestKeyRelease(key)) {
       return true;
     }
   }
@@ -1520,14 +1679,23 @@ void MainWindow::changeEvent(QEvent* event) {
   }
   if (event->type() == QEvent::ActivationChange && isActiveWindow()) {
     focusEmuView();
+    if (view_) {
+      QTimer::singleShot(0, view_, [this]() {
+        if (view_) {
+          view_->reconnectHostInputMethod();
+        }
+      });
+      QTimer::singleShot(80, this, &MainWindow::syncHostImeFromFcitx);
+    }
   }
 }
 
 void MainWindow::focusEmuView() {
   if (view_) {
     view_->setFocus(Qt::ActiveWindowFocusReason);
-    // Do not grabKeyboard(): it breaks host IME (fcitx5/ibus) on Wayland/X11.
+    view_->reconnectHostInputMethod();
   }
+  syncHostImeFromFcitx();
 }
 
 

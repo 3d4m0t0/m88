@@ -647,8 +647,12 @@ void ConfigDialog::buildUi() {
     func_idle_inhibit_ = new QCheckBox(tr("Inhibit display idle (&I)"), page);
     func_ime_kana_ = new QCheckBox(tr("Half-width kana via IME (&H)"), page);
     func_ime_kana_hint_ =
-        new QLabel(tr("Converts host IME text (romaji, hiragana, etc.) into PC-88 "
-                      "half-width kana key strokes."),
+        new QLabel(tr("Half-width kana input for PC-8801: committed host IME text is sent as "
+                      "half-width kana key strokes.\n"
+                      "Requires a Japanese input engine on the desktop (Mozc, SKK, Anthy, etc.; "
+                      "usually via fcitx).\n"
+                      "When fcitx is running, IME on/off is synchronized via D-Bus from your "
+                      "usual desktop IME controls."),
                    page);
     func_ime_kana_hint_->setWordWrap(true);
 

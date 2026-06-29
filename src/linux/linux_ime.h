@@ -37,4 +37,7 @@ void Pump(PC8801::WinKeyIF* keyif);
 // Enqueue half-kana key strokes (returns false if nothing to inject).
 bool CommitUtf8(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config* cfg);
 
+// Optional: push fcitx global IM (legacy; Qt frontend follows host via D-Bus instead).
+void SyncHostImeSession(bool active);
+
 }  // namespace LinuxIme

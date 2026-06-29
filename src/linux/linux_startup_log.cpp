@@ -77,6 +77,10 @@ void M88LogFdd(const PC8801::Config* config) {
 
 void M88LogImeHalfKana() {
   std::fprintf(stderr, "M88: IME half-kana: momentary カナ + FH matrix table\n");
+#ifdef M88_QT_FRONTEND
+  std::fprintf(stderr,
+               "M88: Qt IM follows host fcitx via D-Bus (Japanese engine required, e.g. Mozc)\n");
+#endif
 }
 
 void M88LogSdlVideoIndexed8() {

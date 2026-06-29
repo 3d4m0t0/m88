@@ -14,9 +14,11 @@
 #include <vector>
 
 #include "emulator_controller.h"
+#include "fcitx_status.h"
 #include "qt_host_input.h"
 
 class EmuView;
+class FcitxStatus;
 class SharedFramebufferDraw;
 
 struct MainWindowStartup {
@@ -68,6 +70,9 @@ private:
   void syncRememberPrefsFromConfig(const PC8801::Config& config);
   void syncWaylandIdleInhibit();
   void syncImeKanaInput();
+  void syncHostImeFromFcitx();
+  void updateKanaStatusLabel();
+  void showStatusMessage(const QString& message, int message_ms = 0);
   void applySavedWindowPosition();
   void saveWindowPositionOnExit();
   void applyFullscreenLayout();
@@ -160,11 +165,17 @@ private:
   QAction* dump_cpu1_log_action_ = nullptr;
   QAction* dump_cpu2_log_action_ = nullptr;
   bool watch_register_enabled_ = false;
+  QLabel* kana_status_label_ = nullptr;
+  QLabel* status_message_label_ = nullptr;
+  QTimer* status_message_timer_ = nullptr;
   QLabel* register_label_ = nullptr;
   QLabel* fdc_text_label_ = nullptr;
+  FcitxStatus* fcitx_status_ = nullptr;
+  QTimer* fcitx_poll_timer_ = nullptr;
   QTimer* title_timer_ = nullptr;
   QTimer* fullscreen_chrome_hide_timer_ = nullptr;
   static constexpr int kFullscreenChromeHideMs = 5000;
+  static constexpr int kDefaultStatusMessageMs = 5000;
   QWidget* fdc_lamp_panel_ = nullptr;
   QLabel* fdc_lamp_labels_[3] = {nullptr, nullptr, nullptr};
   QActionGroup* mode_group_ = nullptr;
@@ -178,4 +189,5 @@ private:
   bool closing_ = false;
   bool window_shown_ = false;
   bool rom_missing_ = false;
+  int current_basicmode_ = 0;
 };

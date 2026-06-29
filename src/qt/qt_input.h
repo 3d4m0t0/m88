@@ -18,6 +18,9 @@ void SetSuppressMenu(bool enabled);
 // US/101 host: prefer evdev scancodes for the top digit/punctuation row (layout-independent).
 void SetHostAt101(bool enabled);
 
+uint VkFromAsciiChar(QChar ch);
+uint32 KeyDataForAsciiChar(QChar ch);
+
 enum class LetterShiftAdjust { None, AddShift, RemoveShift };
 
 // Caps Lock ON: AddShift for uppercase without Shift; RemoveShift for lowercase with Shift

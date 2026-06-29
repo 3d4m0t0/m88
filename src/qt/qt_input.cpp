@@ -4,6 +4,7 @@
 #include "../linux_compat/winkeys.h"
 
 #include <QKeyEvent>
+#include <QtGlobal>
 
 namespace {
 
@@ -155,6 +156,53 @@ uint VkFromShiftedText(QChar ch) {
       if (ch >= QLatin1Char('a') && ch <= QLatin1Char('z')) {
         return static_cast<uint>(ch.unicode() - 'a' + 'A');
       }
+      return 0;
+  }
+}
+
+uint VkFromAsciiChar(QChar ch) {
+  const ushort u = ch.unicode();
+  if (u >= 'A' && u <= 'Z') {
+    return u;
+  }
+  if (u >= 'a' && u <= 'z') {
+    return static_cast<uint>(u - 'a' + 'A');
+  }
+  if (u >= '0' && u <= '9') {
+    return u;
+  }
+  const uint vk_shift = VkFromShiftedText(ch);
+  if (vk_shift) {
+    return vk_shift;
+  }
+  switch (u) {
+    case ' ':
+      return VK_SPACE;
+    case '\t':
+      return VK_TAB;
+    case '-':
+      return VK_OEM_MINUS;
+    case '=':
+      return VK_OEM_PLUS;
+    case '[':
+      return VK_OEM_4;
+    case ']':
+      return VK_OEM_6;
+    case '\\':
+      return VK_OEM_5;
+    case ';':
+      return VK_OEM_1;
+    case '\'':
+      return VK_OEM_7;
+    case ',':
+      return VK_OEM_COMMA;
+    case '.':
+      return VK_OEM_PERIOD;
+    case '/':
+      return VK_OEM_2;
+    case '`':
+      return VK_OEM_3;
+    default:
       return 0;
   }
 }
@@ -383,7 +431,24 @@ uint ResolveHostVk(const QKeyEvent& ev) {
   if (vk_qt != 0) {
     return vk_qt;
   }
-  return VkFromScan(ev.nativeScanCode());
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  const uint nvk = static_cast<uint>(ev.nativeVirtualKey());
+  if (nvk >= 0x20 && nvk < 0x100) {
+    return nvk;
+  }
+#endif
+
+  const uint vk_scan = VkFromScan(ev.nativeScanCode());
+  if (vk_scan != 0) {
+    return vk_scan;
+  }
+
+  const QString text = ev.text();
+  if (text.size() == 1) {
+    return VkFromAsciiChar(text[0]);
+  }
+  return 0;
 }
 
 }  // namespace
@@ -426,6 +491,24 @@ uint VkFromKeyEvent(const QKeyEvent& ev) {
     vk = VK_LSHIFT;
   }
   return vk;
+}
+
+uint VkFromAsciiChar(QChar ch) {
+  return ::VkFromAsciiChar(ch);
+}
+
+uint32 KeyDataForAsciiChar(QChar ch) {
+  uint32 kd = 0;
+  if (ch >= QLatin1Char('A') && ch <= QLatin1Char('Z')) {
+    kd |= M88_KEYDATA_HOST_SHIFT;
+  } else if (VkFromAsciiChar(ch) != 0 && !(ch >= QLatin1Char('a') && ch <= QLatin1Char('z')) &&
+             !(ch >= QLatin1Char('0') && ch <= QLatin1Char('9'))) {
+    const uint vk_shift = VkFromShiftedText(ch);
+    if (vk_shift && vk_shift != static_cast<uint>(ch.unicode())) {
+      kd |= M88_KEYDATA_HOST_SHIFT;
+    }
+  }
+  return kd;
 }
 
 uint32 KeyExtended(const QKeyEvent& ev) {

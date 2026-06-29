@@ -109,7 +109,7 @@ message(STATUS "M88 build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Configured m88_core (Linux core library)")
 
 if(M88_BUILD_QT_FRONTEND)
-  find_package(Qt6 QUIET COMPONENTS Widgets)
+  find_package(Qt6 QUIET COMPONENTS Widgets DBus)
   if(NOT Qt6_FOUND)
     message(WARNING "Qt6 not found; m88-qt will not be built (install Qt6 Widgets development package)")
   else()
@@ -145,6 +145,8 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_video_log.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_platform.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_platform.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/fcitx_status.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/fcitx_status.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/screen_capture.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/screen_capture.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/linux/keyboard_vk.cpp
@@ -169,7 +171,7 @@ if(M88_BUILD_QT_FRONTEND)
         ${M88_CORE_INCLUDE_DIRS}
       )
 
-      target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets pthread dl m)
+      target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets Qt6::DBus pthread dl m)
 
       find_package(PkgConfig QUIET)
       if(PkgConfig_FOUND)

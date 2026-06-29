@@ -97,3 +97,7 @@ void M88SetWaylandIdleInhibitEnabled(bool enabled);
 // m88.ini ImeHalfKana=1 (host IME -> PC-88 half-width kana).
 bool M88ImeHalfKanaEnabled();
 void M88SetImeHalfKanaEnabled(bool enabled);
+
+// m88.ini ImeFcitxMethod=mozc (optional fcitx5 IM name for kana session; auto if empty).
+const char* M88ImeFcitxMethod();
+void M88SetImeFcitxMethod(const char* name);

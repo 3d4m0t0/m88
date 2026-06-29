@@ -1382,8 +1382,8 @@
     },
     {
       "context": "ConfigDialog",
-      "source": "Converts host IME text (romaji, hiragana, etc.) into PC-88 half-width kana key strokes.",
-      "translation": "호스트 IME 입력(로마자, 히라가나 등)을 PC-88 반각 가나 키 입력으로 변환합니다."
+      "source": "Half-width kana input for PC-8801: committed host IME text is sent as half-width kana key strokes.\nRequires a Japanese input engine on the desktop (Mozc, SKK, Anthy, etc.; usually via fcitx).\nWhen fcitx is running, IME on/off is synchronized via D-Bus from your usual desktop IME controls.",
+      "translation": "PC-8801 반각 가나 입력: 호스트 IME에서 확정한 문자를 반각 가나 키 입력으로 보냅니다.\n데스크톱에 일본어 입력 엔진(Mozc, SKK, Anthy 등; 보통 fcitx)이 필요합니다.\nfcitx 실행 시 데스크톱 IME 조작에 맞춰 D-Bus로 켜기/끄기를 동기화합니다."
     },
     {
       "context": "ConfigDialog",

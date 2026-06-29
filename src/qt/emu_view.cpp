@@ -7,6 +7,10 @@
 
 #include "../linux_compat/winkeys.h"
 
+#include "../linux/half_kana_ime.h"
+
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <QFocusEvent>
 #include <QGuiApplication>
 #include <QInputMethod>
@@ -20,6 +24,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 namespace {
 
@@ -40,13 +45,29 @@ bool HostShortcutModifiers(const QKeyEvent& event) {
 
 }  // namespace
 
+constexpr int kImeInlineBarHeight = 28;
+
+bool EmuView::imeInlineEnabled() const {
+  return ime_session_active_ && ime_kana_available_;
+}
+
+QRect EmuView::imeInlineBarRect() const {
+  return QRect(0, height() - kImeInlineBarHeight, width(), kImeInlineBarHeight);
+}
+
+void EmuView::invalidateImeInlineBar() {
+  if (height() > 0 && width() > 0) {
+    update(imeInlineBarRect());
+  }
+}
+
 bool EmuView::imeComposing() const {
-  return ime_block_keys_ || !ime_preedit_.isEmpty();
+  return imeInlineEnabled() && (ime_block_keys_ || !ime_preedit_.isEmpty());
 }
 
 bool EmuView::passKeyToIme(const QKeyEvent& event) const {
   (void)event;
-  return !ime_preedit_.isEmpty();
+  return imeInlineEnabled() && !ime_preedit_.isEmpty();
 }
 
 bool EmuView::sendSpaceToGuest(const QKeyEvent& event) const {
@@ -57,12 +78,11 @@ bool EmuView::sendSpaceToGuest(const QKeyEvent& event) const {
     return false;
   }
   // While preedit is active, Space belongs to the host IME (e.g. fullwidth space).
-  return ime_preedit_.isEmpty();
+  return !imeInlineEnabled() || ime_preedit_.isEmpty();
 }
 
 EmuView::EmuView(QWidget* parent) : QWidget(parent) {
   setFocusPolicy(Qt::StrongFocus);
-  setAttribute(Qt::WA_InputMethodEnabled, true);
   setAutoFillBackground(true);
   QPalette pal = palette();
   pal.setColor(QPalette::Window, Qt::black);
@@ -89,19 +109,113 @@ void EmuView::setSuppressMenu(bool enabled) {
   QtInput::SetSuppressMenu(enabled);
 }
 
-void EmuView::setImeInputEnabled(bool enabled) {
-  setAttribute(Qt::WA_InputMethodEnabled, enabled);
-  if (!enabled) {
+void EmuView::setImeKanaAvailable(bool available) {
+  if (ime_kana_available_ == available) {
+    return;
+  }
+  ime_kana_available_ = available;
+  if (!available) {
+    applyImeSessionActive(false);
+    setAttribute(Qt::WA_InputMethodEnabled, false);
+    return;
+  }
+  attachHostInputMethod(true);
+}
+
+void EmuView::syncImeSessionFromHost(bool active) {
+  if (!ime_kana_available_) {
+    active = false;
+  }
+  applyImeSessionActive(active);
+}
+
+void EmuView::setImeSessionActive(bool active) {
+  syncImeSessionFromHost(active);
+}
+
+void EmuView::attachHostInputMethod(bool available) {
+  setAttribute(Qt::WA_InputMethodEnabled, available);
+  if (!available) {
+    return;
+  }
+  reconnectHostInputMethod();
+}
+
+void EmuView::reconnectHostInputMethod() {
+  if (!ime_kana_available_ || reconnecting_im_) {
+    return;
+  }
+  if (hasFocus() && testAttribute(Qt::WA_InputMethodEnabled)) {
+    reconnecting_im_ = true;
+    ime_internal_focus_shift_ = true;
+    clearFocus();
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    setFocus(Qt::OtherFocusReason);
+    ime_internal_focus_shift_ = false;
+    reconnecting_im_ = false;
+  }
+  refreshHostInputMethod();
+}
+
+void EmuView::applyImeSessionActive(bool active) {
+  if (ime_session_active_ == active) {
+    return;
+  }
+  ime_session_active_ = active;
+  if (!active) {
     ime_preedit_.clear();
     ime_block_keys_ = false;
     if (draw_) {
       draw_->SetImePreedit("");
     }
+    if (QInputMethod* im = QGuiApplication::inputMethod()) {
+      im->hide();
+      im->reset();
+    }
   }
+  refreshHostInputMethod();
+  invalidateImeInlineBar();
+  emit imeSessionChanged(active);
+}
+
+void EmuView::refreshHostInputMethod() {
+  if (QInputMethod* im = QGuiApplication::inputMethod()) {
+    im->update(Qt::ImQueryAll);
+  }
+}
+
+bool EmuView::consumeHostImeHotkey(QKeyEvent* event) {
+  return tryHostImeHotkey(event);
+}
+
+bool EmuView::tryHostImeHotkey(QKeyEvent* event) {
+  if (!event || !fcitx_status_ || !ime_kana_available_) {
+    return false;
+  }
+  if (event->type() == QEvent::KeyPress) {
+    if (!fcitx_status_->matchesTriggerKey(*event)) {
+      return false;
+    }
+    fcitx_status_->toggleInputMethod();
+    host_ime_hotkey_armed_ = true;
+    event->accept();
+    emit hostImeHotkeyPressed();
+    return true;
+  }
+  if (event->type() == QEvent::KeyRelease && host_ime_hotkey_armed_) {
+    host_ime_hotkey_armed_ = false;
+    event->accept();
+    return true;
+  }
+  return false;
 }
 
 void EmuView::setHostInput(QtHostInput::Host* host_input) {
   host_input_ = host_input;
+}
+
+void EmuView::setFcitxStatus(FcitxStatus* fcitx_status) {
+  fcitx_status_ = fcitx_status;
 }
 
 void EmuView::setMouseCapture(bool enabled) {
@@ -143,7 +257,7 @@ void EmuView::refreshFrame() {
     return;
   }
 
-  if (ime_preedit_.isEmpty()) {
+  if (imeInlineEnabled() && ime_preedit_.isEmpty()) {
     ime_preedit_ = QString::fromUtf8(draw_->GetImePreedit());
   }
 
@@ -164,7 +278,7 @@ void EmuView::refreshFrame() {
       draw_->AcquireUiFrame(&data, &bpl, &w, &h, &pal_changed, palette_, 256, &region);
   if (!got_frame) {
     if (ime_only) {
-      update(QRect(0, height() - 28, width(), 28));
+      invalidateImeInlineBar();
     }
     return;
   }
@@ -210,9 +324,8 @@ void EmuView::paintEvent(QPaintEvent* /*event*/) {
     painter.drawImage(QRect(x, y, dst_w, dst_h), indices_);
   }
 
-  if (!ime_preedit_.isEmpty()) {
-    const int bar_h = 28;
-    const QRect bar(0, height() - bar_h, width(), bar_h);
+  if (imeInlineEnabled() && !ime_preedit_.isEmpty()) {
+    const QRect bar = imeInlineBarRect();
     painter.fillRect(bar, QColor(20, 24, 40, 220));
     painter.setPen(QColor(120, 180, 255));
     painter.drawRect(bar);
@@ -257,42 +370,52 @@ void EmuView::mouseMoveEvent(QMouseEvent* event) {
   event->accept();
 }
 
-bool EmuView::event(QEvent* event) {
-  if (event->type() == QEvent::ShortcutOverride) {
-    auto* key = static_cast<QKeyEvent*>(event);
-    if (key->modifiers().testFlag(Qt::AltModifier) &&
-        (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)) {
-      key->accept();
-      return true;
-    }
-    if (HostShortcutModifiers(*key)) {
-      key->ignore();
+bool EmuView::isAsciiOnly(const QString& text) {
+  if (text.isEmpty()) {
+    return false;
+  }
+  for (const QChar ch : text) {
+    const ushort u = ch.unicode();
+    if (u < 0x20 || u > 0x7e) {
       return false;
     }
   }
-  return QWidget::event(event);
+  return true;
 }
 
-void EmuView::focusOutEvent(QFocusEvent* event) {
-  space_pending_guest_ = false;
-  emit flushGuestKeys();
-  emit clearHostModifiers();
-  QWidget::focusOutEvent(event);
+void EmuView::injectAsciiCommit(const QString& text) {
+  for (const QChar ch : text) {
+    const uint vk = QtInput::VkFromAsciiChar(ch);
+    if (!vk) {
+      continue;
+    }
+    const uint32 kd = QtInput::KeyDataForAsciiChar(ch);
+    emit keyDown(vk, kd);
+    emit keyUp(vk, kd);
+  }
 }
 
-void EmuView::keyPressEvent(QKeyEvent* event) {
+bool EmuView::handleGuestKeyPress(QKeyEvent* event) {
+  if (!event) {
+    return false;
+  }
+  if (tryHostImeHotkey(event)) {
+    return true;
+  }
+  if (ime_session_active_) {
+    return false;
+  }
   if (event->modifiers().testFlag(Qt::AltModifier) &&
       (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
     event->accept();
-    return;
+    return true;
   }
   if (HostShortcutModifiers(*event)) {
     event->ignore();
-    return;
+    return false;
   }
   if (passKeyToIme(*event)) {
-    QWidget::keyPressEvent(event);
-    return;
+    return false;
   }
   if (sendSpaceToGuest(*event)) {
     if (!event->isAutoRepeat()) {
@@ -300,28 +423,41 @@ void EmuView::keyPressEvent(QKeyEvent* event) {
       space_pending_guest_ = true;
     }
     event->accept();
-    return;
+    return true;
   }
   if (!event->isAutoRepeat()) {
     uint vk = QtInput::VkFromKeyEvent(*event);
     if (event->key() == Qt::Key_Space) {
       vk = VK_SPACE;
     }
+    if (vk == 0 && !event->text().isEmpty()) {
+      vk = QtInput::VkFromAsciiChar(event->text()[0]);
+    }
     if (vk != 0) {
       emit keyDown(vk, QtInput::KeyDataFromEvent(*event));
+      event->accept();
+      return true;
     }
   }
-  event->accept();
+  return false;
 }
 
-void EmuView::keyReleaseEvent(QKeyEvent* event) {
+bool EmuView::handleGuestKeyRelease(QKeyEvent* event) {
+  if (!event) {
+    return false;
+  }
+  if (tryHostImeHotkey(event)) {
+    return true;
+  }
+  if (ime_session_active_) {
+    return false;
+  }
   if (HostShortcutModifiers(*event)) {
     event->ignore();
-    return;
+    return false;
   }
   if (passKeyToIme(*event)) {
-    QWidget::keyReleaseEvent(event);
-    return;
+    return false;
   }
   if (event->key() == Qt::Key_Space && space_pending_guest_) {
     if (!event->isAutoRepeat()) {
@@ -329,7 +465,7 @@ void EmuView::keyReleaseEvent(QKeyEvent* event) {
       space_pending_guest_ = false;
     }
     event->accept();
-    return;
+    return true;
   }
   if (imeComposing()) {
     if (!event->isAutoRepeat()) {
@@ -340,22 +476,104 @@ void EmuView::keyReleaseEvent(QKeyEvent* event) {
       emit clearHostModifiers();
     }
     event->ignore();
-    return;
+    return false;
   }
   if (QtInput::IsHostImeModifierKey(event->key())) {
     event->ignore();
-    return;
+    return false;
   }
   if (!event->isAutoRepeat()) {
-    const uint vk = QtInput::VkFromKeyEvent(*event);
+    uint vk = QtInput::VkFromKeyEvent(*event);
+    if (vk == 0 && !event->text().isEmpty()) {
+      vk = QtInput::VkFromAsciiChar(event->text()[0]);
+    }
     if (vk) {
       emit keyUp(vk, QtInput::KeyDataFromEvent(*event));
+      event->accept();
+      return true;
     }
   }
-  event->accept();
+  return false;
+}
+
+bool EmuView::event(QEvent* event) {
+  if (event->type() == QEvent::KeyPress) {
+    if (handleGuestKeyPress(static_cast<QKeyEvent*>(event))) {
+      return true;
+    }
+  } else if (event->type() == QEvent::KeyRelease) {
+    if (handleGuestKeyRelease(static_cast<QKeyEvent*>(event))) {
+      return true;
+    }
+  }
+  if (event->type() == QEvent::ShortcutOverride) {
+    auto* key = static_cast<QKeyEvent*>(event);
+    if (fcitx_status_ && fcitx_status_->matchesTriggerKey(*key)) {
+      key->accept();
+      return true;
+    }
+    if (key->modifiers().testFlag(Qt::AltModifier) &&
+        (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)) {
+      key->accept();
+      return true;
+    }
+    if (HostShortcutModifiers(*key)) {
+      key->ignore();
+      return false;
+    }
+    if (ime_session_active_) {
+      key->ignore();
+      return false;
+    }
+    if (imeComposing()) {
+      return QWidget::event(event);
+    }
+    if (QtInput::VkFromKeyEvent(*key) ||
+        (!key->text().isEmpty() && QtInput::VkFromAsciiChar(key->text()[0]))) {
+      key->accept();
+      return true;
+    }
+  }
+  return QWidget::event(event);
+}
+
+void EmuView::focusInEvent(QFocusEvent* event) {
+  QWidget::focusInEvent(event);
+  if (ime_kana_available_) {
+    refreshHostInputMethod();
+  }
+  emit emuFocusReceived();
+}
+
+void EmuView::focusOutEvent(QFocusEvent* event) {
+  space_pending_guest_ = false;
+  if (!ime_internal_focus_shift_) {
+    emit flushGuestKeys();
+    emit clearHostModifiers();
+  }
+  QWidget::focusOutEvent(event);
+}
+
+void EmuView::keyPressEvent(QKeyEvent* event) {
+  if (handleGuestKeyPress(event)) {
+    return;
+  }
+  QWidget::keyPressEvent(event);
+}
+
+void EmuView::keyReleaseEvent(QKeyEvent* event) {
+  if (handleGuestKeyRelease(event)) {
+    return;
+  }
+  QWidget::keyReleaseEvent(event);
 }
 
 void EmuView::inputMethodEvent(QInputMethodEvent* event) {
+  if (!imeInlineEnabled()) {
+    event->accept();
+    return;
+  }
+
   const QString prev_preedit = ime_preedit_;
   const QString new_preedit = event->preeditString();
 
@@ -370,6 +588,15 @@ void EmuView::inputMethodEvent(QInputMethodEvent* event) {
 
     if (draw_) {
       draw_->SetImePreedit("");
+    }
+    if (isAsciiOnly(commit)) {
+      std::vector<uint16_t> hw;
+      if (!HalfKanaIme::CommitUtf8ToHalfKana(commit.toUtf8().constData(), &hw) || hw.empty()) {
+        injectAsciiCommit(commit);
+        event->accept();
+        invalidateImeInlineBar();
+        return;
+      }
     }
     emit imeCommit(commit);
   } else if (!new_preedit.isEmpty()) {
@@ -392,13 +619,19 @@ void EmuView::inputMethodEvent(QInputMethodEvent* event) {
     }
   }
   event->accept();
-  update();
+  invalidateImeInlineBar();
 }
 
 QVariant EmuView::inputMethodQuery(Qt::InputMethodQuery query) const {
-  if (query == Qt::ImCursorRectangle) {
-    const int bar_h = 28;
-    return QRect(0, height() - bar_h, width(), bar_h);
+  if (query == Qt::ImEnabled) {
+    return ime_session_active_ && ime_kana_available_;
+  }
+  if (!imeInlineEnabled()) {
+    if (query == Qt::ImCursorRectangle) {
+      return QRect();
+    }
+  } else if (query == Qt::ImCursorRectangle) {
+    return imeInlineBarRect();
   }
   return QWidget::inputMethodQuery(query);
 }

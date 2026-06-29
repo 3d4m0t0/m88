@@ -25,6 +25,7 @@ bool g_screen_scale_auto = true;
 int g_screen_scale = 2;
 bool g_wayland_idle_inhibit = false;
 bool g_ime_half_kana = true;
+char g_ime_fcitx_method[64] = {};
 
 char g_keyboard_log_source[64] = "(default)";
 namespace {
@@ -205,6 +206,11 @@ bool ParseKeyValueLine(const char* line, Config* cfg) {
   }
   if (std::strcmp(key, "ImeHalfKana") == 0 && ParseIniInt(value, &n)) {
     g_ime_half_kana = (n != 0);
+    return true;
+  }
+  if (std::strcmp(key, "ImeFcitxMethod") == 0 && value) {
+    std::strncpy(g_ime_fcitx_method, value, sizeof(g_ime_fcitx_method) - 1);
+    g_ime_fcitx_method[sizeof(g_ime_fcitx_method) - 1] = '\0';
     return true;
   }
   if (std::strcmp(key, "Flags") == 0 && ParseIniInt(value, &n)) {
@@ -666,6 +672,17 @@ bool M88ImeHalfKanaEnabled() { return g_ime_half_kana; }
 
 void M88SetImeHalfKanaEnabled(bool enabled) { g_ime_half_kana = enabled; }
 
+const char* M88ImeFcitxMethod() { return g_ime_fcitx_method; }
+
+void M88SetImeFcitxMethod(const char* name) {
+  if (!name) {
+    g_ime_fcitx_method[0] = '\0';
+    return;
+  }
+  std::strncpy(g_ime_fcitx_method, name, sizeof(g_ime_fcitx_method) - 1);
+  g_ime_fcitx_method[sizeof(g_ime_fcitx_method) - 1] = '\0';
+}
+
 int M88ResolveScreenScale(int avail_w, int avail_h, int chrome_w, int chrome_h,
                           int cli_scale, bool cli_explicit) {
   if (cli_explicit) {
@@ -993,6 +1010,9 @@ bool M88SaveConfigFile(const Config* cfg, const char* path) {
   std::fprintf(fp, "KeyFix=%d\n", g_keyfix_enabled ? 1 : 0);
   std::fprintf(fp, "WaylandIdleInhibit=%d\n", g_wayland_idle_inhibit ? 1 : 0);
   std::fprintf(fp, "ImeHalfKana=%d\n", g_ime_half_kana ? 1 : 0);
+  if (g_ime_fcitx_method[0] != '\0') {
+    std::fprintf(fp, "ImeFcitxMethod=%s\n", g_ime_fcitx_method);
+  }
   if (g_screen_scale_auto) {
     std::fprintf(fp, "ScreenScale=auto\n");
   } else {
