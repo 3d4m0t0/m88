@@ -2,7 +2,7 @@
 
 cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.net/cisc/m88/) を、[rururutan/m88](https://github.com/rururutan/m88) から派生させ、Linux (x86_64) 向け Qt 6 フロントエンド **`m88-qt`** として移植したものです。
 
-**版 1.2.1** — [更新履歴](#更新履歴)
+**版 1.2.2** — [更新履歴](#更新履歴)
 
 ### English
 
@@ -10,7 +10,7 @@ cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.ne
 
 A Linux (x86_64) port of cisc’s Windows PC-8801 emulator [M88](http://retropc.net/cisc/m88/), derived from [rururutan/m88](https://github.com/rururutan/m88), with a Qt 6 frontend **`m88-qt`**.
 
-**Version 1.2.1** — see [Changelog](#更新履歴) (更新履歴).
+**Version 1.2.2** — see [Changelog](#更新履歴) (更新履歴).
 
 ## AI の利用について
 
@@ -36,6 +36,20 @@ Referral registration link: [cursor.com/referral?code=TI3UQLE9PFH3](https://curs
 Linux 版でメンテナンス対象としているのは **Qt 版のみ** です。SDL2 版 (`m88`) は試作段階で未実装・未解決の部分が多く、CMake でもデフォルトではビルドしません。
 
 ## 更新履歴
+
+### 1.2.2 (`1.2.2`)
+
+* **IME / 入力** — `WA_InputMethodEnabled` 有効時に半角キーがホスト IME に取られ `keyPressEvent` に届かない問題への対策。fcitx D-Bus でカナ ON/OFF を同期し、ステータスバー左端に `カナON` / `カナOFF` を常時表示
+* **表示 (OpenGL)** — `QOpenGLWidget` による OpenGL 表示を再導入（RGBA ピンポンバッファ、エミュスレッド側変換）。Wayland では GLES 2.0 を優先し、失敗時はデスクトップ GL / ソフトウェア描画へフォールバック
+* **音声** — `Proceed` の lockstep ミキシングで BEEP の ON/OFF が飢餓状態にならないよう修正
+* **i18n** — fcitx / カナステータス関連の文字列を en/ja に追加し、全ロケールへ同期・翻訳
+
+### English
+
+* **IME / input** — mitigate host IME capturing half-width keys when `WA_InputMethodEnabled` is on so they no longer miss `keyPressEvent`; sync kana on/off via fcitx D-Bus; persistent `カナON` / `カナOFF` labels on the left of the status bar
+* **Display (OpenGL)** — reintroduce OpenGL rendering via `QOpenGLWidget` and an RGBA pin-pong buffer (conversion on the emu thread); prefer GLES 2.0 on Wayland with desktop GL and software fallback
+* **Sound** — lockstep `Proceed` mixing so BEEP toggles are not starved
+* **i18n** — add fcitx/kana status strings to en/ja and sync or translate all locales
 
 ### 1.2.1 (`1.2.1`)
 
@@ -92,7 +106,7 @@ Main differences from the Windows build (rururutan/m88):
 ## 動作環境
 
 * Linux (x86_64)
-* Qt 6 ランタイム (Widgets)
+* Qt 6 ランタイム (Widgets, OpenGLWidgets)
 * X11 または Wayland 上のデスクトップセッション
 * 音声出力可能な環境（miniaudio 経由; PulseAudio / PipeWire / ALSA 等）
 * `pc88.rom` または `n88.rom` 等の ROM データ（所有する PC-8801 本体から吸い出したもの）
@@ -103,7 +117,7 @@ Main differences from the Windows build (rururutan/m88):
 
 * **OS:** openSUSE Tumbleweed (x86_64)
 * **セッション:** Wayland
-* **Qt:** 6.11 系 (Widgets)
+* **Qt:** 6.11 系 (Widgets, OpenGLWidgets)
 * **音声:** PipeWire / PulseAudio 互換、ALSA（miniaudio; バックエンド auto / pulse / alsa）
 * **IME:** fcitx-mozc（半角カナ入力）
 
@@ -117,7 +131,7 @@ Build and runtime checks are mainly performed on:
 
 * **OS:** openSUSE Tumbleweed (x86_64)
 * **Session:** Wayland
-* **Qt:** 6.11.x (Widgets)
+* **Qt:** 6.11.x (Widgets, OpenGLWidgets)
 * **Audio:** PipeWire / PulseAudio-compatible stack, ALSA (miniaudio; backends auto / pulse / alsa)
 * **IME:** fcitx-mozc (half-width kana input)
 
@@ -129,21 +143,21 @@ Other distributions may work, but are not extensively tested by the maintainer.
 
 * C/C++ コンパイラ (GCC または Clang、C++17 対応)
 * CMake 3.20 以上
-* Qt 6 (Widgets モジュール)
-* pkg-config (推奨)
+* Qt 6 (Widgets, OpenGLWidgets, DBus モジュール)
+* pkg-config (推奨; Wayland idle-inhibit 用に `wayland-client` 開発パッケージ)
 
 実行時:
 
-* Qt 6 ランタイム (Widgets)
+* Qt 6 ランタイム (Widgets, OpenGLWidgets)
 * 標準 C ライブラリ (`pthread`, `dl`, `m` 等)
 
 音声出力は同梱の [miniaudio](https://github.com/mackron/miniaudio) (`third_party/miniaudio/`) を使用します。ビルド時に ALSA / PulseAudio / SDL2 などを追加でリンクする必要はありません。
 
 各ディストリビューションの開発パッケージ例:
 
-* Debian / Ubuntu: `build-essential`, `cmake`, `ninja-build`, `pkg-config`, `qt6-base-dev`
-* Fedora: `gcc-c++`, `cmake`, `ninja-build`, `pkgconf-pkg-config`, `qt6-qtbase-devel`
-* openSUSE: `gcc-c++`, `cmake`, `ninja`, `pkg-config`, `qt6-gui-devel`
+* Debian / Ubuntu: `build-essential`, `cmake`, `ninja-build`, `pkg-config`, `qt6-base-dev`（OpenGLWidgets を含む）
+* Fedora: `gcc-c++`, `cmake`, `ninja-build`, `pkgconf-pkg-config`, `qt6-qtbase-devel`（または `qt6-qtbase-devel-opengl`）
+* openSUSE: `gcc-c++`, `cmake`, `ninja`, `pkg-config`, `qt6-gui-devel`（または `qt6-qtbase-devel-opengl`）
 
 ## ビルド
 
