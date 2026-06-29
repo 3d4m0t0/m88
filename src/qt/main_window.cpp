@@ -7,6 +7,7 @@
 #include "multi_disk_editor_dialog.h"
 #include "emu_view.h"
 #include "fcitx_status.h"
+#include "shared_rgba_framebuffer.h"
 #include "qt_platform.h"
 #include "../linux/shared_framebuffer_draw.h"
 
@@ -1281,12 +1282,17 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   view_->setMouseTracking(true);
   central->setMouseTracking(true);
   view_->attachFramebuffer(draw_);
+  view_->attachRgbaFramebuffer(&rgba_framebuffer_);
   view_->setScale(view_scale_);
   view_->setHostInput(&host_input_);
   view_->installEventFilter(this);
   qApp->installEventFilter(this);
   layout->addWidget(view_, 1);
   setCentralWidget(central);
+
+  rgba_framebuffer_.SetPresentCallback([view = view_]() {
+    QMetaObject::invokeMethod(view, "refreshFrame", Qt::QueuedConnection);
+  });
 
   setupMenuBar();
   ensureMenuBarDocked();
@@ -1372,7 +1378,7 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
 
   EmulatorController::Options emu_options = options;
   emu_options.host_input = &host_input_;
-  controller_ = new EmulatorController(draw_, emu_options);
+  controller_ = new EmulatorController(draw_, &rgba_framebuffer_, emu_options);
   controller_->moveToThread(&emu_thread_);
 
   connect(&emu_thread_, &QThread::started, controller_, &EmulatorController::run);

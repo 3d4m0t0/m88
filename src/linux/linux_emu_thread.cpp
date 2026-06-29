@@ -8,6 +8,7 @@
 #include "m88_stall_watchdog.h"
 #include "pc88/pc88.h"
 #include "shared_framebuffer_draw.h"
+#include "shared_rgba_framebuffer.h"
 
 #include <chrono>
 #include <cstdio>
@@ -24,6 +25,7 @@ namespace {
 struct EmuDrawCtx {
   PC88* pc88 = nullptr;
   SharedFramebufferDraw* draw = nullptr;
+  SharedRgbaFramebuffer* rgba_fb = nullptr;
   std::atomic<int>* post_reset_frames = nullptr;
 };
 
@@ -41,6 +43,9 @@ void EmuStageFrame(void* ctx, bool draw_flag) {
   frame->pc88->UpdateScreen(true);
   if (frame->draw) {
     frame->draw->StageUiFrame();
+    if (frame->rgba_fb) {
+      frame->rgba_fb->StageFromDraw(frame->draw);
+    }
   }
 }
 
@@ -173,6 +178,7 @@ void M88EmuThread::ThreadMain() {
   EmuDrawCtx draw_ctx;
   draw_ctx.pc88 = params_.vm;
   draw_ctx.draw = params_.draw;
+  draw_ctx.rgba_fb = params_.rgba_fb;
   draw_ctx.post_reset_frames = params_.post_reset_frames;
 
   while (!should_stop_.load(std::memory_order_relaxed)) {

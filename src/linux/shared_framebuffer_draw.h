@@ -34,6 +34,9 @@ class SharedFramebufferDraw : public Draw {
   bool AcquireUiFrame(const uint8** out_data, int* out_bpl, uint* width, uint* height,
                       bool* palette_changed, Palette* palette_out, uint palette_capacity,
                       Draw::Region* out_region = nullptr);
+  // Emulator thread: read staged UI buffer without clearing palette-dirty state.
+  bool PeekUiFrame(const uint8** out_data, int* out_bpl, uint* width, uint* height,
+                   Palette* palette_out, uint palette_capacity) const;
 
   void SetImePreedit(const char* utf8);
   const char* GetImePreedit() const { return ime_preedit_; }

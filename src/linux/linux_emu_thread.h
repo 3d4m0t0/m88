@@ -17,6 +17,7 @@
 
 class PC88;
 class SharedFramebufferDraw;
+class SharedRgbaFramebuffer;
 
 struct M88StallWatchdogEmuState;
 
@@ -34,6 +35,7 @@ class M88EmuThread {
     M88Sequencer* seq = nullptr;
     const PC8801::Config* config = nullptr;
     SharedFramebufferDraw* draw = nullptr;
+    SharedRgbaFramebuffer* rgba_fb = nullptr;
     PC8801::WinKeyIF* keyif = nullptr;
     std::atomic<int>* post_reset_frames = nullptr;
     std::atomic<int>* title_frame_count = nullptr;

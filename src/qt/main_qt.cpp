@@ -1,6 +1,7 @@
 #include "emulator_controller.h"
 #include "main_window.h"
 #include "m88_i18n.h"
+#include "qt_gl_config.h"
 #include "qt_platform.h"
 
 #include "../linux/display_scale.h"
@@ -65,6 +66,7 @@ int main(int argc, char** argv) {
 
   QCoreApplication::setOrganizationName(QStringLiteral("m88"));
   QCoreApplication::setApplicationName(QStringLiteral("m88-qt"));
+  M88QtConfigureOpenGL();
   QApplication app(argc, argv);
   if (!M88QtAppIcon().isNull()) {
     app.setWindowIcon(M88QtAppIcon());
@@ -131,6 +133,6 @@ int main(int argc, char** argv) {
   startup.winpos_y = config.winposy;
 
   MainWindow window(options, scale, startup);
-  // MainWindow shows itself on the first frameReady (black background until then).
+  window.show();
   return app.exec();
 }

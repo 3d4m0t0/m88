@@ -2,8 +2,11 @@
 
 #include "../linux/shared_framebuffer_draw.h"
 #include "draw.h"
+#include "emu_gl_view.h"
+#include "qt_gl_config.h"
 #include "qt_host_input.h"
 #include "qt_input.h"
+#include "shared_rgba_framebuffer.h"
 
 #include "../linux_compat/winkeys.h"
 
@@ -21,8 +24,13 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QScreen>
+#include <QShowEvent>
+#include <QVBoxLayout>
 
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -83,16 +91,34 @@ bool EmuView::sendSpaceToGuest(const QKeyEvent& event) const {
 
 EmuView::EmuView(QWidget* parent) : QWidget(parent) {
   setFocusPolicy(Qt::StrongFocus);
-  setAutoFillBackground(true);
-  QPalette pal = palette();
-  pal.setColor(QPalette::Window, Qt::black);
-  setPalette(pal);
+  setAttribute(Qt::WA_OpaquePaintEvent);
+  setAutoFillBackground(false);
+
+  auto* layout = new QVBoxLayout(this);
+  layout->setContentsMargins(0, 0, 0, 0);
+  layout->setSpacing(0);
+
+  vsync_timer_ = new QTimer(this);
+  vsync_timer_->setTimerType(Qt::PreciseTimer);
+  connect(vsync_timer_, &QTimer::timeout, this, &EmuView::onSoftwareVsyncTick);
 }
 
 void EmuView::attachFramebuffer(SharedFramebufferDraw* draw) { draw_ = draw; }
 
+void EmuView::attachRgbaFramebuffer(SharedRgbaFramebuffer* rgba_framebuffer) {
+  rgba_framebuffer_ = rgba_framebuffer;
+  if (gl_view_) {
+    gl_view_->attachFramebuffer(rgba_framebuffer);
+  }
+}
+
 void EmuView::setScale(int scale) {
   scale_ = std::max(1, scale);
+  if (gl_view_) {
+    gl_view_->setScale(scale_);
+  }
+  scaled_pixmap_ = QPixmap();
+  scaled_pixmap_serial_ = 0;
   updateGeometry();
   update();
 }
@@ -102,6 +128,9 @@ void EmuView::setForce480Layout(bool enabled) {
     return;
   }
   force480_layout_ = enabled;
+  if (gl_view_) {
+    gl_view_->setForce480Layout(force480_layout_);
+  }
   update();
 }
 
@@ -240,7 +269,96 @@ void EmuView::updateMouseButtons(Qt::MouseButtons buttons) {
 }
 
 QSize EmuView::sizeHint() const {
-  return QSize(640 * scale_, 400 * scale_);
+  return QSize(emu_wid_ * scale_, emu_hei_ * scale_);
+}
+
+void EmuView::recreateGlView(const QSurfaceFormat& fmt) {
+  QSurfaceFormat::setDefaultFormat(fmt);
+  if (gl_view_) {
+    layout()->removeWidget(gl_view_);
+    delete gl_view_;
+    gl_view_ = nullptr;
+  }
+  gl_view_ = new EmuGlView(this);
+  gl_view_->attachFramebuffer(rgba_framebuffer_);
+  gl_view_->setScale(scale_);
+  gl_view_->setForce480Layout(force480_layout_);
+  static_cast<QVBoxLayout*>(layout())->addWidget(gl_view_);
+}
+
+void EmuView::decideRenderBackend() {
+  if (gl_mode_decided_) {
+    return;
+  }
+  QWidget* top = window();
+  if (!top || !top->isVisible()) {
+    return;
+  }
+  gl_mode_decided_ = true;
+
+  for (const QSurfaceFormat& fmt : M88QtGlFallbackFormats()) {
+    recreateGlView(fmt);
+    gl_view_->show();
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    if (gl_view_->isValid() && gl_view_->glReady()) {
+      use_gl_ = true;
+      vsync_timer_->stop();
+      if (fmt.swapInterval() > 0) {
+        std::fprintf(stderr, "M88: display VSync enabled (swap interval %d).\n",
+                    fmt.swapInterval());
+      }
+      std::fprintf(stderr, "M88: OpenGL display backend enabled (%s).\n",
+                   M88QtGlFormatLabel(fmt));
+      return;
+    }
+  }
+
+  use_gl_ = false;
+  if (gl_view_) {
+    layout()->removeWidget(gl_view_);
+    delete gl_view_;
+    gl_view_ = nullptr;
+  }
+  startSoftwareVsync();
+  std::fprintf(stderr, "M88: OpenGL unavailable, using software rendering.\n");
+}
+
+void EmuView::startSoftwareVsync() {
+  double hz = 60.0;
+  if (window() && window()->screen()) {
+    hz = window()->screen()->refreshRate();
+  }
+  if (hz <= 0.0) {
+    hz = 60.0;
+  }
+  const int interval_ms = std::max(1, static_cast<int>(std::lround(1000.0 / hz)));
+  vsync_timer_->setInterval(interval_ms);
+  vsync_timer_->start();
+  std::fprintf(stderr, "M88: software display VSync ~%.1f Hz (%d ms).\n", hz, interval_ms);
+}
+
+void EmuView::onSoftwareVsyncTick() {
+  if (!software_present_pending_) {
+    return;
+  }
+  software_present_pending_ = false;
+  update();
+}
+
+void EmuView::showEvent(QShowEvent* event) {
+  QWidget::showEvent(event);
+  decideRenderBackend();
+}
+
+void EmuView::syncImeOverlay() {
+  if (draw_ && imeInlineEnabled() && ime_preedit_.isEmpty()) {
+    ime_preedit_ = QString::fromUtf8(draw_->GetImePreedit());
+  }
+  if (use_gl_ && gl_view_) {
+    gl_view_->setImePreedit(imeInlineEnabled() ? ime_preedit_ : QString());
+  } else {
+    invalidateImeInlineBar();
+  }
 }
 
 QVector<QRgb> EmuView::colorTableFromPalette() const {
@@ -253,13 +371,27 @@ QVector<QRgb> EmuView::colorTableFromPalette() const {
 }
 
 void EmuView::refreshFrame() {
+  if (!gl_mode_decided_) {
+    decideRenderBackend();
+  }
+
+  if (use_gl_) {
+    syncImeOverlay();
+    if (gl_view_) {
+      gl_view_->refreshFrame();
+    }
+    return;
+  }
+
+  refreshFrameSoftware();
+}
+
+void EmuView::refreshFrameSoftware() {
   if (!draw_) {
     return;
   }
 
-  if (imeInlineEnabled() && ime_preedit_.isEmpty()) {
-    ime_preedit_ = QString::fromUtf8(draw_->GetImePreedit());
-  }
+  syncImeOverlay();
 
   const uint8* data = nullptr;
   int bpl = 0;
@@ -291,6 +423,8 @@ void EmuView::refreshFrame() {
 
   const int iw = static_cast<int>(w);
   const int ih = static_cast<int>(h);
+  emu_wid_ = iw;
+  emu_hei_ = ih;
   if (indices_.width() != iw || indices_.height() != ih ||
       indices_.format() != QImage::Format_Indexed8) {
     indices_ = QImage(iw, ih, QImage::Format_Indexed8);
@@ -307,10 +441,30 @@ void EmuView::refreshFrame() {
   if (pal_changed || indices_.colorTable().size() != 256) {
     indices_.setColorTable(colorTableFromPalette());
   }
-  update();
+
+  if (scale_ > 1) {
+    if (serial != scaled_pixmap_serial_) {
+      scaled_pixmap_ = QPixmap::fromImage(indices_.scaled(iw * scale_, ih * scale_,
+                                                           Qt::IgnoreAspectRatio,
+                                                           Qt::FastTransformation));
+      scaled_pixmap_serial_ = serial;
+    }
+  } else {
+    scaled_pixmap_ = QPixmap();
+    scaled_pixmap_serial_ = 0;
+  }
+
+  software_present_pending_ = true;
+  if (!vsync_timer_->isActive()) {
+    update();
+  }
 }
 
 void EmuView::paintEvent(QPaintEvent* /*event*/) {
+  if (use_gl_) {
+    return;
+  }
+
   QPainter painter(this);
   painter.fillRect(rect(), Qt::black);
 
@@ -321,7 +475,11 @@ void EmuView::paintEvent(QPaintEvent* /*event*/) {
     const int x = (width() - dst_w) / 2;
     const int y = (height() - box_h) / 2 + (box_h - dst_h) / 2;
     painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
-    painter.drawImage(QRect(x, y, dst_w, dst_h), indices_);
+    if (!scaled_pixmap_.isNull()) {
+      painter.drawPixmap(QRect(x, y, dst_w, dst_h), scaled_pixmap_);
+    } else {
+      painter.drawImage(QRect(x, y, dst_w, dst_h), indices_);
+    }
   }
 
   if (imeInlineEnabled() && !ime_preedit_.isEmpty()) {

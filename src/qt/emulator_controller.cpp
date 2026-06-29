@@ -18,6 +18,7 @@
 #include "qt_input.h"
 #include "qt_video_log.h"
 #include "../linux/shared_framebuffer_draw.h"
+#include "shared_rgba_framebuffer.h"
 #include "../win32/WinKeyIF.h"
 #include "path.h"
 #include "rom_log.h"
@@ -163,9 +164,13 @@ struct EmulatorController::Impl {
   bool shutdown_done = false;
 };
 
-EmulatorController::EmulatorController(SharedFramebufferDraw* draw, Options options,
-                                       QObject* parent)
-    : QObject(parent), draw_(draw), options_(std::move(options)) {
+EmulatorController::EmulatorController(SharedFramebufferDraw* draw,
+                                       SharedRgbaFramebuffer* rgba_framebuffer,
+                                       Options options, QObject* parent)
+    : QObject(parent),
+      draw_(draw),
+      rgba_framebuffer_(rgba_framebuffer),
+      options_(std::move(options)) {
   impl_ = new Impl();
 }
 
@@ -317,6 +322,9 @@ bool EmulatorController::initialize() {
   if (draw_) {
     draw_->InvalidateUiStaging();
     draw_->StageUiFrame();
+    if (rgba_framebuffer_) {
+      rgba_framebuffer_->StageFromDraw(draw_);
+    }
   }
   impl_->post_reset_redraw_frames_.store(60, std::memory_order_relaxed);
   emit frameReady();
@@ -970,6 +978,7 @@ void EmulatorController::run() {
   params.seq = &impl_->seq;
   params.config = &impl_->config;
   params.draw = draw_;
+  params.rgba_fb = rgba_framebuffer_;
   params.keyif = impl_->keyif.get();
   params.post_reset_frames = &impl_->post_reset_redraw_frames_;
   params.title_frame_count = &impl_->title_frame_count;

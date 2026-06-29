@@ -202,6 +202,25 @@ bool SharedFramebufferDraw::AcquireUiFrame(const uint8** out_data, int* out_bpl,
   return true;
 }
 
+bool SharedFramebufferDraw::PeekUiFrame(const uint8** out_data, int* out_bpl, uint* width,
+                                        uint* height, Palette* palette_out,
+                                        uint palette_capacity) const {
+  if (!out_data || !out_bpl || !width || !height || !palette_out ||
+      palette_capacity < 256) {
+    return false;
+  }
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (!ui_has_frame_ || ui_image_[ui_read_index_].empty()) {
+    return false;
+  }
+  *out_data = ui_image_[ui_read_index_].data();
+  *out_bpl = bpl_;
+  *width = width_;
+  *height = height_;
+  std::memcpy(palette_out, ui_palette_, sizeof(ui_palette_));
+  return true;
+}
+
 void SharedFramebufferDraw::SetImePreedit(const char* utf8) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (!utf8) {

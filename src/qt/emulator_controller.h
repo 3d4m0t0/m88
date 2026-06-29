@@ -11,6 +11,7 @@
 #include "pc88/config.h"
 
 class SharedFramebufferDraw;
+class SharedRgbaFramebuffer;
 
 namespace QtHostInput {
 class Host;
@@ -30,8 +31,9 @@ public:
     QtHostInput::Host* host_input = nullptr;
   };
 
-  explicit EmulatorController(SharedFramebufferDraw* draw, Options options,
-                            QObject* parent = nullptr);
+  explicit EmulatorController(SharedFramebufferDraw* draw,
+                              SharedRgbaFramebuffer* rgba_framebuffer, Options options,
+                              QObject* parent = nullptr);
   ~EmulatorController() override;
 
 public slots:
@@ -133,6 +135,7 @@ private:
   void queueDiskOp(DiskOpType op, int drive, int index, const QString& path);
 
   SharedFramebufferDraw* draw_ = nullptr;
+  SharedRgbaFramebuffer* rgba_framebuffer_ = nullptr;
   Options options_;
   std::atomic<bool> running_{true};
 

@@ -16,6 +16,7 @@
 #include "emulator_controller.h"
 #include "fcitx_status.h"
 #include "qt_host_input.h"
+#include "shared_rgba_framebuffer.h"
 
 class EmuView;
 class FcitxStatus;
@@ -181,6 +182,7 @@ private:
   QActionGroup* mode_group_ = nullptr;
   std::vector<QAction*> mode_actions_;
   SharedFramebufferDraw* draw_ = nullptr;
+  SharedRgbaFramebuffer rgba_framebuffer_;
   EmuView* view_ = nullptr;
   QtHostInput::Host host_input_;
   QPointer<EmulatorController> controller_;

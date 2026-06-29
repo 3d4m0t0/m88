@@ -109,9 +109,11 @@ message(STATUS "M88 build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Configured m88_core (Linux core library)")
 
 if(M88_BUILD_QT_FRONTEND)
-  find_package(Qt6 QUIET COMPONENTS Widgets DBus)
+  find_package(Qt6 QUIET COMPONENTS Widgets DBus OpenGLWidgets)
   if(NOT Qt6_FOUND)
     message(WARNING "Qt6 not found; m88-qt will not be built (install Qt6 Widgets development package)")
+  elseif(NOT Qt6OpenGLWidgets_FOUND)
+    message(WARNING "Qt6 OpenGLWidgets not found; m88-qt will not be built (install qt6-qtbase-devel-opengl or qt6-qtbase-devel)")
   else()
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_AUTORCC ON)
@@ -136,6 +138,12 @@ if(M88_BUILD_QT_FRONTEND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/multi_disk_editor_dialog.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_view.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_gl_view.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emu_gl_view.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/shared_rgba_framebuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/shared_rgba_framebuffer.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_gl_config.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_gl_config.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emulator_controller.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/emulator_controller.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/qt/qt_input.cpp
@@ -171,7 +179,7 @@ if(M88_BUILD_QT_FRONTEND)
         ${M88_CORE_INCLUDE_DIRS}
       )
 
-      target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets Qt6::DBus pthread dl m)
+      target_link_libraries(m88-qt PRIVATE m88_core Qt6::Widgets Qt6::OpenGLWidgets Qt6::DBus pthread dl m)
 
       find_package(PkgConfig QUIET)
       if(PkgConfig_FOUND)

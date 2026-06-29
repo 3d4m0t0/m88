@@ -1,13 +1,20 @@
 #pragma once
 
 #include <QImage>
+#include <QPixmap>
+#include <QSurfaceFormat>
+#include <QTimer>
 #include <QWidget>
 
 #include "draw.h"
 #include "fcitx_status.h"
 #include "qt_input.h"
 
+#include <cstdint>
+
+class EmuGlView;
 class SharedFramebufferDraw;
+class SharedRgbaFramebuffer;
 
 namespace QtHostInput {
 class Host;
@@ -20,10 +27,10 @@ public:
   explicit EmuView(QWidget* parent = nullptr);
 
   void attachFramebuffer(SharedFramebufferDraw* draw);
+  void attachRgbaFramebuffer(SharedRgbaFramebuffer* rgba_framebuffer);
   void setScale(int scale);
   void setForce480Layout(bool enabled);
   void setSuppressMenu(bool enabled);
-  // Host half-kana IME available (Configure); does not enable Qt IM on the playfield.
   void setImeKanaAvailable(bool available);
   void setImeSessionActive(bool active);
   bool imeSessionActive() const { return ime_session_active_; }
@@ -32,10 +39,8 @@ public:
   void setFcitxStatus(FcitxStatus* fcitx_status);
   void setMouseCapture(bool enabled);
 
-  // Application event filter: handle before Qt IM (KDE/fcitx may swallow KeyPress).
   bool handleGuestKeyPress(QKeyEvent* event);
   bool handleGuestKeyRelease(QKeyEvent* event);
-  // Intercept fcitx trigger keys before the Qt IM module (fcitx5-qt) on focus return.
   bool consumeHostImeHotkey(QKeyEvent* event);
   void reconnectHostInputMethod();
 
@@ -45,6 +50,7 @@ public slots:
 protected:
   bool event(QEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
+  void showEvent(QShowEvent* event) override;
   void keyPressEvent(QKeyEvent* event) override;
   void keyReleaseEvent(QKeyEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
@@ -80,9 +86,19 @@ private:
   bool imeInlineEnabled() const;
   QRect imeInlineBarRect() const;
   void invalidateImeInlineBar();
+  void decideRenderBackend();
+  void recreateGlView(const QSurfaceFormat& fmt);
+  void refreshFrameSoftware();
+  void startSoftwareVsync();
+  void onSoftwareVsyncTick();
+  void syncImeOverlay();
 
   SharedFramebufferDraw* draw_ = nullptr;
+  SharedRgbaFramebuffer* rgba_framebuffer_ = nullptr;
+  EmuGlView* gl_view_ = nullptr;
+  QTimer* vsync_timer_ = nullptr;
   QImage indices_;
+  QPixmap scaled_pixmap_;
   Draw::Palette palette_[256]{};
   int scale_ = 2;
   bool force480_layout_ = false;
@@ -95,8 +111,14 @@ private:
   bool host_ime_hotkey_armed_ = false;
   bool reconnecting_im_ = false;
   bool space_pending_guest_ = false;
+  bool gl_mode_decided_ = false;
+  bool use_gl_ = false;
+  bool software_present_pending_ = false;
   uint64_t last_frame_serial_ = 0;
   uint64_t last_palette_serial_ = 0;
+  uint64_t scaled_pixmap_serial_ = 0;
+  int emu_wid_ = 640;
+  int emu_hei_ = 400;
   QtHostInput::Host* host_input_ = nullptr;
   FcitxStatus* fcitx_status_ = nullptr;
   bool mouse_capture_ = false;
