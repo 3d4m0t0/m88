@@ -44,6 +44,9 @@ public:
 	bool IFCALL Update(ISoundSource* src=0);
 	int  IFCALL GetSubsampleTime(ISoundSource* src);
 
+	// Lockstep emu drivers: mix each Proceed slice regardless of mixthreshold.
+	void UpdateLockstep();
+
 	void FillWhenEmpty(bool f) { soundbuf.FillWhenEmpty(f); }
 	void PrimeBuffer(int samples);
 

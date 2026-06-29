@@ -320,8 +320,9 @@ bool QtMiniaudioSound::ChangeRate(uint rate, uint buflen_ms) {
     FillWhenEmpty(true);
     RecomputeLatencyTargets(bufsize);
     const int prime_frames = period_frames_ * kPrimePeriods;
-    PrimeSpscSilence(prime_frames > 0 ? prime_frames : target_spsc_frames_);
+    const int primed = PrimeSpscSilence(prime_frames > 0 ? prime_frames : target_spsc_frames_);
     ResyncPcmContractAfterRateChange();
+    delivered_frames_ += primed;
 
     if (!defer_device_start) {
       if (ma_device_start(&device_->dev) != MA_SUCCESS) {
@@ -626,10 +627,11 @@ int QtMiniaudioSound::DrainFrames(int target_frames) {
 }
 
 void QtMiniaudioSound::MixSlice(int emu_ticks) {
-  if (spsc_.Capacity() == 0 || emu_ticks <= 0) {
+  (void)emu_ticks;
+  if (spsc_.Capacity() == 0) {
     return;
   }
-  Update(nullptr);
+  UpdateLockstep();
   SyncContractTicks();
   const int due = ContractFramesDue();
   int backlog = due - delivered_frames_;

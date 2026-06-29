@@ -592,7 +592,6 @@ void EmulatorController::updateSequencerAudio() {
     return;
   }
   // Both paths slice Proceed so the audio callback can interleave during a frame.
-  // (Callback-pull with a single 1792-tick Proceed starves game-B BEEP toggles.)
   impl_->seq.SetProceedSliceTicks(10);
 }
 

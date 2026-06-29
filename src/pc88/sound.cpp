@@ -403,11 +403,11 @@ bool Sound::Disconnect(ISoundSource* ss)
 //
 //	arg:	src		更新する音源を指定(今の実装では無視されます)
 //
-bool Sound::Update(ISoundSource* /*src*/)
+bool Sound::Update(ISoundSource* src)
 {
 	const uint32 currenttime = static_cast<uint32>(pc->GetTime());
 	const uint32 time = currenttime - prevtime;
-	if (enabled && time > mixthreshold)
+	if (enabled && (src != nullptr || time > mixthreshold))
 	{
 		// nsamples = 経過時間(s) * サンプリングレート
 		// sample = ticks * rate / clock / 100000
@@ -434,10 +434,43 @@ bool Sound::Update(ISoundSource* /*src*/)
 				tdiff += MulDiv((samples - filled) * 2000,
 				                pc->GetEffectiveSpeed(), rate50);
 			}
-			prevtime = currenttime;
 		}
+		if (time > 0)
+			prevtime = currenttime;
 	}
 	return true;
+}
+
+// ---------------------------------------------------------------------------
+//	Proceed スライス後の合成（ロックステップ用、mixthreshold 無視）
+//
+void Sound::UpdateLockstep()
+{
+	const uint32 currenttime = static_cast<uint32>(pc->GetTime());
+	const uint32 time = currenttime - prevtime;
+	if (!enabled || !pc || time == 0) {
+		return;
+	}
+
+	int a = MulDiv(static_cast<int>(time), rate50, pc->GetEffectiveSpeed()) + tdiff;
+	int samples = a / 2000;
+	tdiff = a % 2000;
+
+	enum { kMaxMixSamples = 2048 };
+	if (samples > kMaxMixSamples) {
+		tdiff += MulDiv((samples - kMaxMixSamples) * 2000,
+		                pc->GetEffectiveSpeed(), rate50);
+		samples = kMaxMixSamples;
+	}
+
+	if (samples > 0) {
+		const int filled = soundbuf.Fill(samples);
+		if (filled < samples) {
+			tdiff += MulDiv((samples - filled) * 2000,
+			                pc->GetEffectiveSpeed(), rate50);
+		}
+	}
+	prevtime = currenttime;
 }
 
 // ---------------------------------------------------------------------------
