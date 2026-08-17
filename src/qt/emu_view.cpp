@@ -706,6 +706,7 @@ void EmuView::focusInEvent(QFocusEvent* event) {
 void EmuView::focusOutEvent(QFocusEvent* event) {
   space_pending_guest_ = false;
   if (!ime_internal_focus_shift_) {
+    applyImeSessionActive(false);
     emit flushGuestKeys();
     emit clearHostModifiers();
   }

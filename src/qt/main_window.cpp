@@ -1372,9 +1372,6 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
 
   fcitx_status_ = new FcitxStatus(this);
   view_->setFcitxStatus(fcitx_status_);
-  fcitx_poll_timer_ = new QTimer(this);
-  fcitx_poll_timer_->setInterval(300);
-  connect(fcitx_poll_timer_, &QTimer::timeout, this, &MainWindow::syncHostImeFromFcitx);
 
   EmulatorController::Options emu_options = options;
   emu_options.host_input = &host_input_;
@@ -1520,28 +1517,28 @@ void MainWindow::syncImeKanaInput() {
   if (view_) {
     view_->setImeKanaAvailable(LinuxIme::Enabled());
   }
-  if (fcitx_poll_timer_) {
-    if (LinuxIme::Enabled() && fcitx_status_) {
-      fcitx_poll_timer_->start();
-    } else {
-      fcitx_poll_timer_->stop();
-    }
-  }
   syncHostImeFromFcitx();
+}
+
+bool MainWindow::hostImeUiActive() const {
+  return view_ && isVisible() && !isMinimized() && isActiveWindow() && view_->hasFocus();
 }
 
 void MainWindow::syncHostImeFromFcitx() {
   if (!fcitx_status_ || !view_) {
     return;
   }
-  fcitx_status_->refresh();
-  updateKanaStatusLabel();
   if (!LinuxIme::Enabled()) {
+    updateKanaStatusLabel();
     return;
   }
+  if (hostImeUiActive()) {
+    fcitx_status_->refresh();
+    view_->syncImeSessionFromHost(fcitx_status_->hostKanaInputActive());
+  }
+  updateKanaStatusLabel();
   // TODO(ibus): When QT_IM_MODULE=ibus, poll ibus global engine/active state and call
   // syncImeSessionFromHost() the same way (read-only; do not drive ibus from the app).
-  view_->syncImeSessionFromHost(fcitx_status_->hostKanaInputActive());
 }
 
 void MainWindow::showStatusMessage(const QString& message, int message_ms) {
@@ -1636,7 +1633,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 
   const bool key_event =
       event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease;
-  if (key_event && isActiveWindow() && view_ && view_->hasFocus()) {
+  if (key_event && hostImeUiActive()) {
     auto* key = static_cast<QKeyEvent*>(event);
     if (view_->consumeHostImeHotkey(key)) {
       return true;
@@ -1683,15 +1680,19 @@ void MainWindow::changeEvent(QEvent* event) {
     }
     syncWaylandIdleInhibit();
   }
-  if (event->type() == QEvent::ActivationChange && isActiveWindow()) {
-    focusEmuView();
-    if (view_) {
-      QTimer::singleShot(0, view_, [this]() {
-        if (view_) {
-          view_->reconnectHostInputMethod();
-        }
-      });
-      QTimer::singleShot(80, this, &MainWindow::syncHostImeFromFcitx);
+  if (event->type() == QEvent::ActivationChange) {
+    if (isActiveWindow()) {
+      focusEmuView();
+      if (view_) {
+        QTimer::singleShot(0, view_, [this]() {
+          if (view_) {
+            view_->reconnectHostInputMethod();
+          }
+        });
+        QTimer::singleShot(80, this, &MainWindow::syncHostImeFromFcitx);
+      }
+    } else if (view_) {
+      view_->setImeSessionActive(false);
     }
   }
 }
