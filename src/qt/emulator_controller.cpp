@@ -146,14 +146,12 @@ struct EmulatorController::Impl {
   uint cpu_dump_last_tick_frame = 0;
 
   QString drive_path[2];
-  QString pending_ime_utf8;
   EmulatorController::DiskOpType pending_disk_op = EmulatorController::DiskOpType::None;
   int pending_disk_drive = 0;
   int pending_disk_index = 0;
   QString pending_disk_path;
 
   std::mutex pending_mutex;
-  bool ime_commit_requested = false;
 
   int current_snapshot_slot = 0;
 
@@ -374,40 +372,6 @@ void EmulatorController::shutdown() {
   impl_->keyif.reset();
 }
 
-void EmulatorController::proceedFrame(int texec, uint clk, uint effclock) {
-  if (!impl_ || !impl_->pc88 || texec <= 0) {
-    return;
-  }
-  const int ret =
-      impl_->pc88->Proceed(static_cast<uint>(texec), clk, effclock);
-  impl_->title_exec_count.fetch_add(static_cast<long>(clk) * ret,
-                                    std::memory_order_relaxed);
-}
-
-void EmulatorController::processImeCommit(const QString& utf8) {
-  if (!impl_ || !impl_->keyif || !impl_->pc88 || utf8.isEmpty()) {
-    return;
-  }
-  const QByteArray bytes = utf8.toUtf8();
-  withVmPaused([&]() {
-    if (!LinuxIme::CommitUtf8(bytes.constData(), impl_->keyif.get(), &impl_->config)) {
-      return;
-    }
-    const uint host_clock =
-        static_cast<uint>(std::max(1, M88EffectiveClock(&impl_->config)));
-    const uint effclock = static_cast<uint>(std::max<int64_t>(
-        1, host_clock * (impl_->config.speed / 10) / 100));
-    impl_->pc88->TimeSync();
-    int guard = 0;
-    while (HalfKanaIme::InjectBusy() && guard++ < 8192) {
-      HalfKanaIme::InjectPump(impl_->keyif.get());
-      const int period = std::max(1, impl_->pc88->GetFramePeriod());
-      proceedFrame(period, host_clock, effclock);
-    }
-    HalfKanaIme::InjectEndSession(impl_->keyif.get(), &impl_->config);
-  });
-}
-
 void EmulatorController::emitDiskConfigurationLocked() {
   if (!impl_ || !impl_->diskmgr) {
     return;
@@ -565,19 +529,6 @@ void EmulatorController::processDeferredActions() {
           break;
       }
     }
-  }
-
-  QString ime_utf8;
-  {
-    std::lock_guard<std::mutex> lock(impl_->pending_mutex);
-    if (impl_->ime_commit_requested) {
-      impl_->ime_commit_requested = false;
-      ime_utf8 = impl_->pending_ime_utf8;
-      impl_->pending_ime_utf8.clear();
-    }
-  }
-  if (!ime_utf8.isEmpty()) {
-    processImeCommit(ime_utf8);
   }
 }
 
@@ -1071,12 +1022,10 @@ void EmulatorController::flushGuestKeys() {
 }
 
 void EmulatorController::commitImeText(const QString& utf8) {
-  if (!impl_ || utf8.isEmpty()) {
+  if (utf8.isEmpty()) {
     return;
   }
-  std::lock_guard<std::mutex> lock(impl_->pending_mutex);
-  impl_->pending_ime_utf8 = utf8;
-  impl_->ime_commit_requested = true;
+  LinuxIme::RequestCommitUtf8(utf8.toUtf8().constData());
 }
 
 void EmulatorController::refreshDisplayAfterDiskChange() {

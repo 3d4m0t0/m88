@@ -77,6 +77,8 @@ private:
   bool imeComposing() const;
   bool passKeyToIme(const QKeyEvent& event) const;
   bool sendSpaceToGuest(const QKeyEvent& event) const;
+  bool sendEnterToGuest(const QKeyEvent& event) const;
+  bool sendBackspaceToGuest(const QKeyEvent& event) const;
   void injectAsciiCommit(const QString& text);
   static bool isAsciiOnly(const QString& text);
   void applyImeSessionActive(bool active);
@@ -111,6 +113,8 @@ private:
   bool host_ime_hotkey_armed_ = false;
   bool reconnecting_im_ = false;
   bool space_pending_guest_ = false;
+  bool enter_pending_guest_ = false;
+  bool backspace_pending_guest_ = false;
   bool gl_mode_decided_ = false;
   bool use_gl_ = false;
   bool software_present_pending_ = false;

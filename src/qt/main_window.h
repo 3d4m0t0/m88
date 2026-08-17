@@ -173,6 +173,7 @@ private:
   QLabel* register_label_ = nullptr;
   QLabel* fdc_text_label_ = nullptr;
   FcitxStatus* fcitx_status_ = nullptr;
+  QTimer* fcitx_poll_timer_ = nullptr;
   QTimer* title_timer_ = nullptr;
   QTimer* fullscreen_chrome_hide_timer_ = nullptr;
   static constexpr int kFullscreenChromeHideMs = 5000;

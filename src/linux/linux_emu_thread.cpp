@@ -246,7 +246,8 @@ void M88EmuThread::ThreadMain() {
     }
 
     if (params_.keyif) {
-      LinuxIme::Pump(params_.keyif);
+      LinuxIme::DrainPendingCommit(params_.keyif, params_.config);
+      LinuxIme::Pump(params_.keyif, params_.config);
     }
 
     bool drew = false;

@@ -31,7 +31,11 @@ void OnWindowHidden();
 int HandleSdlEvent(unsigned int type, const void* sdl_event, LinuxDraw* draw,
                    PC8801::WinKeyIF* keyif, const PC8801::Config* cfg);
 
-void Pump(PC8801::WinKeyIF* keyif);
+void Pump(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg = nullptr);
+
+// Queue UTF-8 commit from the UI thread; emu thread drains before Pump().
+void RequestCommitUtf8(const char* utf8);
+void DrainPendingCommit(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg);
 
 // Commit composed UTF-8 (Qt input method or other hosts).
 // Enqueue half-kana key strokes (returns false if nothing to inject).

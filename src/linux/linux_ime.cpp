@@ -12,6 +12,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
+#include <string>
 #include <vector>
 
 #if defined(__linux__)
@@ -402,6 +404,33 @@ bool ResolveKeyboardImFromProfile(char* out, size_t out_sz) {
   return true;
 }
 
+std::mutex g_pending_commit_mutex;
+std::string g_pending_commit_utf8;
+
+void DrainPendingCommitImpl(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
+  if (!g_enabled || !keyif) {
+    return;
+  }
+  std::string utf8;
+  {
+    std::lock_guard<std::mutex> lock(g_pending_commit_mutex);
+    if (g_pending_commit_utf8.empty()) {
+      return;
+    }
+    utf8 = std::move(g_pending_commit_utf8);
+    g_pending_commit_utf8.clear();
+  }
+  CommitText(utf8.c_str(), keyif, cfg);
+}
+
+void RequestCommitUtf8Impl(const char* utf8) {
+  if (!utf8 || !*utf8 || !g_enabled) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_pending_commit_mutex);
+  g_pending_commit_utf8 = utf8;
+}
+
 }  // namespace
 
 bool Enabled() { return g_enabled; }
@@ -488,11 +517,24 @@ int HandleSdlEvent(unsigned int /*type*/, const void* /*sdl_event*/, LinuxDraw* 
 }
 #endif
 
-void Pump(PC8801::WinKeyIF* keyif) {
-  if (g_enabled && keyif && !HalfKanaIme::SessionActive()) {
-    HalfKanaIme::InjectPump(keyif);
+void Pump(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
+  if (!g_enabled || !keyif) {
+    return;
+  }
+  if (!HalfKanaIme::InjectBusy()) {
+    return;
+  }
+  HalfKanaIme::InjectPump(keyif);
+  if (!HalfKanaIme::InjectBusy()) {
+    HalfKanaIme::InjectEndSession(keyif, cfg);
   }
 }
+
+void DrainPendingCommit(PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
+  DrainPendingCommitImpl(keyif, cfg);
+}
+
+void RequestCommitUtf8(const char* utf8) { RequestCommitUtf8Impl(utf8); }
 
 bool CommitUtf8(const char* utf8, PC8801::WinKeyIF* keyif, const PC8801::Config* cfg) {
   if (g_enabled && keyif) {

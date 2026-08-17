@@ -127,8 +127,6 @@ private:
   void applySelectDisk(int drive, int index);
   void syncDrive1AfterDrive0Change();
   void refreshDisplayAfterDiskChange();
-  void processImeCommit(const QString& utf8);
-  void proceedFrame(int texec, uint clk, uint effclock);
   void emitDiskConfigurationLocked();
   void syncHostInputFromConfig();
   void emitDisplayConfig();

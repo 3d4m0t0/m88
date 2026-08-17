@@ -1372,6 +1372,20 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
 
   fcitx_status_ = new FcitxStatus(this);
   view_->setFcitxStatus(fcitx_status_);
+  fcitx_poll_timer_ = new QTimer(this);
+  fcitx_poll_timer_->setInterval(300);
+  connect(fcitx_poll_timer_, &QTimer::timeout, this, [this]() {
+    if (hostImeUiActive()) {
+      syncHostImeFromFcitx();
+    }
+  });
+  connect(fcitx_status_, &FcitxStatus::changed, this, [this]() {
+    if (!hostImeUiActive() || !view_ || !fcitx_status_) {
+      return;
+    }
+    view_->syncImeSessionFromHost(fcitx_status_->hostKanaInputActive());
+    updateKanaStatusLabel();
+  });
 
   EmulatorController::Options emu_options = options;
   emu_options.host_input = &host_input_;
@@ -1403,7 +1417,6 @@ MainWindow::MainWindow(const EmulatorController::Options& options, int scale,
   connect(view_, &EmuView::emuFocusReceived, this, &MainWindow::syncHostImeFromFcitx);
   connect(view_, &EmuView::hostImeHotkeyPressed, this, [this]() {
     QTimer::singleShot(0, this, &MainWindow::syncHostImeFromFcitx);
-    QTimer::singleShot(80, this, &MainWindow::syncHostImeFromFcitx);
   });
   connect(view_, &EmuView::imeSessionChanged, this, [this](bool /*active*/) {
     updateKanaStatusLabel();
@@ -1516,6 +1529,13 @@ void MainWindow::syncImeKanaInput() {
   LinuxIme::InitHost();
   if (view_) {
     view_->setImeKanaAvailable(LinuxIme::Enabled());
+  }
+  if (fcitx_poll_timer_) {
+    if (LinuxIme::Enabled()) {
+      fcitx_poll_timer_->start();
+    } else {
+      fcitx_poll_timer_->stop();
+    }
   }
   syncHostImeFromFcitx();
 }

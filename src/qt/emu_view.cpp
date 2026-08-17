@@ -89,6 +89,29 @@ bool EmuView::sendSpaceToGuest(const QKeyEvent& event) const {
   return !imeInlineEnabled() || ime_preedit_.isEmpty();
 }
 
+bool EmuView::sendEnterToGuest(const QKeyEvent& event) const {
+  if (event.key() != Qt::Key_Return && event.key() != Qt::Key_Enter) {
+    return false;
+  }
+  if (event.modifiers().testFlag(Qt::AltModifier)) {
+    return false;
+  }
+  if (HostShortcutModifiers(event)) {
+    return false;
+  }
+  return !imeInlineEnabled() || ime_preedit_.isEmpty();
+}
+
+bool EmuView::sendBackspaceToGuest(const QKeyEvent& event) const {
+  if (event.key() != Qt::Key_Backspace) {
+    return false;
+  }
+  if (HostShortcutModifiers(event)) {
+    return false;
+  }
+  return !imeInlineEnabled() || ime_preedit_.isEmpty();
+}
+
 EmuView::EmuView(QWidget* parent) : QWidget(parent) {
   setFocusPolicy(Qt::StrongFocus);
   setAttribute(Qt::WA_OpaquePaintEvent);
@@ -194,6 +217,9 @@ void EmuView::applyImeSessionActive(bool active) {
   if (!active) {
     ime_preedit_.clear();
     ime_block_keys_ = false;
+    space_pending_guest_ = false;
+    enter_pending_guest_ = false;
+    backspace_pending_guest_ = false;
     if (draw_) {
       draw_->SetImePreedit("");
     }
@@ -228,12 +254,12 @@ bool EmuView::tryHostImeHotkey(QKeyEvent* event) {
     fcitx_status_->toggleInputMethod();
     host_ime_hotkey_armed_ = true;
     event->accept();
-    emit hostImeHotkeyPressed();
     return true;
   }
   if (event->type() == QEvent::KeyRelease && host_ime_hotkey_armed_) {
     host_ime_hotkey_armed_ = false;
     event->accept();
+    emit hostImeHotkeyPressed();
     return true;
   }
   return false;
@@ -560,9 +586,6 @@ bool EmuView::handleGuestKeyPress(QKeyEvent* event) {
   if (tryHostImeHotkey(event)) {
     return true;
   }
-  if (ime_session_active_) {
-    return false;
-  }
   if (event->modifiers().testFlag(Qt::AltModifier) &&
       (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
     event->accept();
@@ -570,6 +593,25 @@ bool EmuView::handleGuestKeyPress(QKeyEvent* event) {
   }
   if (HostShortcutModifiers(*event)) {
     event->ignore();
+    return false;
+  }
+  if (sendEnterToGuest(*event)) {
+    if (!event->isAutoRepeat()) {
+      emit keyDown(VK_RETURN, QtInput::KeyDataFromEvent(*event));
+      enter_pending_guest_ = true;
+    }
+    event->accept();
+    return true;
+  }
+  if (sendBackspaceToGuest(*event)) {
+    if (!event->isAutoRepeat()) {
+      emit keyDown(VK_BACK, QtInput::KeyDataFromEvent(*event));
+      backspace_pending_guest_ = true;
+    }
+    event->accept();
+    return true;
+  }
+  if (ime_session_active_) {
     return false;
   }
   if (passKeyToIme(*event)) {
@@ -607,14 +649,8 @@ bool EmuView::handleGuestKeyRelease(QKeyEvent* event) {
   if (tryHostImeHotkey(event)) {
     return true;
   }
-  if (ime_session_active_) {
-    return false;
-  }
   if (HostShortcutModifiers(*event)) {
     event->ignore();
-    return false;
-  }
-  if (passKeyToIme(*event)) {
     return false;
   }
   if (event->key() == Qt::Key_Space && space_pending_guest_) {
@@ -624,6 +660,29 @@ bool EmuView::handleGuestKeyRelease(QKeyEvent* event) {
     }
     event->accept();
     return true;
+  }
+  if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) &&
+      enter_pending_guest_) {
+    if (!event->isAutoRepeat()) {
+      emit keyUp(VK_RETURN, QtInput::KeyExtended(*event));
+      enter_pending_guest_ = false;
+    }
+    event->accept();
+    return true;
+  }
+  if (event->key() == Qt::Key_Backspace && backspace_pending_guest_) {
+    if (!event->isAutoRepeat()) {
+      emit keyUp(VK_BACK, QtInput::KeyExtended(*event));
+      backspace_pending_guest_ = false;
+    }
+    event->accept();
+    return true;
+  }
+  if (ime_session_active_) {
+    return false;
+  }
+  if (passKeyToIme(*event)) {
+    return false;
   }
   if (imeComposing()) {
     if (!event->isAutoRepeat()) {
@@ -679,6 +738,10 @@ bool EmuView::event(QEvent* event) {
       key->ignore();
       return false;
     }
+    if (sendEnterToGuest(*key) || sendBackspaceToGuest(*key)) {
+      key->accept();
+      return true;
+    }
     if (ime_session_active_) {
       key->ignore();
       return false;
@@ -705,6 +768,8 @@ void EmuView::focusInEvent(QFocusEvent* event) {
 
 void EmuView::focusOutEvent(QFocusEvent* event) {
   space_pending_guest_ = false;
+  enter_pending_guest_ = false;
+  backspace_pending_guest_ = false;
   if (!ime_internal_focus_shift_) {
     applyImeSessionActive(false);
     emit flushGuestKeys();

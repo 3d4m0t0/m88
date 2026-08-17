@@ -362,15 +362,6 @@ int main(int argc, char** argv) {
     while (SDL_PollEvent(&ev)) {
       const int ime_handled = LinuxIme::HandleSdlEvent(ev.type, &ev, &draw, &keyif, &config);
       if (ime_handled == 2) {
-        const uint effclock = static_cast<uint>(
-            std::max(1, config.clock * (config.speed / 10) / 100));
-        int guard = 0;
-        while (HalfKanaIme::InjectBusy() && guard++ < 8192) {
-          HalfKanaIme::InjectPump(&keyif);
-          const int period = std::max(1, pc88.GetFramePeriod());
-          pc88.Proceed(static_cast<uint>(period), static_cast<uint>(config.clock), effclock);
-        }
-        HalfKanaIme::InjectEndSession(&keyif, &config);
         continue;
       }
       if (ime_handled == 1) {
@@ -424,7 +415,7 @@ int main(int argc, char** argv) {
           }
         },
         &draw_ctx, false, [&]() { return !running; }, emu_time_pacer, audio);
-    LinuxIme::Pump(&keyif);
+    LinuxIme::Pump(&keyif, &config);
     M88LoadmonFrameEnd();
   }
 
