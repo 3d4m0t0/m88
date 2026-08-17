@@ -2,7 +2,7 @@
 
 cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.net/cisc/m88/) を、[rururutan/m88](https://github.com/rururutan/m88) から派生させ、Linux (x86_64) 向け Qt 6 フロントエンド **`m88-qt`** として移植したものです。
 
-**版 1.2.2** — [更新履歴](#更新履歴)
+**版 1.2.3** — [更新履歴](#更新履歴)
 
 ### English
 
@@ -10,7 +10,7 @@ cisc 氏作の Windows 向け PC-8801 エミュレータ [M88](http://retropc.ne
 
 A Linux (x86_64) port of cisc’s Windows PC-8801 emulator [M88](http://retropc.net/cisc/m88/), derived from [rururutan/m88](https://github.com/rururutan/m88), with a Qt 6 frontend **`m88-qt`**.
 
-**Version 1.2.2** — see [Changelog](#更新履歴) (更新履歴).
+**Version 1.2.3** — see [Changelog](#更新履歴) (更新履歴).
 
 ## AI の利用について
 
@@ -36,6 +36,16 @@ Referral registration link: [cursor.com/referral?code=TI3UQLE9PFH3](https://curs
 Linux 版でメンテナンス対象としているのは **Qt 版のみ** です。SDL2 版 (`m88`) は試作段階で未実装・未解決の部分が多く、CMake でもデフォルトではビルドしません。
 
 ## 更新履歴
+
+### 1.2.3 (`1.2.3`)
+
+* **IME / 入力** — かな確定をエミュスレッド側で 1 フレームずつ注入し、VM 一時停止による BEEP / FPS の乱れを回避。未入力時の Enter / Backspace をゲストへ透過。フォーカス中のみ fcitx を同期し、フォーカス喪失時はカナ OFF
+* **IME ホットキー** — ホスト IME トグルは KeyPress で切替、KeyRelease で状態同期
+
+### English
+
+* **IME / input** — drain kana commits on the emu thread one frame at a time so pausing the VM no longer desyncs BEEP/FPS; pass Enter/Backspace through to the guest when preedit is empty; sync fcitx only while focused and force kana off on focus loss
+* **IME hotkey** — toggle host IME on KeyPress and sync session state on KeyRelease
 
 ### 1.2.2 (`1.2.2`)
 
