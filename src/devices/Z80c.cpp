@@ -891,6 +891,10 @@ inline void Z80C::SetAF(uint n)
 {
 	RegAF = n;
 	uf = 0;
+	// Keep the undocumented flag bits (3 and 5) that were loaded. GetAF()
+	// rebuilds them from xf, so a stale xf would change F on the next
+	// PUSH AF and break code that moves 16-bit data through AF.
+	xf = uint8(n & 0x28);
 }
 
 // ---------------------------------------------------------------------------
