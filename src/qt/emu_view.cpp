@@ -373,7 +373,11 @@ void EmuView::onSoftwareVsyncTick() {
 
 void EmuView::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
-  decideRenderBackend();
+  // decideRenderBackend() creates/deletes the GL child widget and spins the
+  // event loop. Doing that from inside showEvent() mutates the child list
+  // while QWidgetPrivate::showChildren() is iterating it, which crashes.
+  // Run it once the show has completed.
+  QTimer::singleShot(0, this, [this]() { decideRenderBackend(); });
 }
 
 void EmuView::syncImeOverlay() {
