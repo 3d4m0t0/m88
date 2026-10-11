@@ -1,6 +1,8 @@
 #include "fcitx_status.h"
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusMessage>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QFile>
@@ -21,20 +23,59 @@ constexpr auto kFcitx4Service = "org.fcitx.Fcitx";
 constexpr auto kControllerPath = "/controller";
 constexpr auto kControllerIface = "org.fcitx.Fcitx.Controller1";
 
+// The fcitx status is polled from the GUI thread every 300 ms while the
+// emulator window has focus. Never let that poll block: only talk to fcitx
+// when its bus name is actually owned (no D-Bus activation of a fcitx that is
+// installed but not the running IM, e.g. under uim/ibus), skip the
+// QDBusInterface introspection round-trip, and use a short timeout.
+constexpr int kFcitxCallTimeoutMs = 200;
+
+bool ServiceRunning(const char* service) {
+  QDBusConnection bus = QDBusConnection::sessionBus();
+  if (!bus.isConnected()) {
+    return false;
+  }
+  QDBusConnectionInterface* bus_iface = bus.interface();
+  if (!bus_iface) {
+    return false;
+  }
+  const QDBusReply<bool> reply =
+      bus_iface->isServiceRegistered(QString::fromLatin1(service));
+  return reply.isValid() && reply.value();
+}
+
+bool CallMethod(const char* service, const char* method, QDBusMessage* out) {
+  if (!ServiceRunning(service)) {
+    return false;
+  }
+  QDBusMessage msg = QDBusMessage::createMethodCall(
+      QString::fromLatin1(service), QString::fromLatin1(kControllerPath),
+      QString::fromLatin1(kControllerIface), QString::fromLatin1(method));
+  msg.setAutoStartService(false);
+  const QDBusMessage reply =
+      QDBusConnection::sessionBus().call(msg, QDBus::Block, kFcitxCallTimeoutMs);
+  if (reply.type() != QDBusMessage::ReplyMessage) {
+    return false;
+  }
+  if (out) {
+    *out = reply;
+  }
+  return true;
+}
+
 bool CallStringMethod(const char* service, const char* method, QString* out) {
   if (!out) {
     return false;
   }
-  QDBusInterface iface(service, kControllerPath, kControllerIface,
-                       QDBusConnection::sessionBus());
-  if (!iface.isValid()) {
+  QDBusMessage reply;
+  if (!CallMethod(service, method, &reply) || reply.arguments().isEmpty()) {
     return false;
   }
-  QDBusReply<QString> reply = iface.call(method);
-  if (!reply.isValid()) {
+  const QVariant v = reply.arguments().constFirst();
+  if (!v.canConvert<QString>()) {
     return false;
   }
-  *out = reply.value();
+  *out = v.toString();
   return true;
 }
 
@@ -42,27 +83,21 @@ bool CallIntMethod(const char* service, const char* method, int* out) {
   if (!out) {
     return false;
   }
-  QDBusInterface iface(service, kControllerPath, kControllerIface,
-                       QDBusConnection::sessionBus());
-  if (!iface.isValid()) {
+  QDBusMessage reply;
+  if (!CallMethod(service, method, &reply) || reply.arguments().isEmpty()) {
     return false;
   }
-  QDBusReply<int> reply = iface.call(method);
-  if (!reply.isValid()) {
+  bool ok = false;
+  const int value = reply.arguments().constFirst().toInt(&ok);
+  if (!ok) {
     return false;
   }
-  *out = reply.value();
+  *out = value;
   return true;
 }
 
 bool CallVoidMethod(const char* service, const char* method) {
-  QDBusInterface iface(service, kControllerPath, kControllerIface,
-                       QDBusConnection::sessionBus());
-  if (!iface.isValid()) {
-    return false;
-  }
-  QDBusReply<void> reply = iface.call(method);
-  return reply.isValid();
+  return CallMethod(service, method, nullptr);
 }
 
 QString StateLabel(int state) {
