@@ -13,6 +13,7 @@
 
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <strings.h>
 #include <sys/stat.h>
@@ -1048,10 +1049,12 @@ void M88CanonicalConfigPath(const char* path, char* out, size_t out_sz) {
     return;
   }
 
-  char resolved[1024];
-  if (realpath(path, resolved)) {
+  // realpath() needs a PATH_MAX-sized buffer; let libc allocate it instead
+  // (a 1024-byte buffer aborts under _FORTIFY_SOURCE).
+  if (char* resolved = realpath(path, nullptr)) {
     std::strncpy(out, resolved, out_sz - 1);
     out[out_sz - 1] = '\0';
+    std::free(resolved);
     return;
   }
 

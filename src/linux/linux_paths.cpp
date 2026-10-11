@@ -79,12 +79,14 @@ bool PathsEqual(const char* a, const char* b) {
   if (!a || !b) {
     return false;
   }
-  char ra[MAX_PATH];
-  char rb[MAX_PATH];
-  if (!realpath(a, ra) || !realpath(b, rb)) {
-    return std::strcmp(a, b) == 0;
-  }
-  return std::strcmp(ra, rb) == 0;
+  // realpath() needs a PATH_MAX-sized buffer; let libc allocate it instead
+  // (MAX_PATH-sized buffers abort under _FORTIFY_SOURCE).
+  char* ra = realpath(a, nullptr);
+  char* rb = ra ? realpath(b, nullptr) : nullptr;
+  const bool equal = (ra && rb) ? std::strcmp(ra, rb) == 0 : std::strcmp(a, b) == 0;
+  std::free(ra);
+  std::free(rb);
+  return equal;
 }
 
 bool IniExistsInDir(const char* dir, char* out_ini, size_t out_ini_sz) {
