@@ -1029,6 +1029,14 @@ uint8 Z80C::Dec8(uint8 y)
 
 uint Z80C::ADD16(uint x, uint y)
 {
+	// ADD HL/IX/IY,rr does not change S, Z and P/V. If the previous
+	// instruction left them pending (lazy evaluation from fx/fy), resolve
+	// them now, before fx/fy and uf are overwritten below; otherwise they
+	// would silently keep stale values from an older instruction.
+	if (uf & (SF|ZF|PF))
+	{
+		GetSF(); GetZF(); GetPF();
+	}
 	fx32 = (x & 0xffff) * 2;
 	fy32 = (y & 0xffff) * 2;
 	uf = CF|HF|WF;
