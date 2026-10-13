@@ -328,7 +328,23 @@ uint CRTC::Command(bool a0, uint data)
 			int tvramsize = (mode & skipline ? (height+1) / 2 : height) * linesize;
 			
 			LOG1("[%.2x]", status);
-			mode = (mode & ~inverse) | (data & 1 ? inverse : 0);
+			{
+				// Whole-screen reverse (START DISPLAY b0) is folded into the
+				// cached per-character attributes, so a change must force the
+				// text screen to be rebuilt.
+				const uint newmode = (mode & ~inverse) | (data & 1 ? inverse : 0);
+				if ((newmode ^ mode) & inverse)
+				{
+					// The running attribute carries the reverse bit across
+					// rows; rows that only use colour attribute codes never
+					// reach the decoration branch of ChangeAttr(), so flip it
+					// here as well.
+					attr ^= inverse;
+					mode = newmode | refresh;
+				}
+				else
+					mode = newmode;
+			}
 			if (mode & enable)
 			{
 				if (!(status & 0x10))
